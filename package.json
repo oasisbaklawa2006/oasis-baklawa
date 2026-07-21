@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "typecheck": "tsc -b --pretty false"
+    "typecheck": "tsc -b --pretty false",
+    "verify:boundary": "node scripts/verify-contract-boundary.mjs",
+    "quality": "npm run verify:boundary && npm run typecheck && npm run build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

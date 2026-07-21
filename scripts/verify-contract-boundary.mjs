@@ -1,16 +1,18 @@
 import { readdir, readFile } from 'node:fs/promises';
-import { extname, join } from 'node:path';
+import { extname } from 'node:path';
 
 const sourceRoot = new URL('../src/', import.meta.url);
 const allowedRpcNames = new Set([
   'published_products_v1',
   'buyer_product_prices_v1',
   'customer_order_status_v1',
+  'customer_order_items_v1',
 ]);
 const forbiddenTables = [
   'products',
   'product_pricing_rules',
   'orders',
+  'order_items',
   'profiles',
   'companies',
   'order_payments',

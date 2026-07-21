@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import type {
   BuyerProductPrice,
   CustomerCatalogueItem,
+  CustomerOrderItem,
   CustomerOrderStatus,
   PublishedProduct,
 } from '../contracts/customerGateway';
@@ -30,6 +31,11 @@ export async function getBuyerProductPrices(): Promise<BuyerProductPrice[]> {
 export async function getCustomerOrderStatuses(): Promise<CustomerOrderStatus[]> {
   const result = await supabase.rpc('customer_order_status_v1');
   return assertRpcSuccess(result, 'customer_order_status_v1') as CustomerOrderStatus[];
+}
+
+export async function getCustomerOrderItems(): Promise<CustomerOrderItem[]> {
+  const result = await supabase.rpc('customer_order_items_v1');
+  return assertRpcSuccess(result, 'customer_order_items_v1') as CustomerOrderItem[];
 }
 
 export async function getCustomerCatalogue(): Promise<CustomerCatalogueItem[]> {

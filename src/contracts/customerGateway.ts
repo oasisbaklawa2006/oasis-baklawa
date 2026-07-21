@@ -60,6 +60,31 @@ export interface CustomerOrderItem {
   packed_quantity: number | null;
 }
 
+export interface CustomerSupportTicket {
+  ticket_id: string;
+  order_id: string;
+  order_number: string | null;
+  issue_type: string;
+  description: string;
+  customer_status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  product_sku: string | null;
+  quantity_affected: number | null;
+  created_at: string;
+  updated_at: string;
+  first_response_due: string | null;
+  resolution_due: string | null;
+  resolved_at: string | null;
+  customer_rating: number | null;
+}
+
+export interface SubmitSupportTicketInput {
+  orderId: string;
+  issueType: string;
+  description: string;
+  productSku?: string | null;
+  quantityAffected?: number | null;
+}
+
 export interface CustomerCatalogueItem extends PublishedProduct {
   buyer_price: BuyerProductPrice | null;
 }

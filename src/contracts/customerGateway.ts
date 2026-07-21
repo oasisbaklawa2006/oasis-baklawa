@@ -19,14 +19,12 @@ export interface PublishedProduct {
 
 export interface BuyerProductPrice {
   product_id: string;
-  sku: string;
-  product_name: string;
   selling_price: number;
   currency: string;
   uom: string | null;
   gst_rate: number | null;
   tax_inclusive: boolean;
-  applied_discount_percentage: number;
+  applied_discount_percent: number;
   valid_from: string | null;
   valid_until: string | null;
 }
@@ -40,9 +38,10 @@ export interface CustomerOrderStatus {
   total_weight_kg: number | null;
   requested_dispatch_date: string | null;
   promised_dispatch_date: string | null;
-  courier_name: string | null;
   tracking_number: string | null;
+  courier_name: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface CustomerCatalogueItem extends PublishedProduct {

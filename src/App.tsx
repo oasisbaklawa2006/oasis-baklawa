@@ -4,12 +4,14 @@ import { OrderStatusList } from './components/OrderStatusList';
 import { ProductGrid } from './components/ProductGrid';
 import type {
   CustomerCatalogueItem,
+  CustomerOrderItem,
   CustomerOrderStatus,
   PublishedProduct,
 } from './contracts/customerGateway';
 import { useCustomerSession } from './hooks/useCustomerSession';
 import {
   getCustomerCatalogue,
+  getCustomerOrderItems,
   getCustomerOrderStatuses,
   getPublishedProducts,
 } from './services/customerGateway';
@@ -18,27 +20,42 @@ export default function App() {
   const { session, user, loading: sessionLoading } = useCustomerSession();
   const [catalogue, setCatalogue] = useState<Array<CustomerCatalogueItem | PublishedProduct>>([]);
   const [orders, setOrders] = useState<CustomerOrderStatus[]>([]);
+  const [orderItems, setOrderItems] = useState<CustomerOrderItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (sessionLoading) return;
 
     let active = true;
+    setLoading(true);
     setError(null);
 
     const request = session
-      ? Promise.all([getCustomerCatalogue(), getCustomerOrderStatuses()])
-      : Promise.all([getPublishedProducts(), Promise.resolve([] as CustomerOrderStatus[])]);
+      ? Promise.all([
+          getCustomerCatalogue(),
+          getCustomerOrderStatuses(),
+          getCustomerOrderItems(),
+        ])
+      : Promise.all([
+          getPublishedProducts(),
+          Promise.resolve([] as CustomerOrderStatus[]),
+          Promise.resolve([] as CustomerOrderItem[]),
+        ]);
 
     request
-      .then(([nextCatalogue, nextOrders]) => {
+      .then(([nextCatalogue, nextOrders, nextOrderItems]) => {
         if (!active) return;
         setCatalogue(nextCatalogue);
         setOrders(nextOrders);
+        setOrderItems(nextOrderItems);
       })
       .catch((reason: unknown) => {
         if (!active) return;
         setError(reason instanceof Error ? reason.message : 'Unable to load customer data');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
       });
 
     return () => {
@@ -58,9 +75,10 @@ export default function App() {
 
       <BuyerAccess user={user} />
 
-      {error ? <p role="alert">{error}</p> : null}
-      <ProductGrid products={catalogue} />
-      {session ? <OrderStatusList orders={orders} /> : null}
+      {loading ? <p className="status-message" aria-live="polite">Loading the Oasis collection…</p> : null}
+      {error ? <p className="status-message" role="alert">{error}</p> : null}
+      {!loading && !error ? <ProductGrid products={catalogue} /> : null}
+      {!loading && !error && session ? <OrderStatusList orders={orders} items={orderItems} /> : null}
     </main>
   );
 }

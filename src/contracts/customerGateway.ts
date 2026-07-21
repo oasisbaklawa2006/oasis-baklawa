@@ -44,6 +44,18 @@ export interface CustomerOrderStatus {
   updated_at: string;
 }
 
+export interface CustomerOrderItem {
+  order_id: string;
+  item_id: string;
+  product_id: string | null;
+  sku: string | null;
+  product_name: string;
+  quantity: number;
+  pack_size: string | null;
+  weight_kg: number | null;
+  packed_quantity: number | null;
+}
+
 export interface CustomerCatalogueItem extends PublishedProduct {
   buyer_price: BuyerProductPrice | null;
 }

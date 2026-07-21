@@ -12,6 +12,14 @@ function getPrice(product: CustomerCatalogueItem | PublishedProduct): BuyerProdu
   return 'buyer_price' in product ? product.buyer_price : null;
 }
 
+function formatOrderRule(price: BuyerProductPrice): string {
+  const minimum = price.minimum_order_quantity == null
+    ? 'MOQ on request'
+    : `MOQ ${price.minimum_order_quantity}${price.minimum_order_uom ? ` ${price.minimum_order_uom}` : ''}`;
+  const increment = `Order in ${price.order_increment}${price.order_increment_uom ? ` ${price.order_increment_uom}` : ''} increments`;
+  return `${minimum} · ${increment}`;
+}
+
 export function ProductGrid({ products }: ProductGridProps) {
   return (
     <section aria-labelledby="catalogue-heading">
@@ -37,10 +45,13 @@ export function ProductGrid({ products }: ProductGridProps) {
                 <div className="product-card__footer">
                   <span>{product.pack_size ?? product.primary_uom ?? 'Pack details on request'}</span>
                   {price ? (
-                    <strong>
-                      {price.currency} {price.selling_price.toLocaleString('en-IN')}
-                      {price.uom ? ` / ${price.uom}` : ''}
-                    </strong>
+                    <div>
+                      <strong>
+                        {price.currency} {price.selling_price.toLocaleString('en-IN')}
+                        {price.uom ? ` / ${price.uom}` : ''}
+                      </strong>
+                      <small>{formatOrderRule(price)}</small>
+                    </div>
                   ) : (
                     <span>Sign in for trade price</span>
                   )}

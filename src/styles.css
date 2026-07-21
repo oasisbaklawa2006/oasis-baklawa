@@ -8,7 +8,7 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; }
-button, input { font: inherit; }
+button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 
 .app-shell {
@@ -69,16 +69,34 @@ button { cursor: pointer; }
 .order-card dd { margin: 5px 0 0; font-weight: 600; }
 .empty-state { padding: 32px; border-radius: 22px; color: #746558; background: rgba(255,255,255,.68); }
 
+.support-layout { display: grid; grid-template-columns: minmax(300px, .85fr) minmax(0, 1.5fr); gap: 20px; align-items: start; }
+.support-form, .ticket-card { padding: 22px; border-radius: 22px; background: white; box-shadow: 0 14px 40px rgba(55,34,19,.06); }
+.support-form { display: grid; gap: 14px; position: sticky; top: 20px; }
+.support-form h3, .ticket-card h3 { margin: 0; text-transform: capitalize; }
+.support-form label { display: grid; gap: 7px; font-size: .82rem; color: #655446; }
+.support-form select, .support-form textarea { width: 100%; padding: 12px 14px; border: 1px solid rgba(67,42,24,.18); border-radius: 12px; background: white; color: #241a12; }
+.support-form textarea { resize: vertical; }
+.support-form button { padding: 13px 18px; border: 0; border-radius: 12px; color: white; background: #5f3c20; }
+.support-form button:disabled { cursor: not-allowed; opacity: .5; }
+.support-form p { margin: 0; color: #746558; font-size: .86rem; line-height: 1.5; }
+.ticket-list { display: grid; gap: 14px; }
+.ticket-card { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; }
+.ticket-card p { margin: 10px 0 0; color: #746558; line-height: 1.55; }
+.ticket-card dl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 0; }
+.ticket-card dt { color: #8b7a6b; font-size: .76rem; }
+.ticket-card dd { margin: 5px 0 0; font-weight: 600; text-transform: capitalize; }
+
 @media (max-width: 900px) {
   .hero { padding: 36px 28px; }
   .access-panel { grid-template-columns: 1fr; align-items: stretch; }
   .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .order-card { grid-template-columns: 1fr; }
+  .order-card, .ticket-card, .support-layout { grid-template-columns: 1fr; }
+  .support-form { position: static; }
 }
 
 @media (max-width: 620px) {
   .app-shell { width: min(100% - 20px, 1180px); padding-top: 10px; }
   .hero { border-radius: 22px; }
   .product-grid { grid-template-columns: 1fr; }
-  .order-card dl { grid-template-columns: 1fr; }
+  .order-card dl, .ticket-card dl { grid-template-columns: 1fr; }
 }

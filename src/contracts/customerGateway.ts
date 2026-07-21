@@ -25,6 +25,10 @@ export interface BuyerProductPrice {
   gst_rate: number | null;
   tax_inclusive: boolean;
   applied_discount_percent: number;
+  minimum_order_quantity: number | null;
+  minimum_order_uom: string | null;
+  order_increment: number;
+  order_increment_uom: string | null;
   valid_from: string | null;
   valid_until: string | null;
 }

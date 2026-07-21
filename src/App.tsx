@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react';
+import { BuyerAccess } from './components/BuyerAccess';
+import { OrderStatusList } from './components/OrderStatusList';
+import { ProductGrid } from './components/ProductGrid';
 import type {
   CustomerCatalogueItem,
   CustomerOrderStatus,
@@ -12,7 +15,7 @@ import {
 } from './services/customerGateway';
 
 export default function App() {
-  const { session, loading: sessionLoading } = useCustomerSession();
+  const { session, user, loading: sessionLoading } = useCustomerSession();
   const [catalogue, setCatalogue] = useState<Array<CustomerCatalogueItem | PublishedProduct>>([]);
   const [orders, setOrders] = useState<CustomerOrderStatus[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -44,12 +47,20 @@ export default function App() {
   }, [session, sessionLoading]);
 
   return (
-    <main>
-      <h1>Oasis Baklawa</h1>
-      <p>{session ? 'Approved buyer session' : 'Public catalogue session'}</p>
-      <p>Published products: {catalogue.length}</p>
-      <p>Customer orders: {orders.length}</p>
+    <main className="app-shell">
+      <header className="hero">
+        <span className="eyebrow">Oasis Baklawa · India</span>
+        <h1>Arabic sweets, shaped for memorable occasions.</h1>
+        <p>
+          Explore the governed published collection. Approved trade buyers can sign in for protected pricing and company-specific order progress.
+        </p>
+      </header>
+
+      <BuyerAccess user={user} />
+
       {error ? <p role="alert">{error}</p> : null}
+      <ProductGrid products={catalogue} />
+      {session ? <OrderStatusList orders={orders} /> : null}
     </main>
   );
 }

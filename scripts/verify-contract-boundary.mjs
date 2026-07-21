@@ -7,6 +7,8 @@ const allowedRpcNames = new Set([
   'buyer_product_prices_v1',
   'customer_order_status_v1',
   'customer_order_items_v1',
+  'customer_support_tickets_v1',
+  'submit_customer_support_ticket_v1',
 ]);
 const forbiddenTables = [
   'products',
@@ -17,6 +19,8 @@ const forbiddenTables = [
   'companies',
   'order_payments',
   'dispatches',
+  'support_tickets',
+  'tickets',
 ];
 
 async function collectFiles(directoryUrl) {

@@ -1,15 +1,35 @@
 {
   "expo": {
     "name": "Oasis Baklawa",
-    "slug": "oasis-baklawa",
+    "slug": "oasis-baklawa-business",
     "version": "0.1.0",
     "orientation": "portrait",
     "scheme": "oasisbaklawa",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "plugins": ["expo-router", "expo-secure-store"],
-    "ios": {"supportsTablet": false, "bundleIdentifier": "com.oasisbaklawa.customer"},
-    "android": {"package": "com.oasisbaklawa.customer", "adaptiveIcon": {"backgroundColor": "#F7F1E7"}},
-    "experiments": {"typedRoutes": true}
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.oasisbaklawa.customer"
+    },
+    "android": {
+      "package": "com.oasisbaklawa.customer",
+      "adaptiveIcon": {
+        "backgroundColor": "#F7F1E7"
+      }
+    },
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "922f13de-5ea4-455a-8b57-332be93f54e0"
+      }
+    },
+    "owner": "oasisbaklawas-team"
   }
 }

@@ -10,6 +10,7 @@ export default function WelcomeScreen() {
         <Text style={styles.copy}>Explore the collection as a guest. Confidential trade pricing, ordering and account operations are reserved for approved business buyers.</Text>
         <View style={styles.actions}>
           <Link href="/explore" style={styles.primary}>Explore the collection</Link>
+          <Link href="/onboarding" style={styles.demo}>Take the 60-second app tour</Link>
           <Link href="/sign-in" style={styles.secondary}>Login to buyer account</Link>
           <Link href="/request-access" style={styles.tertiary}>Request trade access</Link>
         </View>
@@ -33,6 +34,7 @@ const styles = StyleSheet.create({
   copy: { fontSize: 17, lineHeight: 25, color: '#5A493A' },
   actions: { gap: 11, marginTop: 8 },
   primary: { backgroundColor: '#20160E', color: '#FFF', padding: 16, textAlign: 'center', borderRadius: 14, overflow: 'hidden', fontWeight: '700' },
+  demo: { backgroundColor: '#FFF9F0', borderWidth: 1, borderColor: '#D7C2A6', color: '#7C5B2A', padding: 15, textAlign: 'center', borderRadius: 14, overflow: 'hidden', fontWeight: '800' },
   secondary: { borderWidth: 1, borderColor: '#20160E', color: '#20160E', padding: 16, textAlign: 'center', borderRadius: 14, overflow: 'hidden', fontWeight: '700' },
   tertiary: { color: '#7C5B2A', padding: 13, textAlign: 'center', fontWeight: '800' },
   privateCard: { marginTop: 4, padding: 16, borderRadius: 16, backgroundColor: '#FFF9F0', borderWidth: 1, borderColor: '#E3D4C1' },

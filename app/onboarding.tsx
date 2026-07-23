@@ -20,7 +20,7 @@ const TOUR = [
     title: 'Let us shape the experience for you.',
     copy: 'A single question helps us decide whether to begin with product education or take you directly to the trade desk.',
   },
-];
+] as const;
 
 export default function OnboardingScreen() {
   const [step, setStep] = useState(0);
@@ -36,7 +36,7 @@ export default function OnboardingScreen() {
     }
   }
 
-  const item = TOUR[step];
+  const item = TOUR[step] ?? TOUR[0];
   const asking = step === TOUR.length - 1;
 
   return (
@@ -62,7 +62,7 @@ export default function OnboardingScreen() {
           </View>
         ) : (
           <View style={styles.actions}>
-            <TouchableOpacity style={styles.primary} onPress={() => setStep((value) => value + 1)}>
+            <TouchableOpacity style={styles.primary} onPress={() => setStep((value) => Math.min(value + 1, TOUR.length - 1))}>
               <Text style={styles.primaryText}>Continue</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setStep(TOUR.length - 1)}>

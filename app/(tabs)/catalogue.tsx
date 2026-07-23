@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FlatList, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { BuyerProductPrice, PublishedProduct } from '@/contracts/customerGateway';
+import { useCart } from '@/cart/CartProvider';
 import { customerGateway } from '@/services/customerGateway';
 
 function formatMoney(value: number, currency: string) {
@@ -19,6 +20,7 @@ export default function CatalogueScreen() {
   const [products, setProducts] = useState<PublishedProduct[]>([]);
   const [prices, setPrices] = useState<BuyerProductPrice[]>([]);
   const [message, setMessage] = useState('Loading collection…');
+  const { lines, addProduct } = useCart();
 
   useEffect(() => {
     let active = true;
@@ -50,6 +52,7 @@ export default function CatalogueScreen() {
     () => new Map(prices.map((price) => [price.product_id, price])),
     [prices],
   );
+  const cartProductIds = useMemo(() => new Set(lines.map((line) => line.productId)), [lines]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -65,6 +68,7 @@ export default function CatalogueScreen() {
         ListEmptyComponent={<Text style={styles.empty}>{message}</Text>}
         renderItem={({ item }) => {
           const price = priceByProduct.get(item.product_id);
+          const inCart = cartProductIds.has(item.product_id);
           return (
             <View style={styles.card}>
               <Text style={styles.name}>{item.product_name}</Text>
@@ -80,6 +84,23 @@ export default function CatalogueScreen() {
                   <Text style={styles.commercialText}>
                     Order in increments of {price.order_increment} {price.order_increment_uom}
                   </Text>
+                  <TouchableOpacity
+                    disabled={inCart}
+                    style={[styles.addButton, inCart && styles.addButtonDisabled]}
+                    onPress={() =>
+                      addProduct({
+                        productId: item.product_id,
+                        productName: item.product_name,
+                        minimumOrderQuantity: price.minimum_order_quantity,
+                        orderIncrement: price.order_increment,
+                        uom: price.minimum_order_uom,
+                        unitPrice: price.unit_price,
+                        currency: price.currency,
+                      })
+                    }
+                  >
+                    <Text style={styles.addButtonText}>{inCart ? 'Added to cart' : 'Add minimum quantity'}</Text>
+                  </TouchableOpacity>
                 </View>
               ) : (
                 <Text style={styles.signInHint}>Sign in with an approved buyer account for pricing.</Text>
@@ -115,6 +136,9 @@ const styles = StyleSheet.create({
   },
   price: { fontSize: 20, fontWeight: '700', color: '#4A2E12' },
   commercialText: { color: '#5A493A' },
+  addButton: { marginTop: 12, padding: 14, borderRadius: 12, backgroundColor: '#20160E' },
+  addButtonDisabled: { backgroundColor: '#786B60' },
+  addButtonText: { textAlign: 'center', fontWeight: '800', color: '#FFF' },
   signInHint: { marginTop: 14, color: '#7C5B2A', fontStyle: 'italic' },
   empty: { padding: 24, color: '#5A493A' },
 });

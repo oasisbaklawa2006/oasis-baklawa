@@ -55,13 +55,7 @@ export default function QuickOrderScreen() {
         <Text style={styles.kicker}>QUICK ORDER</Text>
         <Text style={styles.title}>Add regular SKUs fast.</Text>
         <Text style={styles.copy}>Search by product, SKU or category. Every line starts at the governed MOQ and follows the approved order increment.</Text>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search product or SKU"
-          autoCapitalize="none"
-          style={styles.search}
-        />
+        <TextInput value={query} onChangeText={setQuery} placeholder="Search product or SKU" autoCapitalize="none" style={styles.search} />
       </View>
       <FlatList
         data={filteredRows}
@@ -72,8 +66,11 @@ export default function QuickOrderScreen() {
           const inCart = cartProductIds.has(product.product_id);
           return (
             <View style={styles.card}>
-              <Text style={styles.name}>{product.product_name}</Text>
-              <Text style={styles.meta}>{product.sku ?? 'SKU pending'} · {product.category ?? 'Oasis collection'}</Text>
+              <TouchableOpacity onPress={() => router.push({ pathname: '/products/[productId]', params: { productId: product.product_id } })}>
+                <Text style={styles.name}>{product.product_name}</Text>
+                <Text style={styles.meta}>{product.sku ?? 'SKU pending'} · {product.category ?? 'Oasis collection'}</Text>
+                <Text style={styles.detailsLink}>View product details</Text>
+              </TouchableOpacity>
               <Text style={styles.meta}>MOQ {price.minimum_order_quantity} {price.minimum_order_uom} · increments of {price.order_increment} {price.order_increment_uom}</Text>
               <TouchableOpacity
                 disabled={inCart}
@@ -110,6 +107,7 @@ const styles = StyleSheet.create({
   card: { padding: 18, borderRadius: 16, backgroundColor: '#F7F1E7', gap: 9 },
   name: { fontSize: 18, fontWeight: '800', color: '#20160E' },
   meta: { lineHeight: 20, color: '#665443' },
+  detailsLink: { marginTop: 7, color: '#7C5B2A', fontWeight: '700' },
   button: { marginTop: 6, padding: 14, borderRadius: 12, backgroundColor: '#20160E' },
   buttonDisabled: { backgroundColor: '#786B60' },
   buttonText: { textAlign: 'center', fontWeight: '800', color: '#FFF' },

@@ -16,8 +16,9 @@ export default function HomeScreen() {
       <View style={styles.body}>
         <Text style={styles.kicker}>WELCOME BACK</Text>
         <Text style={styles.title}>Your Oasis trade desk</Text>
-        <Text style={styles.copy}>Explore new collections, repeat recent orders and track every dispatch.</Text>
+        <Text style={styles.copy}>Explore new collections, build a governed cart and track every dispatch.</Text>
         <Link href="/(tabs)/catalogue" style={styles.card}>Browse catalogue</Link>
+        <Link href="/quick-order" style={styles.card}>Quick Order regular SKUs</Link>
         <Link href="/(tabs)/orders" style={styles.card}>Repeat or track an order</Link>
         <Link href="/baklava-guide" style={styles.educationCard}>New to Baklava? Open the buyer guide</Link>
         <Link href="/onboarding" style={styles.tourLink}>Replay the app tour</Link>

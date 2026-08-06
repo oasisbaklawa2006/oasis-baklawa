@@ -71,11 +71,19 @@ export function LoginScreen({ navigation }: Props) {
     }
   }
 
+  function selectMethod(nextMethod: Method) {
+    setMethod(nextMethod);
+    setIdentifier("");
+    setOtp("");
+    setOtpSent(false);
+    setError(null);
+  }
+
   return (
     <Screen title="Log In" subtitle="MSG91 OTP, Email or Google">
       <View style={styles.tabs}>
         {(["otp", "email", "google"] as Method[]).map((m) => (
-          <TouchableOpacity key={m} onPress={() => setMethod(m)} style={[styles.tab, method === m && styles.tabActive]}>
+          <TouchableOpacity key={m} onPress={() => selectMethod(m)} style={[styles.tab, method === m && styles.tabActive]}>
             <Text style={[styles.tabText, method === m && styles.tabTextActive]}>
               {m === "otp" ? "Mobile OTP" : m === "email" ? "Email" : "Google"}
             </Text>

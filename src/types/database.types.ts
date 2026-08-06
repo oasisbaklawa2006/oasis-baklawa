@@ -2,7 +2,7 @@
 // (published_products_v1, buyer_product_prices_v1, customer_order_status_v1)
 // since `supabase gen types` requires an authenticated CLI session that is
 // unavailable in this environment. Regenerate with:
-//   npx supabase gen types typescript --project-ref tcxvcatsqqertcnycuop
+//   npx supabase gen types typescript --project-id tcxvcatsqqertcnycuop
 // once CLI auth is available, and replace this file.
 
 export interface Database {
@@ -23,6 +23,19 @@ export interface Database {
       customer_order_status_v1: {
         Args: Record<string, never>;
         Returns: CustomerOrderStatus[];
+      };
+      // Not yet a governed RPC in oasis-supabase-core; contract shape here
+      // matches what RegisterScreen calls, pending the backend implementation.
+      submit_b2b_trade_application_v1: {
+        Args: {
+          company_name: string;
+          gstin: string;
+          contact_person: string;
+          mobile: string;
+          email: string;
+          city: string;
+        };
+        Returns: { application_id: string };
       };
     };
   };

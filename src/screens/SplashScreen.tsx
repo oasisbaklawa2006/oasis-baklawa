@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import { supabase } from "@/lib/supabase";
@@ -21,6 +22,7 @@ export function SplashScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
+      <StatusBar style="light" />
       <Text style={styles.brand}>Oasis Baklawa</Text>
       <ActivityIndicator color="#FFF" style={styles.spinner} />
     </View>

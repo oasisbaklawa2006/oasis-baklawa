@@ -39,14 +39,14 @@ export function RegisterScreen({ navigation }: Props) {
     setSubmitting(true);
     setError(null);
     try {
-      const { error: rpcError } = await supabase.rpc("submit_b2b_trade_application_v1" as never, {
+      const { error: rpcError } = await supabase.rpc("submit_b2b_trade_application_v1", {
         company_name: form.companyName,
         gstin: form.gstin,
         contact_person: form.contactPerson,
         mobile: form.mobile,
         email: form.email,
         city: form.city,
-      } as never);
+      });
       if (rpcError) throw rpcError;
       setSubmitted(true);
     } catch (e) {

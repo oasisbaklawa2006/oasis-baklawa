@@ -25,6 +25,12 @@ const EMPTY_FORM: TradeApplicationForm = {
   city: "",
 };
 
+// submit_b2b_trade_application_v1 is not yet a governed RPC in
+// oasis-supabase-core — calling it would fail with an opaque PostgREST
+// "function not found" error. Block submission with an honest message
+// until the backend RPC exists, instead of hitting a dead endpoint.
+const SUBMISSION_BACKEND_READY = false;
+
 export function RegisterScreen({ navigation }: Props) {
   const [form, setForm] = useState<TradeApplicationForm>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
@@ -36,6 +42,10 @@ export function RegisterScreen({ navigation }: Props) {
   }
 
   async function submit() {
+    if (!SUBMISSION_BACKEND_READY) {
+      setError("Online trade applications aren't open yet. Please contact your Oasis Baklawa account manager to register.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {

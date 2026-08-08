@@ -79,6 +79,7 @@ export function CartScreen({ navigation }: Props) {
       const updated = await removeCustomerOrderDraftLine(lineId);
       setDraft(updated);
     } catch (e) {
+      await loadDraft();
       setError(parseRpcError(e).message);
     } finally {
       setBusyLineId(null);
@@ -92,6 +93,7 @@ export function CartScreen({ navigation }: Props) {
       const updated = await clearCustomerOrderDraft();
       setDraft(updated);
     } catch (e) {
+      await loadDraft();
       setError(parseRpcError(e).message);
     } finally {
       setBusyLineId(null);

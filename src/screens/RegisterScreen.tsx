@@ -177,12 +177,22 @@ export function RegisterScreen({ navigation }: Props) {
           onChangeText={(v) => update("registeredAddress", v)}
         />
 
-        <TouchableOpacity style={styles.checkboxRow} onPress={() => setTradeDeclaration((v) => !v)}>
+        <TouchableOpacity
+          style={styles.checkboxRow}
+          onPress={() => setTradeDeclaration((v) => !v)}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: tradeDeclaration }}
+        >
           <View style={[styles.checkbox, tradeDeclaration && styles.checkboxChecked]} />
           <Text style={styles.checkboxLabel}>I confirm this is a genuine B2B trade application.</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.checkboxRow} onPress={() => setDataConsent((v) => !v)}>
+        <TouchableOpacity
+          style={styles.checkboxRow}
+          onPress={() => setDataConsent((v) => !v)}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: dataConsent }}
+        >
           <View style={[styles.checkbox, dataConsent && styles.checkboxChecked]} />
           <Text style={styles.checkboxLabel}>I consent to Oasis Baklawa processing my data for onboarding.</Text>
         </TouchableOpacity>

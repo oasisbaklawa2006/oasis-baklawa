@@ -15,40 +15,60 @@ export const asyncStorageCheckoutIdempotency: CheckoutIdempotencyStorage = {
   removeItem: (key) => AsyncStorage.removeItem(key),
 };
 
+const inFlightResolutions = new Map<string, Promise<ResolvedCheckoutIdempotency>>();
+
 function storageKeyForDraft(draftId: string): string {
   return `${STORAGE_KEY_PREFIX}${draftId}`;
 }
 
 export interface ResolvedCheckoutIdempotency {
-  key: string;
+  key: string | null;
   reused: boolean;
-  storageError: boolean;
+  /** True only when the key is durably stored and safe for order submission. */
+  persisted: boolean;
 }
 
-/**
- * Load or create a checkout idempotency key bound to the authoritative draft_id.
- * A new draft never inherits a key stored for a different draft_id.
- */
-export async function resolveCheckoutIdempotencyKey(
+async function resolveCheckoutIdempotencyKeyOnce(
   draftId: string,
-  storage: CheckoutIdempotencyStorage = asyncStorageCheckoutIdempotency,
-  createKey: () => string = createIdempotencyKey
+  storage: CheckoutIdempotencyStorage,
+  createKey: () => string
 ): Promise<ResolvedCheckoutIdempotency> {
   const storageKey = storageKeyForDraft(draftId);
 
   try {
     const existing = await storage.getItem(storageKey);
     if (existing && existing.trim().length > 0) {
-      return { key: existing, reused: true, storageError: false };
+      return { key: existing, reused: true, persisted: true };
     }
 
     const key = createKey();
     await storage.setItem(storageKey, key);
-    return { key, reused: false, storageError: false };
+    return { key, reused: false, persisted: true };
   } catch {
-    const fallbackKey = createKey();
-    return { key: fallbackKey, reused: false, storageError: true };
+    return { key: null, reused: false, persisted: false };
   }
+}
+
+/**
+ * Load or create a checkout idempotency key bound to the authoritative draft_id.
+ * Concurrent callers for the same draft share a single in-flight resolution.
+ */
+export async function resolveCheckoutIdempotencyKey(
+  draftId: string,
+  storage: CheckoutIdempotencyStorage = asyncStorageCheckoutIdempotency,
+  createKey: () => string = createIdempotencyKey
+): Promise<ResolvedCheckoutIdempotency> {
+  const inflight = inFlightResolutions.get(draftId);
+  if (inflight) {
+    return inflight;
+  }
+
+  const resolution = resolveCheckoutIdempotencyKeyOnce(draftId, storage, createKey).finally(() => {
+    inFlightResolutions.delete(draftId);
+  });
+
+  inFlightResolutions.set(draftId, resolution);
+  return resolution;
 }
 
 /** Clear persisted key only after confirmed successful or idempotent order submission. */
@@ -61,4 +81,9 @@ export async function clearCheckoutIdempotencyKey(
   } catch {
     // Best-effort cleanup; stale keys for promoted drafts are harmless server-side.
   }
+}
+
+/** Test-only: reset in-flight map between isolated test cases. */
+export function resetCheckoutIdempotencyInFlightForTests(): void {
+  inFlightResolutions.clear();
 }

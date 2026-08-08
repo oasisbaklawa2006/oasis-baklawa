@@ -3,18 +3,34 @@ import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-nativ
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import { Screen } from "@/components/Screen";
+import { useBuyerSession } from "@/context/BuyerSessionContext";
+import { parseRpcError } from "@/lib/rpc-errors";
 import { supabase } from "@/lib/supabase";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Login">;
 type Method = "otp" | "email" | "google";
 
 export function LoginScreen({ navigation }: Props) {
+  const { refresh } = useBuyerSession();
   const [method, setMethod] = useState<Method>("otp");
   const [identifier, setIdentifier] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function afterAuth() {
+    const snapshot = await refresh();
+    if (snapshot.state === "approved_buyer") {
+      navigation.replace("Home");
+      return;
+    }
+    if (snapshot.state === "no_application" || snapshot.state === "application_pending") {
+      navigation.replace("Register");
+      return;
+    }
+    navigation.replace("Home");
+  }
 
   async function sendOtp() {
     setBusy(true);
@@ -24,7 +40,7 @@ export function LoginScreen({ navigation }: Props) {
       if (signInError) throw signInError;
       setOtpSent(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not send OTP");
+      setError(parseRpcError(e instanceof Error ? e : null).message);
     } finally {
       setBusy(false);
     }
@@ -36,9 +52,9 @@ export function LoginScreen({ navigation }: Props) {
     try {
       const { error: verifyError } = await supabase.auth.verifyOtp({ phone: identifier, token: otp, type: "sms" });
       if (verifyError) throw verifyError;
-      navigation.replace("Home");
+      await afterAuth();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Invalid OTP");
+      setError(parseRpcError(e instanceof Error ? e : null).message);
     } finally {
       setBusy(false);
     }
@@ -52,7 +68,7 @@ export function LoginScreen({ navigation }: Props) {
       if (linkError) throw linkError;
       setOtpSent(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not send magic link");
+      setError(parseRpcError(e instanceof Error ? e : null).message);
     } finally {
       setBusy(false);
     }
@@ -65,7 +81,7 @@ export function LoginScreen({ navigation }: Props) {
       const { error: oauthError } = await supabase.auth.signInWithOAuth({ provider: "google" });
       if (oauthError) throw oauthError;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Google sign-in failed");
+      setError(parseRpcError(e instanceof Error ? e : null).message);
     } finally {
       setBusy(false);
     }

@@ -3,7 +3,9 @@ import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import { Screen } from "@/components/Screen";
-import { supabase } from "@/lib/supabase";
+import { useBuyerSession } from "@/context/BuyerSessionContext";
+import { fetchPublishedProducts } from "@/lib/api/catalogue";
+import { parseRpcError } from "@/lib/rpc-errors";
 import type { PublishedProduct } from "@/types/database.types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Home">;
@@ -15,19 +17,39 @@ const ANNOUNCEMENTS = [
 ];
 
 export function HomeScreen({ navigation }: Props) {
+  const { snapshot } = useBuyerSession();
   const [bestSellers, setBestSellers] = useState<PublishedProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.rpc("published_products_v1");
-      setBestSellers((data ?? []).slice(0, 8));
-      setLoading(false);
+      try {
+        const data = await fetchPublishedProducts();
+        setBestSellers(data.slice(0, 8));
+      } catch (e) {
+        setError(parseRpcError(e instanceof Error ? e : null).message);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
   return (
     <Screen title="Oasis Baklawa" subtitle="Handcrafted sweets, wholesale trade">
+      {snapshot?.state !== "approved_buyer" && snapshot?.message ? (
+        <View style={styles.banner}>
+          <Text style={styles.bannerText}>{snapshot.message}</Text>
+          {snapshot.state === "no_application" ? (
+            <TouchableOpacity onPress={() => navigation.navigate("Register")}>
+              <Text style={styles.bannerLink}>Submit B2B application</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      ) : null}
+
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
       <View style={styles.hero}>
         <Text style={styles.heroTitle}>Artisan Baklawa, Made Fresh Daily</Text>
       </View>
@@ -49,10 +71,7 @@ export function HomeScreen({ navigation }: Props) {
         ListEmptyComponent={!loading ? <Text style={styles.empty}>No products yet</Text> : null}
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.card} onPress={() => navigation.navigate("Catalogue")}>
-            <Image
-              source={item.hero_image_url ? { uri: item.hero_image_url } : undefined}
-              style={styles.cardImage}
-            />
+            <Image source={item.hero_image_url ? { uri: item.hero_image_url } : undefined} style={styles.cardImage} />
             <Text numberOfLines={1} style={styles.cardTitle}>
               {item.product_name}
             </Text>
@@ -74,6 +93,9 @@ export function HomeScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  banner: { backgroundColor: "#FFF3CD", borderRadius: 10, padding: 12, marginTop: 12 },
+  bannerText: { fontSize: 13, color: "#5A4438" },
+  bannerLink: { fontSize: 12, color: "#7A1B2B", fontWeight: "700", marginTop: 6 },
   hero: { height: 140, borderRadius: 16, backgroundColor: "#7A1B2B", justifyContent: "flex-end", padding: 16, marginTop: 16 },
   heroTitle: { color: "#FFF8F2", fontSize: 18, fontWeight: "700" },
   marquee: { marginTop: 16, gap: 4 },
@@ -87,4 +109,5 @@ const styles = StyleSheet.create({
   festiveRow: { flexDirection: "row", gap: 10, flexWrap: "wrap" },
   festiveCard: { flexGrow: 1, backgroundColor: "#F0DED0", borderRadius: 10, paddingVertical: 20, paddingHorizontal: 12, alignItems: "center" },
   festiveText: { fontSize: 12, fontWeight: "600", color: "#7A1B2B", textAlign: "center" },
+  error: { color: "#B3261E", marginTop: 8 },
 });

@@ -8,7 +8,15 @@ export type RootStackParamList = {
   AiOrder: undefined;
   Cart: undefined;
   Checkout: undefined;
-  Orders: undefined;
+  Orders: { checkoutSuccess?: CheckoutSuccessSummary } | undefined;
   Documents: undefined;
   Dashboard: undefined;
 };
+
+export interface CheckoutSuccessSummary {
+  orderNumber: string;
+  salesOrderValue: number;
+  advanceRequired: number;
+  requestedDispatchDate?: string | null;
+  isDuplicateSubmission: boolean;
+}

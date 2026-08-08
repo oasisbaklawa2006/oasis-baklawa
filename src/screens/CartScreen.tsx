@@ -32,7 +32,7 @@ export function CartScreen({ navigation }: Props) {
       setDraft(draftData);
       setPricesByProduct(Object.fromEntries(prices.map((price) => [price.product_id, price])));
     } catch (e) {
-      setError(parseRpcError(e instanceof Error ? e : null).message);
+      setError(parseRpcError(e).message);
     } finally {
       setLoading(false);
     }
@@ -65,7 +65,7 @@ export function CartScreen({ navigation }: Props) {
       const updated = await updateCustomerOrderDraftLine(lineId, nextQty);
       setDraft(updated);
     } catch (e) {
-      setError(parseRpcError(e instanceof Error ? e : null).message);
+      setError(parseRpcError(e).message);
       await loadDraft();
     } finally {
       setBusyLineId(null);
@@ -79,7 +79,7 @@ export function CartScreen({ navigation }: Props) {
       const updated = await removeCustomerOrderDraftLine(lineId);
       setDraft(updated);
     } catch (e) {
-      setError(parseRpcError(e instanceof Error ? e : null).message);
+      setError(parseRpcError(e).message);
     } finally {
       setBusyLineId(null);
     }
@@ -92,7 +92,7 @@ export function CartScreen({ navigation }: Props) {
       const updated = await clearCustomerOrderDraft();
       setDraft(updated);
     } catch (e) {
-      setError(parseRpcError(e instanceof Error ? e : null).message);
+      setError(parseRpcError(e).message);
     } finally {
       setBusyLineId(null);
     }

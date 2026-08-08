@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
@@ -6,7 +6,7 @@ import { BuyerGate } from "@/components/BuyerGate";
 import { Screen } from "@/components/Screen";
 import { calculateCustomerAdvance, submitCustomerOrder } from "@/lib/api/checkout";
 import { getCustomerOrderDraft } from "@/lib/api/draft";
-import { createIdempotencyKey } from "@/lib/idempotency";
+import { clearCheckoutIdempotencyKey, resolveCheckoutIdempotencyKey } from "@/lib/checkout-idempotency";
 import { parseRpcError } from "@/lib/rpc-errors";
 import type { CustomerOrderDraft } from "@/types/database.types";
 
@@ -18,40 +18,76 @@ export function CheckoutScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const idempotencyKeyRef = useRef<string>(createIdempotencyKey());
+  const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
+  const [keyReady, setKeyReady] = useState(false);
+  const [storageWarning, setStorageWarning] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
       setLoading(true);
+      setKeyReady(false);
       setError(null);
+      setStorageWarning(null);
+
       try {
         const draftData = await getCustomerOrderDraft();
+        if (cancelled) return;
+
         setDraft(draftData);
-        if (draftData && draftData.order_total > 0) {
+
+        if (!draftData?.draft_id) {
+          setIdempotencyKey(null);
+          setAdvance(0);
+          setKeyReady(true);
+          return;
+        }
+
+        const resolved = await resolveCheckoutIdempotencyKey(draftData.draft_id);
+        if (cancelled) return;
+
+        setIdempotencyKey(resolved.key);
+        if (resolved.storageError) {
+          setStorageWarning(
+            "Could not persist checkout attempt locally. Retrying on this screen may use a new submission key."
+          );
+        }
+
+        if (draftData.order_total > 0) {
           const advanceAmount = await calculateCustomerAdvance(draftData.order_total);
-          setAdvance(advanceAmount);
+          if (!cancelled) setAdvance(advanceAmount);
         } else {
           setAdvance(0);
         }
       } catch (e) {
-        setError(parseRpcError(e instanceof Error ? e : null).message);
+        if (!cancelled) setError(parseRpcError(e).message);
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setKeyReady(true);
+        }
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const orderValue = draft?.order_total ?? 0;
   const balance = useMemo(() => Math.max(0, orderValue - (advance ?? 0)), [orderValue, advance]);
-  const canSubmit = draft?.is_checkout_ready && orderValue > 0 && !submitting;
+  const canSubmit =
+    draft?.is_checkout_ready && orderValue > 0 && !submitting && keyReady && idempotencyKey != null;
 
   async function submitOrder() {
-    if (!canSubmit) return;
+    if (!canSubmit || !idempotencyKey || !draft?.draft_id) return;
 
     setSubmitting(true);
     setError(null);
     try {
-      const result = await submitCustomerOrder(idempotencyKeyRef.current);
+      const result = await submitCustomerOrder(idempotencyKey);
+      await clearCheckoutIdempotencyKey(draft.draft_id);
       navigation.replace("Orders", {
         checkoutSuccess: {
           orderNumber: result.order_number,
@@ -61,7 +97,7 @@ export function CheckoutScreen({ navigation }: Props) {
         },
       });
     } catch (e) {
-      setError(parseRpcError(e instanceof Error ? e : null).message);
+      setError(parseRpcError(e).message);
     } finally {
       setSubmitting(false);
     }
@@ -76,25 +112,30 @@ export function CheckoutScreen({ navigation }: Props) {
           <>
             <View style={styles.summaryCard}>
               <Row label="Order value (SO)" value={`₹${orderValue.toLocaleString("en-IN")}`} />
-              <Row
-                label="Advance due (30%, rounded up to ₹500)"
-                value={`₹${(advance ?? 0).toLocaleString("en-IN")}`}
-                emphasis
-              />
+              <Row label="Advance due" value={`₹${(advance ?? 0).toLocaleString("en-IN")}`} emphasis />
               <Row label="Balance on dispatch" value={`₹${balance.toLocaleString("en-IN")}`} />
             </View>
 
             {!draft?.is_checkout_ready ? (
-              <Text style={styles.warning}>Your cart is not checkout-ready. Return to the cart and fix MOQ/carton issues.</Text>
+              <Text style={styles.warning}>
+                Your cart is not checkout-ready. Return to the cart and fix MOQ/carton issues.
+              </Text>
             ) : null}
 
+            {storageWarning ? <Text style={styles.warning}>{storageWarning}</Text> : null}
             {error ? <Text style={styles.error}>{error}</Text> : null}
 
             <Text style={styles.note}>Payment capture is not enabled in this release. Submitting creates your Sales Order.</Text>
 
-            <TouchableOpacity style={[styles.button, !canSubmit && styles.buttonDisabled]} disabled={!canSubmit} onPress={submitOrder}>
+            <TouchableOpacity
+              style={[styles.button, !canSubmit && styles.buttonDisabled]}
+              disabled={!canSubmit}
+              onPress={submitOrder}
+            >
               <Text style={styles.buttonText}>
-                {submitting ? "Submitting order…" : `Submit Sales Order · Advance ₹${(advance ?? 0).toLocaleString("en-IN")}`}
+                {submitting
+                  ? "Submitting order…"
+                  : `Submit Sales Order · Advance ₹${(advance ?? 0).toLocaleString("en-IN")}`}
               </Text>
             </TouchableOpacity>
           </>

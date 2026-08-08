@@ -28,7 +28,7 @@ export function HomeScreen({ navigation }: Props) {
         const data = await fetchPublishedProducts();
         setBestSellers(data.slice(0, 8));
       } catch (e) {
-        setError(parseRpcError(e instanceof Error ? e : null).message);
+        setError(parseRpcError(e).message);
       } finally {
         setLoading(false);
       }

@@ -21,6 +21,7 @@ export interface BuyerSessionSnapshot {
   companyId: string | null;
   company: CustomerCompany | null;
   message: string | null;
+  userId: string | null;
 }
 
 export async function fetchBuyerEligibleCompanyId(): Promise<string | null> {
@@ -49,7 +50,9 @@ export async function submitB2bTradeApplication(
   if (error) throw error;
   const rows = data as SubmitB2bTradeApplicationResult[] | null;
   const result = rows?.[0];
-  if (!result) throw new Error("APPLICATION_FAILED: trade application did not return a result");
+  if (!result) {
+    throw new Error("Trade application did not return a result. Please try again.");
+  }
   return result;
 }
 
@@ -61,11 +64,14 @@ export async function resolveBuyerSession(): Promise<BuyerSessionSnapshot> {
       companyId: null,
       company: null,
       message: parseRpcError(sessionError).message,
+      userId: null,
     };
   }
 
-  if (!sessionData.session) {
-    return { state: "unauthenticated", companyId: null, company: null, message: null };
+  const userId = sessionData.session?.user?.id ?? null;
+
+  if (!sessionData.session || !userId) {
+    return { state: "unauthenticated", companyId: null, company: null, message: null, userId: null };
   }
 
   try {
@@ -78,41 +84,51 @@ export async function resolveBuyerSession(): Promise<BuyerSessionSnapshot> {
           companyId,
           company,
           message: "Your company account is frozen. Contact Oasis Baklawa support.",
+          userId,
         };
       }
-      return { state: "approved_buyer", companyId, company, message: null };
+      return { state: "approved_buyer", companyId, company, message: null, userId };
     }
 
     const { error: draftProbeError } = await supabase.rpc("get_customer_order_draft_v1");
     if (draftProbeError) {
       const parsed = parseRpcError(draftProbeError);
       if (parsed.code === "BUYER_NOT_ELIGIBLE") {
-        return await inferNonEligibleState();
+        return await inferNonEligibleState(userId);
       }
       if (parsed.code === "AUTH_REQUIRED") {
-        return { state: "unauthenticated", companyId: null, company: null, message: parsed.message };
+        return { state: "unauthenticated", companyId: null, company: null, message: parsed.message, userId: null };
       }
+      return {
+        state: "backend_failure",
+        companyId: null,
+        company: null,
+        message: parsed.message,
+        userId,
+      };
     }
 
-    return inferNonEligibleState();
+    return await inferNonEligibleState(userId);
   } catch (error) {
     return {
       state: "backend_failure",
       companyId: null,
       company: null,
-      message: parseRpcError(error instanceof Error ? error : null).message,
+      message: parseRpcError(error).message,
+      userId,
     };
   }
 }
 
-async function inferNonEligibleState(): Promise<BuyerSessionSnapshot> {
-  const stored = await readStoredApplicationStatus();
+async function inferNonEligibleState(userId: string): Promise<BuyerSessionSnapshot> {
+  const stored = await readStoredApplicationStatus(userId);
   if (stored === "application_pending") {
     return {
       state: "application_pending",
       companyId: null,
       company: null,
       message: "Your trade application is being reviewed.",
+      userId,
     };
   }
   if (stored === "rejected_ineligible") {
@@ -121,6 +137,7 @@ async function inferNonEligibleState(): Promise<BuyerSessionSnapshot> {
       companyId: null,
       company: null,
       message: "Your trade application was not approved. Contact Oasis Baklawa support.",
+      userId,
     };
   }
 
@@ -129,5 +146,6 @@ async function inferNonEligibleState(): Promise<BuyerSessionSnapshot> {
     companyId: null,
     company: null,
     message: "Submit a B2B trade application to access buyer pricing and ordering.",
+    userId,
   };
 }

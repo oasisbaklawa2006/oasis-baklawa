@@ -23,6 +23,11 @@ export function SplashScreen({ navigation }: Props) {
       const snapshot = await resolveBuyerSession();
       if (cancelled) return;
 
+      if (snapshot.state === "unauthenticated") {
+        navigation.replace("Welcome");
+        return;
+      }
+
       if (snapshot.state === "approved_buyer") {
         navigation.replace("Home");
         return;

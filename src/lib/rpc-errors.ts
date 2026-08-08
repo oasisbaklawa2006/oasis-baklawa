@@ -1,5 +1,3 @@
-import type { AuthError, PostgrestError } from "@supabase/supabase-js";
-
 export type RpcErrorCode =
   | "AUTH_REQUIRED"
   | "BUYER_NOT_ELIGIBLE"
@@ -15,44 +13,101 @@ export type RpcErrorCode =
   | "NETWORK"
   | "UNKNOWN";
 
+export const KNOWN_RPC_ERROR_CODES: ReadonlySet<RpcErrorCode> = new Set([
+  "AUTH_REQUIRED",
+  "BUYER_NOT_ELIGIBLE",
+  "APPLICATION_INCOMPLETE",
+  "PRODUCT_UNAVAILABLE",
+  "QUANTITY_RULE_VIOLATION",
+  "DRAFT_NOT_FOUND",
+  "DRAFT_NOT_READY",
+  "DRAFT_NOT_ACTIVE",
+  "VALIDATION_FAILED",
+  "DUPLICATE_APPLICATION",
+  "MOBILE_NUMBER_ALREADY_REGISTERED",
+  "NETWORK",
+  "UNKNOWN",
+]);
+
 export interface ParsedRpcError {
   code: RpcErrorCode;
   message: string;
   raw?: string;
 }
 
-const CODE_PATTERN = /^([A-Z_]+):/;
+const GOVERNED_PREFIX_PATTERN = /^([A-Z][A-Z0-9_]+):/;
 
-export function parseRpcError(error: PostgrestError | AuthError | Error | null | undefined): ParsedRpcError {
-  if (!error) {
-    return { code: "UNKNOWN", message: "Something went wrong. Please try again." };
-  }
-
-  const raw = "message" in error ? error.message : String(error);
-
-  if (raw.includes("Failed to fetch") || raw.includes("Network request failed")) {
-    return { code: "NETWORK", message: "Network connection failed. Check your connection and try again.", raw };
-  }
-
-  const codeMatch = raw.match(CODE_PATTERN);
-  const code = (codeMatch?.[1] as RpcErrorCode | undefined) ?? inferCode(raw);
-
-  return { code, message: customerMessage(code, raw), raw };
+function isRpcErrorCode(value: string): value is RpcErrorCode {
+  return KNOWN_RPC_ERROR_CODES.has(value as RpcErrorCode);
 }
 
-function inferCode(raw: string): RpcErrorCode {
-  if (raw.includes("JWT") || raw.includes("session") || raw.includes("28000")) return "AUTH_REQUIRED";
-  if (raw.includes("BUYER_NOT_ELIGIBLE") || raw.includes("42501")) return "BUYER_NOT_ELIGIBLE";
+function extractGovernedCode(raw: string): RpcErrorCode | null {
+  const match = raw.match(GOVERNED_PREFIX_PATTERN);
+  if (!match) return null;
+  const candidate = match[1];
+  return isRpcErrorCode(candidate) ? candidate : null;
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error === null || error === undefined) return "";
+  if (typeof error === "string") return error;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string") return message;
+  }
+  return String(error);
+}
+
+function getSqlState(error: unknown): string | null {
+  if (typeof error !== "object" || error === null) return null;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : null;
+}
+
+function inferCode(raw: string, sqlState: string | null): RpcErrorCode {
+  if (raw.includes("Failed to fetch") || raw.includes("Network request failed")) {
+    return "NETWORK";
+  }
+  if (sqlState === "28000" || raw.includes("JWT") || raw.includes("session expired")) {
+    return "AUTH_REQUIRED";
+  }
+  if (raw.includes("BUYER_NOT_ELIGIBLE") || sqlState === "42501") {
+    return "BUYER_NOT_ELIGIBLE";
+  }
   if (raw.includes("APPLICATION_INCOMPLETE")) return "APPLICATION_INCOMPLETE";
   if (raw.includes("PRODUCT_UNAVAILABLE")) return "PRODUCT_UNAVAILABLE";
   if (raw.includes("QUANTITY_RULE_VIOLATION")) return "QUANTITY_RULE_VIOLATION";
-  if (raw.includes("DRAFT_NOT_FOUND")) return "DRAFT_NOT_FOUND";
+  if (raw.includes("DRAFT_NOT_FOUND") || sqlState === "P0002") return "DRAFT_NOT_FOUND";
   if (raw.includes("DRAFT_NOT_READY")) return "DRAFT_NOT_READY";
   if (raw.includes("DRAFT_NOT_ACTIVE")) return "DRAFT_NOT_ACTIVE";
   if (raw.includes("VALIDATION_FAILED")) return "VALIDATION_FAILED";
-  if (raw.includes("DUPLICATE_APPLICATION")) return "DUPLICATE_APPLICATION";
+  if (raw.includes("DUPLICATE_APPLICATION") || (sqlState === "23505" && raw.includes("APPLICATION"))) {
+    return "DUPLICATE_APPLICATION";
+  }
   if (raw.includes("MOBILE_NUMBER_ALREADY_REGISTERED")) return "MOBILE_NUMBER_ALREADY_REGISTERED";
   return "UNKNOWN";
+}
+
+export function parseRpcError(error: unknown): ParsedRpcError {
+  if (error === null || error === undefined) {
+    return { code: "UNKNOWN", message: "Something went wrong. Please try again." };
+  }
+
+  const raw = getErrorMessage(error);
+  const sqlState = getSqlState(error);
+
+  if (raw.includes("Failed to fetch") || raw.includes("Network request failed")) {
+    return {
+      code: "NETWORK",
+      message: customerMessage("NETWORK", raw),
+      raw,
+    };
+  }
+
+  const governed = extractGovernedCode(raw);
+  const code = governed ?? inferCode(raw, sqlState);
+
+  return { code, message: customerMessage(code, raw), raw };
 }
 
 function customerMessage(code: RpcErrorCode, raw: string): string {
@@ -74,7 +129,7 @@ function customerMessage(code: RpcErrorCode, raw: string): string {
     case "DRAFT_NOT_ACTIVE":
       return "This order draft can no longer be changed.";
     case "VALIDATION_FAILED":
-      return raw.replace(CODE_PATTERN, "").trim() || "Please check your input and try again.";
+      return raw.replace(GOVERNED_PREFIX_PATTERN, "").trim() || "Please check your input and try again.";
     case "DUPLICATE_APPLICATION":
       return "An application with this contact information already exists.";
     case "MOBILE_NUMBER_ALREADY_REGISTERED":

@@ -26,7 +26,7 @@ export function DashboardScreen({ navigation }: Props) {
         const teamRows = await fetchCustomerTeam();
         setTeam(teamRows);
       } catch (e) {
-        setError(parseRpcError(e instanceof Error ? e : null).message);
+        setError(parseRpcError(e).message);
       }
     })();
   }, []);

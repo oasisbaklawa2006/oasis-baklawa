@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
@@ -7,7 +7,6 @@ import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { storeApplicationStatus } from "@/lib/application-status-storage";
 import { submitB2bTradeApplication } from "@/lib/api/buyer";
 import { parseRpcError } from "@/lib/rpc-errors";
-import { supabase } from "@/lib/supabase";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Register">;
 
@@ -32,28 +31,22 @@ const EMPTY_FORM: TradeApplicationForm = {
 };
 
 export function RegisterScreen({ navigation }: Props) {
-  const { snapshot, refresh } = useBuyerSession();
+  const { snapshot, loading, isAuthenticated, userId, refresh } = useBuyerSession();
   const [form, setForm] = useState<TradeApplicationForm>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.auth.getSession();
-      setIsAuthenticated(Boolean(data.session));
-      setAuthChecked(true);
-    })();
-  }, []);
+  const [tradeDeclaration, setTradeDeclaration] = useState(false);
+  const [dataConsent, setDataConsent] = useState(false);
 
   function update<K extends keyof TradeApplicationForm>(key: K, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  const canSubmit = tradeDeclaration && dataConsent && form.businessName.trim().length > 0;
+
   async function submit() {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !userId) {
       setError("Log in first so we can link your application to your account.");
       return;
     }
@@ -69,23 +62,23 @@ export function RegisterScreen({ navigation }: Props) {
         p_contact_email: form.email.trim() || null,
         p_city: form.city.trim() || null,
         p_registered_address: form.registeredAddress.trim() || null,
-        p_trade_declaration: true,
-        p_data_consent: true,
+        p_trade_declaration: tradeDeclaration,
+        p_data_consent: dataConsent,
       });
 
       if (result.application_status === "pending") {
-        await storeApplicationStatus("application_pending");
+        await storeApplicationStatus(userId, "application_pending");
       }
       await refresh();
       setSubmitted(true);
     } catch (e) {
-      setError(parseRpcError(e instanceof Error ? e : null).message);
+      setError(parseRpcError(e).message);
     } finally {
       setSubmitting(false);
     }
   }
 
-  if (!authChecked) {
+  if (loading) {
     return (
       <Screen title="B2B Trade Application" subtitle="Register your wholesale account">
         <Text style={styles.confirmation}>Checking session…</Text>
@@ -184,11 +177,17 @@ export function RegisterScreen({ navigation }: Props) {
           onChangeText={(v) => update("registeredAddress", v)}
         />
 
-        <Text style={styles.consent}>
-          By submitting, you accept the trade terms and consent to data processing for B2B onboarding.
-        </Text>
+        <TouchableOpacity style={styles.checkboxRow} onPress={() => setTradeDeclaration((v) => !v)}>
+          <View style={[styles.checkbox, tradeDeclaration && styles.checkboxChecked]} />
+          <Text style={styles.checkboxLabel}>I confirm this is a genuine B2B trade application.</Text>
+        </TouchableOpacity>
 
-        <TouchableOpacity style={styles.button} disabled={submitting} onPress={submit}>
+        <TouchableOpacity style={styles.checkboxRow} onPress={() => setDataConsent((v) => !v)}>
+          <View style={[styles.checkbox, dataConsent && styles.checkboxChecked]} />
+          <Text style={styles.checkboxLabel}>I consent to Oasis Baklawa processing my data for onboarding.</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={[styles.button, (!canSubmit || submitting) && styles.buttonDisabled]} disabled={!canSubmit || submitting} onPress={submit}>
           <Text style={styles.buttonText}>{submitting ? "Submitting…" : "Submit Application"}</Text>
         </TouchableOpacity>
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -200,9 +199,13 @@ export function RegisterScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   form: { gap: 12 },
   input: { borderWidth: 1, borderColor: "#E0C9B8", borderRadius: 8, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 },
+  checkboxRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4 },
+  checkbox: { width: 20, height: 20, borderWidth: 1, borderColor: "#7A1B2B", borderRadius: 4, backgroundColor: "#FFF" },
+  checkboxChecked: { backgroundColor: "#7A1B2B" },
+  checkboxLabel: { flex: 1, fontSize: 12, color: "#5A4438", lineHeight: 18 },
   button: { backgroundColor: "#7A1B2B", paddingVertical: 14, borderRadius: 10, alignItems: "center", marginTop: 8 },
+  buttonDisabled: { backgroundColor: "#B0A296" },
   buttonText: { color: "#FFF", fontWeight: "600" },
   error: { color: "#B3261E" },
   confirmation: { fontSize: 15, color: "#3A2A22", lineHeight: 22, marginBottom: 24 },
-  consent: { fontSize: 12, color: "#8A6B5C", lineHeight: 18 },
 });

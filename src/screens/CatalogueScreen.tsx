@@ -18,6 +18,7 @@ export function CatalogueScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [busyProductId, setBusyProductId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const loadCatalogue = useCallback(async () => {
     setLoading(true);
@@ -32,7 +33,7 @@ export function CatalogueScreen({ navigation }: Props) {
       });
       setQuantities(initialQuantities);
     } catch (e) {
-      setError(parseRpcError(e instanceof Error ? e : null).message);
+      setError(parseRpcError(e).message);
     } finally {
       setLoading(false);
     }
@@ -67,10 +68,12 @@ export function CatalogueScreen({ navigation }: Props) {
 
     setBusyProductId(product.product_id);
     setError(null);
+    setSuccessMessage(null);
     try {
       await addCustomerOrderDraftLine(product.product_id, qty);
+      setSuccessMessage(`${product.product_name} added to cart`);
     } catch (e) {
-      setError(parseRpcError(e instanceof Error ? e : null).message);
+      setError(parseRpcError(e).message);
     } finally {
       setBusyProductId(null);
     }
@@ -80,6 +83,7 @@ export function CatalogueScreen({ navigation }: Props) {
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
       <Screen title="Catalogue" subtitle="Categories · Tiered pricing · MOQ" scroll={false}>
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        {successMessage ? <Text style={styles.success}>{successMessage}</Text> : null}
         {loading ? (
           <ActivityIndicator color="#7A1B2B" style={styles.loader} />
         ) : (
@@ -189,5 +193,6 @@ const styles = StyleSheet.create({
   fab: { position: "absolute", bottom: 16, right: 0, left: 0, marginHorizontal: 20, backgroundColor: "#7A1B2B", paddingVertical: 14, borderRadius: 10, alignItems: "center" },
   fabText: { color: "#FFF", fontWeight: "700" },
   error: { color: "#B3261E", marginTop: 8, fontSize: 13 },
+  success: { color: "#2E7D32", marginTop: 8, fontSize: 13, fontWeight: "600" },
   loader: { marginTop: 24 },
 });

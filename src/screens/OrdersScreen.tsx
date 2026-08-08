@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import { BuyerGate } from "@/components/BuyerGate";
@@ -38,15 +38,19 @@ export function OrdersScreen({ navigation, route }: Props) {
   const [items, setItems] = useState<CustomerOrderItem[]>([]);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const loadOrders = useCallback(async () => {
+    setLoading(true);
     setError(null);
     try {
       const [orderRows, itemRows] = await Promise.all([fetchCustomerOrderStatus(), fetchCustomerOrderItems()]);
       setOrders(orderRows);
       setItems(itemRows);
     } catch (e) {
-      setError(parseRpcError(e instanceof Error ? e : null).message);
+      setError(parseRpcError(e).message);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -82,11 +86,14 @@ export function OrdersScreen({ navigation, route }: Props) {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <FlatList
-          data={orders}
-          keyExtractor={(item) => item.order_id}
-          contentContainerStyle={styles.list}
-          ListEmptyComponent={<Text style={styles.empty}>No orders yet</Text>}
+        {loading ? (
+          <ActivityIndicator color="#7A1B2B" style={styles.loader} />
+        ) : (
+          <FlatList
+            data={orders}
+            keyExtractor={(item) => item.order_id}
+            contentContainerStyle={styles.list}
+            ListEmptyComponent={<Text style={styles.empty}>No orders yet</Text>}
           renderItem={({ item }) => {
             const activeStage = stageIndex(item.customer_stage);
             const orderItems = itemsByOrder.get(item.order_id) ?? [];
@@ -138,6 +145,7 @@ export function OrdersScreen({ navigation, route }: Props) {
             );
           }}
         />
+        )}
       </Screen>
     </BuyerGate>
   );
@@ -166,4 +174,5 @@ const styles = StyleSheet.create({
   successCard: { backgroundColor: "#E8F3E8", borderRadius: 12, padding: 14, marginBottom: 12 },
   successTitle: { fontSize: 14, fontWeight: "700", color: "#2E7D32" },
   successLine: { fontSize: 13, color: "#3A2A22", marginTop: 4 },
+  loader: { marginTop: 24 },
 });

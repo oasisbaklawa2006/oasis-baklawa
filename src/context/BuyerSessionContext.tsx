@@ -1,6 +1,6 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { storeApplicationStatus } from "@/lib/application-status-storage";
+import { clearStoredApplicationStatus, storeApplicationStatus } from "@/lib/application-status-storage";
 import {
   resolveBuyerSession,
   type BuyerEligibilityState,
@@ -12,7 +12,9 @@ interface BuyerSessionContextValue {
   loading: boolean;
   refresh: () => Promise<BuyerSessionSnapshot>;
   isApprovedBuyer: boolean;
+  isAuthenticated: boolean;
   state: BuyerEligibilityState;
+  userId: string | null;
 }
 
 const BuyerSessionContext = createContext<BuyerSessionContextValue | null>(null);
@@ -20,22 +22,35 @@ const BuyerSessionContext = createContext<BuyerSessionContextValue | null>(null)
 export function BuyerSessionProvider({ children }: { children: React.ReactNode }) {
   const [snapshot, setSnapshot] = useState<BuyerSessionSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
+  const lastUserIdRef = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const next = await resolveBuyerSession();
-    if (next.state === "approved_buyer") {
-      await storeApplicationStatus("approved_buyer");
+    try {
+      const next = await resolveBuyerSession();
+      if (next.userId) {
+        lastUserIdRef.current = next.userId;
+      }
+      setSnapshot(next);
+
+      if (next.state === "approved_buyer" && next.userId) {
+        await storeApplicationStatus(next.userId, "approved_buyer");
+      }
+
+      return next;
+    } finally {
+      setLoading(false);
     }
-    setSnapshot(next);
-    setLoading(false);
-    return next;
   }, []);
 
   useEffect(() => {
     refresh();
-    const { data: authListener } = supabase.auth.onAuthStateChange(() => {
-      refresh();
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event) => {
+      if (event === "SIGNED_OUT" && lastUserIdRef.current) {
+        await clearStoredApplicationStatus(lastUserIdRef.current);
+        lastUserIdRef.current = null;
+      }
+      await refresh();
     });
     return () => {
       authListener.subscription.unsubscribe();
@@ -48,7 +63,9 @@ export function BuyerSessionProvider({ children }: { children: React.ReactNode }
       loading,
       refresh,
       isApprovedBuyer: snapshot?.state === "approved_buyer",
+      isAuthenticated: snapshot?.state !== "unauthenticated" && snapshot?.userId != null,
       state: snapshot?.state ?? "unauthenticated",
+      userId: snapshot?.userId ?? null,
     }),
     [snapshot, loading, refresh]
   );

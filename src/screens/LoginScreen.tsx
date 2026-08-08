@@ -21,6 +21,10 @@ export function LoginScreen({ navigation }: Props) {
 
   async function afterAuth() {
     const snapshot = await refresh();
+    if (snapshot.state === "unauthenticated") {
+      navigation.replace("Welcome");
+      return;
+    }
     if (snapshot.state === "approved_buyer") {
       navigation.replace("Home");
       return;
@@ -32,6 +36,14 @@ export function LoginScreen({ navigation }: Props) {
     navigation.replace("Home");
   }
 
+  function selectMethod(nextMethod: Method) {
+    setMethod(nextMethod);
+    setIdentifier("");
+    setOtp("");
+    setOtpSent(false);
+    setError(null);
+  }
+
   async function sendOtp() {
     setBusy(true);
     setError(null);
@@ -40,7 +52,7 @@ export function LoginScreen({ navigation }: Props) {
       if (signInError) throw signInError;
       setOtpSent(true);
     } catch (e) {
-      setError(parseRpcError(e instanceof Error ? e : null).message);
+      setError(parseRpcError(e).message);
     } finally {
       setBusy(false);
     }
@@ -54,49 +66,14 @@ export function LoginScreen({ navigation }: Props) {
       if (verifyError) throw verifyError;
       await afterAuth();
     } catch (e) {
-      setError(parseRpcError(e instanceof Error ? e : null).message);
+      setError(parseRpcError(e).message);
     } finally {
       setBusy(false);
     }
-  }
-
-  async function loginWithEmail() {
-    setBusy(true);
-    setError(null);
-    try {
-      const { error: linkError } = await supabase.auth.signInWithOtp({ email: identifier });
-      if (linkError) throw linkError;
-      setOtpSent(true);
-    } catch (e) {
-      setError(parseRpcError(e instanceof Error ? e : null).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function loginWithGoogle() {
-    setBusy(true);
-    setError(null);
-    try {
-      const { error: oauthError } = await supabase.auth.signInWithOAuth({ provider: "google" });
-      if (oauthError) throw oauthError;
-    } catch (e) {
-      setError(parseRpcError(e instanceof Error ? e : null).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function selectMethod(nextMethod: Method) {
-    setMethod(nextMethod);
-    setIdentifier("");
-    setOtp("");
-    setOtpSent(false);
-    setError(null);
   }
 
   return (
-    <Screen title="Log In" subtitle="MSG91 OTP, Email or Google">
+    <Screen title="Log In" subtitle="Mobile OTP sign-in">
       <View style={styles.tabs}>
         {(["otp", "email", "google"] as Method[]).map((m) => (
           <TouchableOpacity key={m} onPress={() => selectMethod(m)} style={[styles.tab, method === m && styles.tabActive]}>
@@ -136,15 +113,21 @@ export function LoginScreen({ navigation }: Props) {
             value={identifier}
             onChangeText={setIdentifier}
           />
-          <TouchableOpacity style={styles.button} disabled={busy} onPress={loginWithEmail}>
-            <Text style={styles.buttonText}>{otpSent ? "Magic Link Sent" : "Send Magic Link"}</Text>
+          <Text style={styles.methodNote}>
+            Magic-link email sign-in is not configured for in-app completion in this release. Use mobile OTP to sign in here.
+          </Text>
+          <TouchableOpacity style={[styles.button, styles.buttonDisabled]} disabled>
+            <Text style={styles.buttonText}>Send Magic Link</Text>
           </TouchableOpacity>
         </View>
       )}
 
       {method === "google" && (
         <View style={styles.form}>
-          <TouchableOpacity style={styles.button} disabled={busy} onPress={loginWithGoogle}>
+          <Text style={styles.methodNote}>
+            Google sign-in requires native OAuth redirect configuration that is not set up in this E1 release.
+          </Text>
+          <TouchableOpacity style={[styles.button, styles.buttonDisabled]} disabled>
             <Text style={styles.buttonText}>Continue with Google</Text>
           </TouchableOpacity>
         </View>
@@ -153,7 +136,7 @@ export function LoginScreen({ navigation }: Props) {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <TouchableOpacity onPress={() => navigation.navigate("Register")}>
-        <Text style={styles.link}>New wholesale buyer? Apply for B2B trade account</Text>
+        <Text style={styles.link}>New wholesale buyer? Apply for B2B trade application</Text>
       </TouchableOpacity>
     </Screen>
   );
@@ -167,7 +150,9 @@ const styles = StyleSheet.create({
   tabTextActive: { color: "#FFF" },
   form: { gap: 12 },
   input: { borderWidth: 1, borderColor: "#E0C9B8", borderRadius: 8, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 },
+  methodNote: { fontSize: 12, color: "#8A6B5C", lineHeight: 18 },
   button: { backgroundColor: "#7A1B2B", paddingVertical: 14, borderRadius: 10, alignItems: "center" },
+  buttonDisabled: { backgroundColor: "#B0A296" },
   buttonText: { color: "#FFF", fontWeight: "600" },
   error: { color: "#B3261E", marginTop: 12 },
   link: { color: "#7A1B2B", textAlign: "center", marginTop: 24, fontSize: 13 },

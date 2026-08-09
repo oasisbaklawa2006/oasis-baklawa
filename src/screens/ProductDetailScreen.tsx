@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-nati
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import { BuyerGate } from "@/components/BuyerGate";
+import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { ProductImage } from "@/components/ProductImage";
 import { Screen } from "@/components/Screen";
 import { ErrorState, LoadingState } from "@/components/StateViews";
@@ -24,6 +25,7 @@ function formatMoney(value: number, currency: string) {
 
 export function ProductDetailScreen({ navigation, route }: Props) {
   const { productId } = route.params;
+  const { isApprovedBuyer } = useBuyerSession();
   const [product, setProduct] = useState<CatalogueProduct | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +37,7 @@ export function ProductDetailScreen({ navigation, route }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const catalogue = await fetchCatalogue();
+      const catalogue = await fetchCatalogue({ includeBuyerPrices: isApprovedBuyer });
       const match = catalogue.find((p) => p.product_id === productId) ?? null;
       setProduct(match);
       if (match) {
@@ -47,7 +49,7 @@ export function ProductDetailScreen({ navigation, route }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [productId]);
+  }, [productId, isApprovedBuyer]);
 
   useEffect(() => {
     load();

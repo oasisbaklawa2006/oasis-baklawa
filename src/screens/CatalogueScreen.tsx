@@ -35,7 +35,7 @@ export function CatalogueScreen({ navigation }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const rows = await fetchCatalogue();
+      const rows = await fetchCatalogue({ includeBuyerPrices: isApprovedBuyer });
       setProducts(rows);
       const initialQuantities: Record<string, number> = {};
       rows.forEach((product) => {
@@ -48,7 +48,7 @@ export function CatalogueScreen({ navigation }: Props) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isApprovedBuyer]);
 
   useEffect(() => {
     loadCatalogue();

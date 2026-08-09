@@ -15,8 +15,12 @@ export async function fetchBuyerProductPrices(): Promise<BuyerProductPrice[]> {
   return data ?? [];
 }
 
-export async function fetchCatalogue(): Promise<CatalogueProduct[]> {
-  const [products, prices] = await Promise.all([fetchPublishedProducts(), fetchBuyerProductPrices()]);
+export async function fetchCatalogue(options?: { includeBuyerPrices?: boolean }): Promise<CatalogueProduct[]> {
+  const products = await fetchPublishedProducts();
+  if (!options?.includeBuyerPrices) {
+    return products;
+  }
+  const prices = await fetchBuyerProductPrices();
   const priceByProduct = new Map(prices.map((price) => [price.product_id, price]));
   return products.map((product) => ({ ...product, price: priceByProduct.get(product.product_id) }));
 }

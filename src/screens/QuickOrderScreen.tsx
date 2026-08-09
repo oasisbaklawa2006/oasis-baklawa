@@ -3,6 +3,7 @@ import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "r
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import { BuyerGate } from "@/components/BuyerGate";
+import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { Screen } from "@/components/Screen";
 import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
@@ -14,6 +15,7 @@ type Props = NativeStackScreenProps<RootStackParamList, "QuickOrder">;
 type QuickRow = { product: CatalogueProduct };
 
 export function QuickOrderScreen({ navigation }: Props) {
+  const { isApprovedBuyer } = useBuyerSession();
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<QuickRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,14 +26,14 @@ export function QuickOrderScreen({ navigation }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const catalogue = await fetchCatalogue();
+      const catalogue = await fetchCatalogue({ includeBuyerPrices: isApprovedBuyer });
       setRows(catalogue.filter((p) => p.price).map((product) => ({ product })));
     } catch (e) {
       setError(parseRpcError(e).message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isApprovedBuyer]);
 
   useEffect(() => {
     load();

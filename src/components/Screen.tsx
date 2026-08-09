@@ -1,6 +1,6 @@
 import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView, type Edge } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets, type Edge } from "react-native-safe-area-context";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 import { colors, spacing, typography } from "@/theme";
@@ -22,7 +22,10 @@ export function Screen({
   headerRight,
   safeAreaEdges = ["top"],
 }: ScreenProps) {
+  const insets = useSafeAreaInsets();
   const Body = scroll ? ScrollView : View;
+  const appliesBottomInset = !safeAreaEdges.includes("bottom");
+  const bottomInset = appliesBottomInset ? insets.bottom : 0;
   return (
     <SafeAreaView style={styles.safeArea} edges={safeAreaEdges}>
       <OfflineBanner />
@@ -37,8 +40,8 @@ export function Screen({
       </View>
       <ResponsiveContainer style={styles.responsive}>
         <Body
-          style={[styles.body, !scroll && styles.bodyPadded]}
-          contentContainerStyle={scroll ? styles.scrollContent : undefined}
+          style={[styles.body, !scroll && styles.bodyPadded, !scroll && { paddingBottom: bottomInset }]}
+          contentContainerStyle={scroll ? [styles.scrollContent, { paddingBottom: spacing.xl + bottomInset }] : undefined}
           keyboardShouldPersistTaps="handled"
         >
           {children}

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
+import { colors, spacing, typography } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Welcome">;
 
@@ -14,14 +15,31 @@ export function WelcomeScreen({ navigation }: Props) {
     <View style={styles.container}>
       <Text style={styles.greeting}>{GREETINGS[greetingIndex]}</Text>
       <Text style={styles.brand}>Oasis Baklawa</Text>
-      <Text style={styles.tagline}>Artisan sweets, wholesale trade, delivered.</Text>
+      <Text style={styles.tagline}>Artisan sweets, wholesale trade, delivered with quiet luxury.</Text>
 
       <View style={styles.actions}>
-        <TouchableOpacity style={styles.primaryButton} onPress={() => navigation.navigate("Login")}>
+        <TouchableOpacity
+          style={styles.primaryButton}
+          onPress={() => navigation.navigate("Login")}
+          accessibilityRole="button"
+          accessibilityLabel="Log in"
+        >
           <Text style={styles.primaryButtonText}>Log In</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate("Register")}>
-          <Text style={styles.secondaryButtonText}>Create Account / B2B Trade Application</Text>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => navigation.navigate("Register")}
+          accessibilityRole="button"
+          accessibilityLabel="Create B2B trade account"
+        >
+          <Text style={styles.secondaryButtonText}>Request B2B Trade Access</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.tertiaryButton}
+          onPress={() => navigation.replace("MainTabs", { screen: "Dashboard" })}
+          accessibilityRole="button"
+        >
+          <Text style={styles.tertiaryButtonText}>Explore public catalogue</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -29,13 +47,44 @@ export function WelcomeScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFF8F2", alignItems: "center", justifyContent: "center", padding: 24 },
-  greeting: { fontSize: 16, color: "#8A6B5C", marginBottom: 4 },
-  brand: { fontSize: 30, fontWeight: "700", color: "#7A1B2B" },
-  tagline: { fontSize: 14, color: "#8A6B5C", marginTop: 8, marginBottom: 40, textAlign: "center" },
-  actions: { width: "100%", gap: 12 },
-  primaryButton: { backgroundColor: "#7A1B2B", paddingVertical: 14, borderRadius: 10, alignItems: "center" },
-  primaryButtonText: { color: "#FFF", fontWeight: "600", fontSize: 16 },
-  secondaryButton: { borderWidth: 1, borderColor: "#7A1B2B", paddingVertical: 14, borderRadius: 10, alignItems: "center" },
-  secondaryButtonText: { color: "#7A1B2B", fontWeight: "600", fontSize: 14 },
+  container: {
+    flex: 1,
+    backgroundColor: colors.canvas,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: spacing.lg,
+  },
+  greeting: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeMd, color: colors.textMuted, marginBottom: 4 },
+  brand: { fontFamily: typography.fontFamilySerifBold, fontSize: 32, color: colors.textPrimary },
+  tagline: {
+    fontFamily: typography.fontFamilySans,
+    fontSize: typography.sizeMd,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xxl,
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  actions: { width: "100%", gap: spacing.md },
+  primaryButton: {
+    backgroundColor: colors.action,
+    paddingVertical: spacing.md,
+    borderRadius: 10,
+    alignItems: "center",
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  primaryButtonText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.white, fontSize: typography.sizeMd },
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: colors.textPrimary,
+    paddingVertical: spacing.md,
+    borderRadius: 10,
+    alignItems: "center",
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  secondaryButtonText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.textPrimary, fontSize: typography.sizeSm },
+  tertiaryButton: { paddingVertical: spacing.md, alignItems: "center" },
+  tertiaryButtonText: { fontFamily: typography.fontFamilySansMedium, color: colors.action, fontSize: typography.sizeSm },
 });

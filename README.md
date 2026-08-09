@@ -1,13 +1,24 @@
-# Oasis Baklawa Customer App
+# Oasis Baklawa B2B Buyer App
 
-Customer-facing web application for published catalogue browsing, authenticated buyer pricing, and customer-owned order tracking.
+Mobile-first Expo / React Native application for approved wholesale buyers to browse governed catalogue pricing, build persistent order drafts, checkout, and track fulfilment.
 
 ## Data boundary
 
-This app must use only the governed Supabase RPC contracts:
+This app uses only governed Supabase RPC contracts. It must not query raw operational tables from the client.
 
-- `published_products_v1()`
-- `buyer_product_prices_v1()`
-- `customer_order_status_v1()`
+See `scripts/verify-contract-boundary.mjs` and run `npm run verify:boundary`.
 
-It must not query raw `products`, `product_pricing_rules`, `orders`, `profiles`, `companies`, or operational logistics tables from the browser.
+## Development
+
+```bash
+npm install
+npm run quality
+npm start
+```
+
+Set `EXPO_PUBLIC_SUPABASE_ANON_KEY` for authenticated sessions.
+
+## Platform
+
+- **Canonical:** Expo SDK 51 · React Navigation (stack + bottom tabs)
+- **Not in scope:** Vite web storefront (historical branch only), Oasis Central (separate repository)

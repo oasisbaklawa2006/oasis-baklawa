@@ -36,7 +36,7 @@ export function LoginScreen({ navigation }: Props) {
     try {
       const { error: verifyError } = await supabase.auth.verifyOtp({ phone: identifier, token: otp, type: "sms" });
       if (verifyError) throw verifyError;
-      navigation.replace("Home");
+      navigation.replace("MainTabs", { screen: "Dashboard" });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Invalid OTP");
     } finally {

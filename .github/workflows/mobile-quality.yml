@@ -5,6 +5,7 @@ on:
     paths:
       - 'App.tsx'
       - 'src/**'
+      - 'scripts/**'
       - 'package.json'
       - 'package-lock.json'
       - 'app.json'
@@ -26,18 +27,4 @@ jobs:
         with:
           node-version: '22'
       - run: npm install --no-audit --no-fund
-      - name: Run TypeScript
-        id: typecheck
-        shell: bash
-        run: |
-          set -o pipefail
-          npm run typecheck 2>&1 | tee /tmp/typecheck.log
-      - name: Upload TypeScript diagnostics
-        if: failure() && steps.typecheck.outcome == 'failure'
-        uses: actions/upload-artifact@v4
-        with:
-          name: mobile-typecheck-diagnostics
-          path: /tmp/typecheck.log
-          if-no-files-found: error
-          retention-days: 7
-      - run: npx expo config --type public
+      - run: npm run quality

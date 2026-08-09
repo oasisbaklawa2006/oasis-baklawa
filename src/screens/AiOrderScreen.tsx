@@ -69,18 +69,18 @@ export function AiOrderScreen({ navigation }: Props) {
         />
       )}
       {mode === "audio" && (
-        <TouchableOpacity style={styles.recordButton}>
-          <Text style={styles.recordButtonText}>🎙 Tap to record order</Text>
-        </TouchableOpacity>
+        <View style={styles.unavailable}>
+          <Text style={styles.unavailableText}>Voice ordering is not yet available. The ai-order-parse contract for audio input has not been verified for production.</Text>
+        </View>
       )}
       {mode === "image" && (
-        <TouchableOpacity style={styles.recordButton}>
-          <Text style={styles.recordButtonText}>📷 Capture or upload PO image</Text>
-        </TouchableOpacity>
+        <View style={styles.unavailable}>
+          <Text style={styles.unavailableText}>PO image capture is not yet available. OCR ordering requires a verified edge function contract.</Text>
+        </View>
       )}
 
-      <TouchableOpacity style={styles.button} disabled={parsing} onPress={parseOrder}>
-        <Text style={styles.buttonText}>{parsing ? "Parsing…" : "Parse Order"}</Text>
+      <TouchableOpacity style={styles.button} disabled={parsing || mode !== "text"} onPress={parseOrder}>
+        <Text style={styles.buttonText}>{parsing ? "Parsing…" : mode === "text" ? "Parse Order" : "Text mode only"}</Text>
       </TouchableOpacity>
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -130,6 +130,8 @@ const styles = StyleSheet.create({
   secondaryButton: { flex: 1, borderWidth: 1, borderColor: "#7A1B2B", paddingVertical: 14, borderRadius: 10, alignItems: "center" },
   secondaryButtonText: { color: "#7A1B2B", fontWeight: "600" },
   error: { color: "#B3261E", marginTop: 8 },
+  unavailable: { borderWidth: 1, borderColor: "#D9D2C4", borderRadius: 10, padding: 16, backgroundColor: "#F8F8F8" },
+  unavailableText: { fontSize: 13, color: "#5C4A3A", lineHeight: 20 },
   reviewRow: { flexDirection: "row", gap: 8, alignItems: "center", marginBottom: 10 },
   reviewInput: { flex: 2, borderWidth: 1, borderColor: "#E0C9B8", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 },
   reviewQty: { flex: 1, borderWidth: 1, borderColor: "#E0C9B8", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, textAlign: "center" },

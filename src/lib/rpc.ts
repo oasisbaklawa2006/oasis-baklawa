@@ -17,7 +17,10 @@ type RpcInvoker = <Fn extends keyof PublicFunctions>(
 
 const invokeRpc = supabase.rpc as unknown as RpcInvoker;
 
-export async function callRpc<Fn extends ZeroArgRpc>(fn: Fn): Promise<PublicFunctions[Fn]["Returns"]>;
+export async function callRpc<Fn extends ZeroArgRpc>(
+  fn: Fn,
+  args?: RpcArgs<Fn>
+): Promise<PublicFunctions[Fn]["Returns"]>;
 export async function callRpc<Fn extends ParamRpc>(
   fn: Fn,
   args: RpcArgs<Fn>

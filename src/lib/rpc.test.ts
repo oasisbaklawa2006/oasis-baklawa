@@ -15,12 +15,13 @@ type RpcArgTypingChecks = [
   Expect<FirstArgRequired<CallRpcArgs<"calculate_customer_advance_v1">> extends true ? true : false>,
   Expect<"published_products_v1" extends ZeroArgRpc ? true : false>,
   Expect<"calculate_customer_advance_v1" extends ParamRpc ? true : false>,
+  Expect<[{}] extends CallRpcArgs<"published_products_v1"> ? true : false>,
 ];
 
-const rpcArgTypingChecks: RpcArgTypingChecks = [true, true, true, true];
+const rpcArgTypingChecks: RpcArgTypingChecks = [true, true, true, true, true];
 
 describe("callRpc argument typing", () => {
   it("classifies zero-argument and parameterized RPCs at compile time", () => {
-    assert.deepEqual(rpcArgTypingChecks, [true, true, true, true]);
+    assert.deepEqual(rpcArgTypingChecks, [true, true, true, true, true]);
   });
 });

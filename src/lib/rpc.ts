@@ -1,9 +1,20 @@
 import { supabase } from "@/lib/supabase";
+import type { Database } from "@/types/database.types";
 
-/** Typed escape hatch for governed RPC calls until `supabase gen types` is run in CI. */
-export async function callRpc<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any).rpc(fn, args);
+type PublicFunctions = Database["public"]["Functions"];
+
+type RpcInvoker = <Fn extends keyof PublicFunctions>(
+  fn: Fn,
+  args?: PublicFunctions[Fn]["Args"]
+) => Promise<{ data: PublicFunctions[Fn]["Returns"] | null; error: Error | null }>;
+
+const invokeRpc = supabase.rpc as unknown as RpcInvoker;
+
+export async function callRpc<Fn extends keyof PublicFunctions>(
+  fn: Fn,
+  args?: PublicFunctions[Fn]["Args"]
+): Promise<PublicFunctions[Fn]["Returns"]> {
+  const { data, error } = await invokeRpc(fn, args);
   if (error) throw error;
-  return data as T;
+  return data as PublicFunctions[Fn]["Returns"];
 }

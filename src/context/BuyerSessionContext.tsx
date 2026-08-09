@@ -23,11 +23,16 @@ export function BuyerSessionProvider({ children }: { children: React.ReactNode }
   const [snapshot, setSnapshot] = useState<BuyerSessionSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const lastUserIdRef = useRef<string | null>(null);
+  const requestIdRef = useRef(0);
 
   const refresh = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     try {
       const next = await resolveBuyerSession();
+      if (requestId !== requestIdRef.current) {
+        return next;
+      }
       if (next.userId) {
         lastUserIdRef.current = next.userId;
       }
@@ -39,13 +44,18 @@ export function BuyerSessionProvider({ children }: { children: React.ReactNode }
 
       return next;
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
     refresh();
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event) => {
+      if (event === "TOKEN_REFRESHED") {
+        return;
+      }
       if (event === "SIGNED_OUT" && lastUserIdRef.current) {
         await clearStoredApplicationStatus(lastUserIdRef.current);
         lastUserIdRef.current = null;

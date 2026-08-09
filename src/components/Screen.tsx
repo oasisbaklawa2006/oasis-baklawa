@@ -1,6 +1,6 @@
 import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, type Edge } from "react-native-safe-area-context";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 import { colors, spacing, typography } from "@/theme";
@@ -11,12 +11,20 @@ interface ScreenProps {
   children?: React.ReactNode;
   scroll?: boolean;
   headerRight?: React.ReactNode;
+  safeAreaEdges?: Edge[];
 }
 
-export function Screen({ title, subtitle, children, scroll = true, headerRight }: ScreenProps) {
+export function Screen({
+  title,
+  subtitle,
+  children,
+  scroll = true,
+  headerRight,
+  safeAreaEdges = ["top"],
+}: ScreenProps) {
   const Body = scroll ? ScrollView : View;
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+    <SafeAreaView style={styles.safeArea} edges={safeAreaEdges}>
       <OfflineBanner />
       <View style={styles.header}>
         <View style={styles.headerText}>

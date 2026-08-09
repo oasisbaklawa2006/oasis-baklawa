@@ -71,7 +71,7 @@ function inferCode(raw: string, sqlState: string | null): RpcErrorCode {
   if (sqlState === "28000" || raw.includes("JWT") || raw.includes("session expired")) {
     return "AUTH_REQUIRED";
   }
-  if (raw.includes("BUYER_NOT_ELIGIBLE") || sqlState === "42501") {
+  if (raw.includes("BUYER_NOT_ELIGIBLE")) {
     return "BUYER_NOT_ELIGIBLE";
   }
   if (raw.includes("APPLICATION_INCOMPLETE")) return "APPLICATION_INCOMPLETE";

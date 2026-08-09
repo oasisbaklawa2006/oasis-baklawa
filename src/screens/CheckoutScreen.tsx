@@ -106,7 +106,11 @@ export function CheckoutScreen({ navigation }: Props) {
     setError(null);
     try {
       const result = await submitCustomerOrder(idempotencyKey);
-      await clearCheckoutIdempotencyKey(draft.draft_id);
+      try {
+        await clearCheckoutIdempotencyKey(draft.draft_id);
+      } catch {
+        // Best-effort cleanup; server deduplicates repeated keys.
+      }
       navigation.replace("MainTabs", {
         screen: "Orders",
         params: {
@@ -135,7 +139,7 @@ export function CheckoutScreen({ navigation }: Props) {
 
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
-      <Screen title="Checkout" subtitle="Authoritative draft totals · Advance due">
+      <Screen title="Checkout" subtitle="Authoritative draft totals · Advance due" safeAreaEdges={["top", "bottom"]}>
         {loading ? (
           <LoadingState message="Preparing checkout…" />
         ) : error && !draft ? (

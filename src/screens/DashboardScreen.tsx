@@ -10,6 +10,7 @@ import { Screen } from "@/components/Screen";
 import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { fetchPublishedProducts } from "@/lib/api/catalogue";
 import { fetchCustomerOrderStatus } from "@/lib/api/orders";
+import { isOpenFulfilmentStage } from "@/lib/order-stages";
 import { parseRpcError } from "@/lib/rpc-errors";
 import type { CustomerOrderStatus, PublishedProduct } from "@/types/database.types";
 import { colors, spacing, typography } from "@/theme";
@@ -33,19 +34,24 @@ export function DashboardScreen({ navigation }: Props) {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [productRows, orderRows] = await Promise.all([fetchPublishedProducts(), fetchCustomerOrderStatus()]);
+      const isApprovedBuyer = snapshot?.state === "approved_buyer";
+      const [productRows, orderRows] = await Promise.all([
+        fetchPublishedProducts(),
+        isApprovedBuyer ? fetchCustomerOrderStatus() : Promise.resolve([]),
+      ]);
       setProducts(productRows);
       setOrders(orderRows);
     } catch (e) {
       setError(parseRpcError(e).message);
     }
-  }, []);
+  }, [snapshot?.state]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   const lifetimeValue = useMemo(() => orders.reduce((sum, o) => sum + o.order_value, 0), [orders]);
+  const openOrders = useMemo(() => orders.filter((o) => isOpenFulfilmentStage(o.customer_stage)), [orders]);
   const ordersNeedingAdvance = useMemo(
     () => orders.filter((o) => o.payment_stage.toLowerCase().includes("pending") || o.payment_stage.toLowerCase().includes("advance")),
     [orders]
@@ -54,7 +60,7 @@ export function DashboardScreen({ navigation }: Props) {
     const now = Date.now();
     return orders.filter((o) => {
       const hours = (now - new Date(o.updated_at).getTime()) / (1000 * 60 * 60);
-      return hours > 48 && !o.customer_stage.toLowerCase().includes("delivered");
+      return hours > 48 && isOpenFulfilmentStage(o.customer_stage);
     });
   }, [orders]);
   const bestSellers = useMemo(() => products.slice(0, 6), [products]);
@@ -77,8 +83,8 @@ export function DashboardScreen({ navigation }: Props) {
         </View>
 
         <View style={styles.statsRow}>
-          <StatCard label="Lifetime orders" value={`₹${lifetimeValue.toLocaleString("en-IN")}`} />
-          <StatCard label="Open orders" value={String(orders.length)} />
+          <StatCard label="Lifetime order value" value={`₹${lifetimeValue.toLocaleString("en-IN")}`} />
+          <StatCard label="Open orders" value={String(openOrders.length)} />
         </View>
 
         <View style={styles.unavailableCard}>

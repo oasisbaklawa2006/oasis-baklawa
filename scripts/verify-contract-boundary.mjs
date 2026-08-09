@@ -47,7 +47,7 @@ function inspect(path) {
     const direct = new RegExp(`\\.from\\(\\s*['"]${table}['"]\\s*\\)`, "g");
     if (direct.test(source)) violations.push(`${relative(".", path)} directly accesses ${table}`);
   }
-  for (const match of source.matchAll(/\.rpc\(\s*['"]([^'"]+)['"]/g)) {
+  for (const match of source.matchAll(/(?:\.rpc|callRpc)\(\s*['"]([^'"]+)['"]/g)) {
     if (!allowedRpcs.has(match[1])) violations.push(`${relative(".", path)} calls unapproved RPC ${match[1]}`);
   }
   if (/service[_-]?role/i.test(source) && !path.endsWith("verify-contract-boundary.mjs")) {

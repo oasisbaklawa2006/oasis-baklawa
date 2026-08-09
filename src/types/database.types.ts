@@ -91,6 +91,16 @@ export type Database = {
         Args: SubmitB2bTradeApplicationArgs;
         Returns: SubmitB2bTradeApplicationResult[];
       };
+      submit_customer_support_ticket_v1: {
+        Args: {
+          p_order_id: string;
+          p_issue_type: string;
+          p_description: string;
+          p_product_sku?: string | null;
+          p_quantity_affected?: number | null;
+        };
+        Returns: string;
+      };
     };
   };
 };

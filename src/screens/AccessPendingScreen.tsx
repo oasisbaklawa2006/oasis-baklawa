@@ -1,8 +1,9 @@
 import React from "react";
-import { Linking, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import { Screen } from "@/components/Screen";
+import { openExternalUrl } from "@/lib/open-external-url";
 import { colors, spacing, typography } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "AccessPending">;
@@ -28,7 +29,7 @@ export function AccessPendingScreen({ navigation }: Props) {
         </View>
         <TouchableOpacity
           style={styles.primary}
-          onPress={() => Linking.openURL(`tel:${SUPPORT_PHONE}`)}
+          onPress={() => openExternalUrl(`tel:${SUPPORT_PHONE}`, `Call ${SUPPORT_PHONE} for approval assistance.`)}
           accessibilityRole="button"
           accessibilityLabel="Call for approval assistance"
         >
@@ -36,7 +37,7 @@ export function AccessPendingScreen({ navigation }: Props) {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.whatsapp}
-          onPress={() => Linking.openURL(SUPPORT_WHATSAPP)}
+          onPress={() => openExternalUrl(SUPPORT_WHATSAPP, "WhatsApp is not available on this device. Call support instead.")}
           accessibilityRole="button"
           accessibilityLabel="WhatsApp buyer support"
         >

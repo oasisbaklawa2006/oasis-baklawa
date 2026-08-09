@@ -8,6 +8,7 @@ import { BuyerGate } from "@/components/BuyerGate";
 import { Screen } from "@/components/Screen";
 import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { fetchCustomerOrderItems, fetchCustomerOrderStatus } from "@/lib/api/orders";
+import { FULFILMENT_TIMELINE_STAGES, fulfilmentStageIndex } from "@/lib/order-stages";
 import { parseRpcError } from "@/lib/rpc-errors";
 import type { CustomerOrderItem, CustomerOrderStatus } from "@/types/database.types";
 import { colors, spacing, typography } from "@/theme";
@@ -16,21 +17,6 @@ type Props = CompositeScreenProps<
   BottomTabScreenProps<MainTabParamList, "Orders">,
   NativeStackScreenProps<RootStackParamList>
 >;
-
-const TIMELINE_STAGES = [
-  { key: "order_received", label: "Order Received" },
-  { key: "payment_pending", label: "Payment Pending" },
-  { key: "in_production", label: "In Production" },
-  { key: "packing", label: "Packing" },
-  { key: "ready_for_dispatch", label: "Ready for Dispatch" },
-  { key: "dispatched", label: "Dispatched" },
-  { key: "processing", label: "Processing" },
-];
-
-function stageIndex(stage: string): number {
-  const idx = TIMELINE_STAGES.findIndex((s) => s.key === stage);
-  return idx === -1 ? 0 : idx;
-}
 
 function istStagnancy(updatedAt: string): string {
   const updated = new Date(updatedAt).getTime();
@@ -48,8 +34,10 @@ export function OrdersScreen({ navigation, route }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadOrders = useCallback(async () => {
-    setLoading(true);
+  const loadOrders = useCallback(async ({ showLoader = true }: { showLoader?: boolean } = {}) => {
+    if (showLoader) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const [orderRows, itemRows] = await Promise.all([fetchCustomerOrderStatus(), fetchCustomerOrderItems()]);
@@ -58,7 +46,9 @@ export function OrdersScreen({ navigation, route }: Props) {
     } catch (e) {
       setError(parseRpcError(e).message);
     } finally {
-      setLoading(false);
+      if (showLoader) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -78,7 +68,7 @@ export function OrdersScreen({ navigation, route }: Props) {
 
   async function onRefresh() {
     setRefreshing(true);
-    await loadOrders();
+    await loadOrders({ showLoader: false });
     setRefreshing(false);
   }
 
@@ -98,7 +88,7 @@ export function OrdersScreen({ navigation, route }: Props) {
           </View>
         ) : null}
 
-        {error ? <ErrorState message={error} onRetry={loadOrders} /> : null}
+        {error ? <ErrorState message={error} onRetry={() => loadOrders()} /> : null}
 
         {loading ? (
           <LoadingState message="Loading orders…" />
@@ -109,62 +99,69 @@ export function OrdersScreen({ navigation, route }: Props) {
             contentContainerStyle={styles.list}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             ListEmptyComponent={<EmptyState title="No orders yet" message="Submitted Sales Orders will appear here." />}
-          renderItem={({ item }) => {
-            const activeStage = stageIndex(item.customer_stage);
-            const orderItems = itemsByOrder.get(item.order_id) ?? [];
-            const expanded = expandedOrderId === item.order_id;
-            return (
-              <TouchableOpacity
-                style={styles.card}
-                onPress={() => navigation.navigate("OrderDetail", { orderId: item.order_id })}
-                accessibilityRole="button"
-                accessibilityLabel={`Order ${item.order_number}`}
-              >
-                <View style={styles.cardHeader}>
-                  <Text style={styles.orderNumber}>#{item.order_number}</Text>
-                  <Text style={styles.orderValue}>₹{item.order_value.toLocaleString("en-IN")}</Text>
-                </View>
-                <Text style={styles.stageMeta}>
-                  {item.customer_stage.replace(/_/g, " ")} · {item.payment_stage.replace(/_/g, " ")}
-                </Text>
-                <Text style={styles.stagnancy}>{istStagnancy(item.updated_at)}</Text>
-
-                <View style={styles.timeline}>
-                  {TIMELINE_STAGES.map((stage, index) => (
-                    <View key={stage.key} style={styles.timelineRow}>
-                      <View style={[styles.dot, index <= activeStage && styles.dotActive]} />
-                      <Text style={[styles.timelineLabel, index <= activeStage && styles.timelineLabelActive]}>{stage.label}</Text>
-                    </View>
-                  ))}
-                </View>
-
-                {item.requested_dispatch_date ? (
-                  <Text style={styles.dispatchDate}>Requested dispatch: {item.requested_dispatch_date}</Text>
-                ) : null}
-
-                {item.tracking_number ? (
-                  <Text style={styles.tracking}>
-                    {item.courier_name ?? "Courier"} · AWB {item.tracking_number}
+            renderItem={({ item }) => {
+              const activeStage = fulfilmentStageIndex(item.customer_stage);
+              const orderItems = itemsByOrder.get(item.order_id) ?? [];
+              const expanded = expandedOrderId === item.order_id;
+              return (
+                <TouchableOpacity
+                  style={styles.card}
+                  onPress={() => navigation.navigate("OrderDetail", { orderId: item.order_id, order: item })}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Order ${item.order_number}`}
+                >
+                  <View style={styles.cardHeader}>
+                    <Text style={styles.orderNumber}>#{item.order_number}</Text>
+                    <Text style={styles.orderValue}>₹{item.order_value.toLocaleString("en-IN")}</Text>
+                  </View>
+                  <Text style={styles.stageMeta}>
+                    {item.customer_stage.replace(/_/g, " ")} · {item.payment_stage.replace(/_/g, " ")}
                   </Text>
-                ) : null}
+                  <Text style={styles.stagnancy}>{istStagnancy(item.updated_at)}</Text>
 
-                {orderItems.length > 0 ? (
-                  <TouchableOpacity onPress={() => setExpandedOrderId(expanded ? null : item.order_id)}>
-                    <Text style={styles.itemsToggle}>{expanded ? "Hide line items" : "Show line items"}</Text>
-                  </TouchableOpacity>
-                ) : null}
+                  <View style={styles.timeline}>
+                    {FULFILMENT_TIMELINE_STAGES.map((stage, index) => (
+                      <View key={stage.key} style={styles.timelineRow}>
+                        <View style={[styles.dot, activeStage >= 0 && index <= activeStage && styles.dotActive]} />
+                        <Text
+                          style={[
+                            styles.timelineLabel,
+                            activeStage >= 0 && index <= activeStage && styles.timelineLabelActive,
+                          ]}
+                        >
+                          {stage.label}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
 
-                {expanded
-                  ? orderItems.map((line) => (
-                      <Text key={line.item_id} style={styles.itemLine}>
-                        {line.product_name} · {line.quantity} {line.pack_size ?? "units"} · {line.sku}
-                      </Text>
-                    ))
-                  : null}
-              </TouchableOpacity>
-            );
-          }}
-        />
+                  {item.requested_dispatch_date ? (
+                    <Text style={styles.dispatchDate}>Requested dispatch: {item.requested_dispatch_date}</Text>
+                  ) : null}
+
+                  {item.tracking_number ? (
+                    <Text style={styles.tracking}>
+                      {item.courier_name ?? "Courier"} · AWB {item.tracking_number}
+                    </Text>
+                  ) : null}
+
+                  {orderItems.length > 0 ? (
+                    <TouchableOpacity onPress={() => setExpandedOrderId(expanded ? null : item.order_id)}>
+                      <Text style={styles.itemsToggle}>{expanded ? "Hide line items" : "Show line items"}</Text>
+                    </TouchableOpacity>
+                  ) : null}
+
+                  {expanded
+                    ? orderItems.map((line) => (
+                        <Text key={line.item_id} style={styles.itemLine}>
+                          {line.product_name} · {line.quantity} {line.pack_size ?? "units"} · {line.sku}
+                        </Text>
+                      ))
+                    : null}
+                </TouchableOpacity>
+              );
+            }}
+          />
         )}
       </Screen>
     </BuyerGate>

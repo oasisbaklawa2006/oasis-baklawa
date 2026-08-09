@@ -5,25 +5,16 @@ import type { RootStackParamList } from "@/navigation/types";
 import { Screen } from "@/components/Screen";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { fetchCustomerOrderItems, fetchCustomerOrderStatus } from "@/lib/api/orders";
+import { FULFILMENT_TIMELINE_STAGES, fulfilmentStageIndex } from "@/lib/order-stages";
 import { parseRpcError } from "@/lib/rpc-errors";
 import type { CustomerOrderItem, CustomerOrderStatus } from "@/types/database.types";
 import { colors, spacing, typography } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "OrderDetail">;
 
-const TIMELINE_STAGES = [
-  "order_received",
-  "payment_pending",
-  "in_production",
-  "packing",
-  "ready_for_dispatch",
-  "dispatched",
-  "delivered",
-];
-
 export function OrderDetailScreen({ navigation, route }: Props) {
-  const { orderId } = route.params;
-  const [order, setOrder] = useState<CustomerOrderStatus | null>(null);
+  const { orderId, order: initialOrder } = route.params;
+  const [order, setOrder] = useState<CustomerOrderStatus | null>(initialOrder ?? null);
   const [items, setItems] = useState<CustomerOrderItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,15 +23,20 @@ export function OrderDetailScreen({ navigation, route }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const [orders, allItems] = await Promise.all([fetchCustomerOrderStatus(), fetchCustomerOrderItems()]);
-      setOrder(orders.find((o) => o.order_id === orderId) ?? null);
+      const allItems = await fetchCustomerOrderItems();
       setItems(allItems.filter((i) => i.order_id === orderId));
+      if (initialOrder) {
+        setOrder(initialOrder);
+      } else {
+        const orders = await fetchCustomerOrderStatus();
+        setOrder(orders.find((o) => o.order_id === orderId) ?? null);
+      }
     } catch (e) {
       setError(parseRpcError(e).message);
     } finally {
       setLoading(false);
     }
-  }, [orderId]);
+  }, [orderId, initialOrder]);
 
   useEffect(() => {
     load();
@@ -48,7 +44,7 @@ export function OrderDetailScreen({ navigation, route }: Props) {
 
   const stageIndex = useMemo(() => {
     if (!order) return -1;
-    return TIMELINE_STAGES.indexOf(order.customer_stage);
+    return fulfilmentStageIndex(order.customer_stage);
   }, [order]);
 
   return (
@@ -71,11 +67,11 @@ export function OrderDetailScreen({ navigation, route }: Props) {
             </Text>
           </View>
           <Text style={styles.section}>Fulfilment timeline</Text>
-          {TIMELINE_STAGES.map((stage, index) => (
-            <View key={stage} style={styles.timelineRow}>
-              <View style={[styles.dot, index <= stageIndex && styles.dotActive]} />
-              <Text style={[styles.timelineLabel, index <= stageIndex && styles.timelineLabelActive]}>
-                {stage.replace(/_/g, " ")}
+          {FULFILMENT_TIMELINE_STAGES.map((stage, index) => (
+            <View key={stage.key} style={styles.timelineRow}>
+              <View style={[styles.dot, stageIndex >= 0 && index <= stageIndex && styles.dotActive]} />
+              <Text style={[styles.timelineLabel, stageIndex >= 0 && index <= stageIndex && styles.timelineLabelActive]}>
+                {stage.label}
               </Text>
             </View>
           ))}
@@ -115,7 +111,7 @@ const styles = StyleSheet.create({
   timelineRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.border },
   dotActive: { backgroundColor: colors.action },
-  timelineLabel: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textMuted, textTransform: "capitalize" },
+  timelineLabel: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textMuted },
   timelineLabelActive: { color: colors.textPrimary, fontFamily: typography.fontFamilySansSemiBold },
   tracking: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textSecondary, marginTop: spacing.md },
   line: { paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderLight },

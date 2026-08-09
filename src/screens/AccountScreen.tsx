@@ -41,11 +41,23 @@ export function AccountScreen({ navigation }: Props) {
   }, [load]);
 
   async function signOut() {
-    await supabase.auth.signOut();
+    let signOutError: string | null = null;
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      signOutError = parseRpcError(e).message;
+    }
     setCompany(null);
     setTeam([]);
-    await refresh();
+    try {
+      await refresh();
+    } catch {
+      // Local session teardown still proceeds.
+    }
     navigation.getParent()?.reset({ index: 0, routes: [{ name: "Welcome" }] });
+    if (signOutError) {
+      setError(signOutError);
+    }
   }
 
   if (snapshot?.state === "unauthenticated") {

@@ -1,4 +1,5 @@
 import type { NavigatorScreenParams } from "@react-navigation/native";
+import type { CustomerOrderStatus } from "@/types/database.types";
 
 export type MainTabParamList = {
   Catalogue: undefined;
@@ -25,9 +26,10 @@ export type RootStackParamList = {
   Register: undefined;
   AccessPending: undefined;
   AccessRejected: undefined;
+  SessionRecovery: { message: string };
   MainTabs: NavigatorScreenParams<MainTabParamList>;
   ProductDetail: { productId: string };
-  OrderDetail: { orderId: string };
+  OrderDetail: { orderId: string; order?: CustomerOrderStatus };
   QuickOrder: undefined;
   AiOrder: undefined;
   Cart: undefined;

@@ -144,20 +144,29 @@ export function RegisterScreen({ navigation }: Props) {
         <TextInput
           style={styles.input}
           placeholder="Business name"
+          accessibilityLabel="Business name"
           value={form.businessName}
           onChangeText={(v) => update("businessName", v)}
         />
         <TextInput
           style={styles.input}
           placeholder="GST number"
+          accessibilityLabel="GST number"
           autoCapitalize="characters"
           value={form.gstNumber}
           onChangeText={(v) => update("gstNumber", v)}
         />
-        <TextInput style={styles.input} placeholder="Contact person" value={form.contactPerson} onChangeText={(v) => update("contactPerson", v)} />
+        <TextInput
+          style={styles.input}
+          placeholder="Contact person"
+          accessibilityLabel="Contact person"
+          value={form.contactPerson}
+          onChangeText={(v) => update("contactPerson", v)}
+        />
         <TextInput
           style={styles.input}
           placeholder="Mobile number"
+          accessibilityLabel="Mobile number"
           keyboardType="phone-pad"
           value={form.mobileNumber}
           onChangeText={(v) => update("mobileNumber", v)}
@@ -165,15 +174,23 @@ export function RegisterScreen({ navigation }: Props) {
         <TextInput
           style={styles.input}
           placeholder="Email"
+          accessibilityLabel="Email"
           keyboardType="email-address"
           autoCapitalize="none"
           value={form.email}
           onChangeText={(v) => update("email", v)}
         />
-        <TextInput style={styles.input} placeholder="City" value={form.city} onChangeText={(v) => update("city", v)} />
+        <TextInput
+          style={styles.input}
+          placeholder="City"
+          accessibilityLabel="City"
+          value={form.city}
+          onChangeText={(v) => update("city", v)}
+        />
         <TextInput
           style={styles.input}
           placeholder="Registered address"
+          accessibilityLabel="Registered address"
           value={form.registeredAddress}
           onChangeText={(v) => update("registeredAddress", v)}
         />

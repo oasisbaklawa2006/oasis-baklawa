@@ -17,6 +17,7 @@ const STACK_ROUTES = [
   "Cart",
   "Checkout",
   "Documents",
+  "SessionRecovery",
 ];
 
 const PROGRAMMATIC_ONLY = new Set([
@@ -27,6 +28,7 @@ const PROGRAMMATIC_ONLY = new Set([
   "AccessRejected",
   "MainTabs",
   "Checkout",
+  "SessionRecovery",
 ]);
 
 function walk(dir, files = []) {
@@ -46,7 +48,6 @@ for (const route of STACK_ROUTES) {
     new RegExp(`navigate\\(\\s*["']${route}["']`),
     new RegExp(`replace\\(\\s*["']${route}["']`),
     new RegExp(`reset\\([^)]*name:\\s*["']${route}["']`),
-    new RegExp(`name=["']${route}["']`),
   ];
   if (patterns.some((pattern) => pattern.test(source))) {
     referenced.add(route);

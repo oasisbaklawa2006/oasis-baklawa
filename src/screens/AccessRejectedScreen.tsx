@@ -1,9 +1,10 @@
 import React from "react";
-import { Linking, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import { Screen } from "@/components/Screen";
 import { useBuyerSession } from "@/context/BuyerSessionContext";
+import { openExternalUrl } from "@/lib/open-external-url";
 import { colors, spacing, typography } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "AccessRejected">;
@@ -22,8 +23,9 @@ export function AccessRejectedScreen({ navigation }: Props) {
         </Text>
         <TouchableOpacity
           style={styles.primary}
-          onPress={() => Linking.openURL(`tel:${SUPPORT_PHONE}`)}
+          onPress={() => openExternalUrl(`tel:${SUPPORT_PHONE}`, `Call ${SUPPORT_PHONE} for buyer support.`)}
           accessibilityRole="button"
+          accessibilityLabel="Contact buyer support"
         >
           <Text style={styles.primaryText}>Contact buyer support</Text>
         </TouchableOpacity>

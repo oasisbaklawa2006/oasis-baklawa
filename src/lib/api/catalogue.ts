@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { callRpc } from "@/lib/rpc";
 import type { BuyerProductPrice, PublishedProduct } from "@/types/database.types";
 
 export interface CatalogueProduct extends PublishedProduct {
@@ -6,15 +6,13 @@ export interface CatalogueProduct extends PublishedProduct {
 }
 
 export async function fetchPublishedProducts(): Promise<PublishedProduct[]> {
-  const { data, error } = await supabase.rpc("published_products_v1");
-  if (error) throw error;
-  return (data as PublishedProduct[] | null) ?? [];
+  const data = await callRpc("published_products_v1");
+  return data ?? [];
 }
 
 export async function fetchBuyerProductPrices(): Promise<BuyerProductPrice[]> {
-  const { data, error } = await supabase.rpc("buyer_product_prices_v1");
-  if (error) throw error;
-  return (data as BuyerProductPrice[] | null) ?? [];
+  const data = await callRpc("buyer_product_prices_v1");
+  return data ?? [];
 }
 
 export async function fetchCatalogue(): Promise<CatalogueProduct[]> {

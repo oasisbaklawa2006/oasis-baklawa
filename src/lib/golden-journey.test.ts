@@ -22,6 +22,7 @@ const STACK_ROUTES = [
   "Cart",
   "Checkout",
   "Documents",
+  "SessionRecovery",
 ] as const;
 
 function walkScreens(dir: string): string[] {

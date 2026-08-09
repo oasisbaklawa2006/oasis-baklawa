@@ -3,9 +3,14 @@ import assert from "node:assert/strict";
 import { parseRpcError } from "./rpc-errors";
 
 describe("parseRpcError", () => {
-  it("accepts PostgrestError-like objects that are not instanceof Error", () => {
+  it("maps BUYER_NOT_ELIGIBLE from governed message with SQLSTATE 42501", () => {
     const parsed = parseRpcError({ message: "BUYER_NOT_ELIGIBLE: approved buyer company context is required", code: "42501" });
     assert.equal(parsed.code, "BUYER_NOT_ELIGIBLE");
+  });
+
+  it("does not map bare SQLSTATE 42501 to BUYER_NOT_ELIGIBLE", () => {
+    const parsed = parseRpcError({ message: "permission denied for table orders", code: "42501" });
+    assert.equal(parsed.code, "UNKNOWN");
   });
 
   it("does not treat unknown governed prefixes as known codes", () => {

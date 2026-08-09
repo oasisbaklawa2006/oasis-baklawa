@@ -1,6 +1,7 @@
-import { supabase } from "@/lib/supabase";
+import { callRpc } from "@/lib/rpc";
 import { readStoredApplicationStatus } from "@/lib/application-status-storage";
 import { parseRpcError } from "@/lib/rpc-errors";
+import { supabase } from "@/lib/supabase";
 import type {
   CustomerCompany,
   CustomerTeamMember,
@@ -25,31 +26,25 @@ export interface BuyerSessionSnapshot {
 }
 
 export async function fetchBuyerEligibleCompanyId(): Promise<string | null> {
-  const { data, error } = await supabase.rpc("customer_buyer_eligible_company_id");
-  if (error) throw error;
-  return (data as string | null) ?? null;
+  const data = await callRpc("customer_buyer_eligible_company_id");
+  return data ?? null;
 }
 
 export async function fetchCustomerCompany(): Promise<CustomerCompany | null> {
-  const { data, error } = await supabase.rpc("customer_company_v1");
-  if (error) throw error;
-  const rows = data as CustomerCompany[] | null;
-  return rows?.[0] ?? null;
+  const data = await callRpc("customer_company_v1");
+  return data?.[0] ?? null;
 }
 
 export async function fetchCustomerTeam(): Promise<CustomerTeamMember[]> {
-  const { data, error } = await supabase.rpc("customer_team_v1");
-  if (error) throw error;
-  return (data as CustomerTeamMember[] | null) ?? [];
+  const data = await callRpc("customer_team_v1");
+  return data ?? [];
 }
 
 export async function submitB2bTradeApplication(
   args: SubmitB2bTradeApplicationArgs
 ): Promise<SubmitB2bTradeApplicationResult> {
-  const { data, error } = await supabase.rpc("submit_b2b_trade_application_v1", args);
-  if (error) throw error;
-  const rows = data as SubmitB2bTradeApplicationResult[] | null;
-  const result = rows?.[0];
+  const data = await callRpc("submit_b2b_trade_application_v1", args);
+  const result = data?.[0];
   if (!result) {
     throw new Error("Trade application did not return a result. Please try again.");
   }
@@ -90,7 +85,10 @@ export async function resolveBuyerSession(): Promise<BuyerSessionSnapshot> {
       return { state: "approved_buyer", companyId, company, message: null, userId };
     }
 
-    const { error: draftProbeError } = await supabase.rpc("get_customer_order_draft_v1");
+    const { error: draftProbeError } = await callRpc("get_customer_order_draft_v1").then(
+      () => ({ error: null }),
+      (error) => ({ error })
+    );
     if (draftProbeError) {
       const parsed = parseRpcError(draftProbeError);
       if (parsed.code === "BUYER_NOT_ELIGIBLE") {

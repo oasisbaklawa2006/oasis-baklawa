@@ -109,7 +109,7 @@ export function CartScreen({ navigation }: Props) {
 
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
-      <Screen title="Cart" subtitle="Server draft · MOQ · Carton readiness">
+      <Screen title="Cart" subtitle="Server draft · MOQ · Carton readiness" safeAreaEdges={["top", "bottom"]}>
         {error ? (
           <Text style={styles.error} accessibilityRole="alert">
             {error}

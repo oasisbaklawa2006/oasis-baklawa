@@ -10,6 +10,7 @@ import { LoginScreen } from "@/screens/LoginScreen";
 import { RegisterScreen } from "@/screens/RegisterScreen";
 import { AccessPendingScreen } from "@/screens/AccessPendingScreen";
 import { AccessRejectedScreen } from "@/screens/AccessRejectedScreen";
+import { SessionRecoveryScreen } from "@/screens/SessionRecoveryScreen";
 import { ProductDetailScreen } from "@/screens/ProductDetailScreen";
 import { OrderDetailScreen } from "@/screens/OrderDetailScreen";
 import { QuickOrderScreen } from "@/screens/QuickOrderScreen";
@@ -31,6 +32,7 @@ export function RootNavigator() {
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="AccessPending" component={AccessPendingScreen} />
         <Stack.Screen name="AccessRejected" component={AccessRejectedScreen} />
+        <Stack.Screen name="SessionRecovery" component={SessionRecoveryScreen} />
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
         <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
         <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />

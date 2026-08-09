@@ -10,6 +10,9 @@
     },
     "preview": {
       "distribution": "internal",
+      "ios": {
+        "image": "sdk-51"
+      },
       "android": {
         "image": "sdk-51"
       }

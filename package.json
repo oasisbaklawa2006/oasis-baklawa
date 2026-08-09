@@ -10,7 +10,7 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings 0",
-    "test": "node --import tsx --test src/lib/checkout-idempotency.test.ts src/lib/checkout-submit-guards.test.ts src/lib/rpc-errors.test.ts src/lib/order-stages.test.ts src/theme/layout.test.ts src/lib/golden-journey.test.ts",
+    "test": "node --import tsx --test src/lib/checkout-idempotency.test.ts src/lib/checkout-submit-guards.test.ts src/lib/rpc-errors.test.ts src/lib/rpc.test.ts src/lib/order-stages.test.ts src/theme/layout.test.ts src/lib/golden-journey.test.ts",
     "verify:boundary": "node scripts/verify-contract-boundary.mjs",
     "rc:scan": "node scripts/rc-forensic-scan.mjs",
     "rc:navigation": "node scripts/rc-navigation-audit.mjs",

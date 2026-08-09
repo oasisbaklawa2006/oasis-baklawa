@@ -12,16 +12,24 @@ import { colors, spacing, typography } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "SessionRecovery">;
 
+const DEFAULT_MESSAGE =
+  "We could not verify your session. Check your connection and try again.";
+
 export function SessionRecoveryScreen({ navigation, route }: Props) {
   const [retrying, setRetrying] = useState(false);
+  const [message, setMessage] = useState(route.params.message);
   const [error, setError] = useState<string | null>(null);
-  const message = route.params.message;
 
   async function retry() {
     setRetrying(true);
     setError(null);
     try {
       const snapshot = await resolveBuyerSession();
+      if (snapshot.state === "backend_failure") {
+        setMessage(snapshot.message ?? DEFAULT_MESSAGE);
+        setError("Session verification is still unavailable. Check your connection and try again.");
+        return;
+      }
       const onboarded = await hasCompletedOnboarding();
       routeFromBuyerSnapshot(navigation, snapshot, onboarded);
     } catch (e) {
@@ -35,8 +43,17 @@ export function SessionRecoveryScreen({ navigation, route }: Props) {
     <Screen title="Connection issue" subtitle="Session verification" safeAreaEdges={["top", "bottom"]}>
       <View style={styles.body}>
         <Text style={styles.message} accessibilityRole="alert">{message}</Text>
-        {error ? <Text style={styles.error} accessibilityRole="alert">{error}</Text> : null}
-        <OasisButton label={retrying ? "Retrying…" : "Try again"} onPress={retry} loading={retrying} disabled={retrying} />
+        {error ? (
+          <Text style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="polite">
+            {error}
+          </Text>
+        ) : null}
+        <OasisButton
+          label={retrying ? "Retrying…" : "Try again"}
+          onPress={retry}
+          loading={retrying}
+          disabled={retrying}
+        />
         <OasisButton
           label="Return to welcome"
           variant="secondary"

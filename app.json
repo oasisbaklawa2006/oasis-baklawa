@@ -3,11 +3,13 @@
     "name": "Oasis Baklawa",
     "slug": "oasis-baklawa",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "backgroundColor": "#7A1B2B"
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#EFEFE9"
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
@@ -16,7 +18,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#7A1B2B"
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#EFEFE9"
       },
       "package": "com.oasisbaklawa.customer"
     },

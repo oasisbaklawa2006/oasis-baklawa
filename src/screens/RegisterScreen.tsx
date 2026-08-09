@@ -7,6 +7,7 @@ import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { storeApplicationStatus } from "@/lib/application-status-storage";
 import { submitB2bTradeApplication } from "@/lib/api/buyer";
 import { parseRpcError } from "@/lib/rpc-errors";
+import { colors, spacing, typography, touchTarget } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Register">;
 
@@ -207,15 +208,34 @@ export function RegisterScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  form: { gap: 12 },
-  input: { borderWidth: 1, borderColor: "#E0C9B8", borderRadius: 8, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 },
-  checkboxRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4 },
-  checkbox: { width: 20, height: 20, borderWidth: 1, borderColor: "#7A1B2B", borderRadius: 4, backgroundColor: "#FFF" },
-  checkboxChecked: { backgroundColor: "#7A1B2B" },
-  checkboxLabel: { flex: 1, fontSize: 12, color: "#5A4438", lineHeight: 18 },
-  button: { backgroundColor: "#7A1B2B", paddingVertical: 14, borderRadius: 10, alignItems: "center", marginTop: 8 },
-  buttonDisabled: { backgroundColor: "#B0A296" },
-  buttonText: { color: "#FFF", fontWeight: "600" },
-  error: { color: "#B3261E" },
-  confirmation: { fontSize: 15, color: "#3A2A22", lineHeight: 22, marginBottom: 24 },
+  form: { gap: spacing.md },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: typography.sizeMd,
+    fontFamily: typography.fontFamilySans,
+    color: colors.textPrimary,
+    backgroundColor: colors.white,
+    minHeight: touchTarget,
+  },
+  checkboxRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4, minHeight: touchTarget },
+  checkbox: { width: 20, height: 20, borderWidth: 1, borderColor: colors.action, borderRadius: 4, backgroundColor: colors.white },
+  checkboxChecked: { backgroundColor: colors.action },
+  checkboxLabel: { flex: 1, fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textSecondary, lineHeight: 18 },
+  button: {
+    backgroundColor: colors.action,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: spacing.sm,
+    minHeight: touchTarget,
+    justifyContent: "center",
+  },
+  buttonDisabled: { opacity: 0.55 },
+  buttonText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.white },
+  error: { color: colors.error, fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm },
+  confirmation: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeMd, color: colors.textPrimary, lineHeight: 22, marginBottom: spacing.lg },
 });

@@ -1,9 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import { BuyerGate } from "@/components/BuyerGate";
+import { OasisButton } from "@/components/OasisButton";
 import { Screen } from "@/components/Screen";
+import { EmptyState, LoadingState } from "@/components/StateViews";
+import { useNetwork } from "@/context/NetworkContext";
 import { fetchBuyerProductPrices } from "@/lib/api/catalogue";
 import {
   clearCustomerOrderDraft,
@@ -14,10 +17,12 @@ import {
 import { issueMessage, nextValidQuantity } from "@/lib/draft-utils";
 import { parseRpcError } from "@/lib/rpc-errors";
 import type { BuyerProductPrice, CustomerOrderDraft, CustomerOrderDraftLine } from "@/types/database.types";
+import { colors, spacing, typography, touchTarget } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Cart">;
 
 export function CartScreen({ navigation }: Props) {
+  const { isOnline } = useNetwork();
   const [draft, setDraft] = useState<CustomerOrderDraft | null>(null);
   const [pricesByProduct, setPricesByProduct] = useState<Record<string, BuyerProductPrice>>({});
   const [loading, setLoading] = useState(true);
@@ -105,11 +110,20 @@ export function CartScreen({ navigation }: Props) {
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
       <Screen title="Cart" subtitle="Server draft · MOQ · Carton readiness">
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? (
+          <Text style={styles.error} accessibilityRole="alert">
+            {error}
+          </Text>
+        ) : null}
         {loading ? (
-          <ActivityIndicator color="#7A1B2B" style={styles.loader} />
+          <LoadingState message="Loading cart…" />
         ) : !draft || draft.lines.length === 0 ? (
-          <Text style={styles.empty}>Your cart is empty. Add products from the catalogue.</Text>
+          <EmptyState
+            title="Your cart is empty"
+            message="Add products from the catalogue to build a server-backed draft."
+            actionLabel="Browse catalogue"
+            onAction={() => navigation.navigate("MainTabs", { screen: "Catalogue" })}
+          />
         ) : (
           <>
             {Object.entries(grouped).map(([group, lines]) => (
@@ -139,18 +153,27 @@ export function CartScreen({ navigation }: Props) {
                           ))}
                           <View style={styles.lineActions}>
                             <TouchableOpacity
-                              disabled={busy}
+                              disabled={busy || !isOnline}
                               onPress={() => changeQuantity(item.line_id, item.product_id, -1, item.quantity)}
+                              accessibilityRole="button"
+                              accessibilityLabel="Decrease quantity"
                             >
                               <Text style={styles.actionText}>−</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
-                              disabled={busy}
+                              disabled={busy || !isOnline}
                               onPress={() => changeQuantity(item.line_id, item.product_id, 1, item.quantity)}
+                              accessibilityRole="button"
+                              accessibilityLabel="Increase quantity"
                             >
                               <Text style={styles.actionText}>+</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity disabled={busy} onPress={() => removeLine(item.line_id)}>
+                            <TouchableOpacity
+                              disabled={busy || !isOnline}
+                              onPress={() => removeLine(item.line_id)}
+                              accessibilityRole="button"
+                              accessibilityLabel="Remove line"
+                            >
                               <Text style={styles.removeText}>Remove</Text>
                             </TouchableOpacity>
                           </View>
@@ -177,48 +200,59 @@ export function CartScreen({ navigation }: Props) {
               <Text style={styles.summaryValue}>₹{draft.order_total.toLocaleString("en-IN")}</Text>
             </View>
 
-            <TouchableOpacity style={styles.secondaryButton} disabled={busyLineId === "clear"} onPress={clearCart}>
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              disabled={busyLineId === "clear" || !isOnline}
+              onPress={clearCart}
+              accessibilityRole="button"
+              accessibilityLabel="Clear cart"
+            >
               <Text style={styles.secondaryButtonText}>{busyLineId === "clear" ? "Clearing…" : "Clear cart"}</Text>
             </TouchableOpacity>
           </>
         )}
 
-        <TouchableOpacity
-          style={[styles.button, !checkoutReady && styles.buttonDisabled]}
-          disabled={!checkoutReady}
+        <OasisButton
+          label={checkoutReady ? "Proceed to Checkout" : "Complete carton/MOQ rules to checkout"}
           onPress={() => navigation.navigate("Checkout")}
-        >
-          <Text style={styles.buttonText}>
-            {checkoutReady ? "Proceed to Checkout" : "Complete carton/MOQ rules to checkout"}
-          </Text>
-        </TouchableOpacity>
+          disabled={!checkoutReady || !isOnline}
+          accessibilityHint="Opens governed checkout with advance calculation"
+        />
       </Screen>
     </BuyerGate>
   );
 }
 
 const styles = StyleSheet.create({
-  groupSection: { marginTop: 16 },
-  groupTitle: { fontSize: 14, fontWeight: "700", color: "#7A1B2B", marginBottom: 8 },
-  line: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#F0DED0" },
+  groupSection: { marginTop: spacing.md },
+  groupTitle: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.action, marginBottom: spacing.sm },
+  line: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
   lineInfo: { flex: 1 },
-  lineTitle: { fontSize: 13, fontWeight: "600", color: "#3A2A22" },
-  lineMeta: { fontSize: 11, color: "#8A6B5C", marginTop: 2 },
-  warningText: { fontSize: 11, color: "#B26A00", marginTop: 4 },
-  lineActions: { flexDirection: "row", gap: 16, marginTop: 6 },
-  actionText: { fontSize: 16, color: "#7A1B2B", fontWeight: "700" },
-  removeText: { fontSize: 11, color: "#B3261E", fontWeight: "600" },
-  hintText: { fontSize: 10, color: "#8A6B5C", marginTop: 4 },
-  lineTotal: { fontSize: 13, fontWeight: "700", color: "#3A2A22" },
-  summary: { flexDirection: "row", justifyContent: "space-between", marginTop: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#E0C9B8" },
-  summaryLabel: { fontSize: 15, fontWeight: "700", color: "#3A2A22" },
-  summaryValue: { fontSize: 17, fontWeight: "800", color: "#7A1B2B" },
-  button: { backgroundColor: "#7A1B2B", paddingVertical: 14, borderRadius: 10, alignItems: "center", marginTop: 20 },
-  buttonDisabled: { backgroundColor: "#B0A296" },
-  buttonText: { color: "#FFF", fontWeight: "700", textAlign: "center" },
-  secondaryButton: { marginTop: 12, alignItems: "center" },
-  secondaryButtonText: { color: "#7A1B2B", fontWeight: "600", fontSize: 13 },
-  empty: { fontSize: 13, color: "#8A6B5C", paddingVertical: 20, textAlign: "center" },
-  error: { color: "#B3261E", marginTop: 8 },
-  loader: { marginTop: 24 },
+  lineTitle: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.textPrimary },
+  lineMeta: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted, marginTop: 2 },
+  warningText: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.warning, marginTop: 4 },
+  lineActions: { flexDirection: "row", gap: spacing.md, marginTop: 6 },
+  actionText: { fontSize: 16, color: colors.action, fontWeight: "700", minWidth: touchTarget, textAlign: "center" },
+  removeText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeXs, color: colors.error },
+  hintText: { fontFamily: typography.fontFamilySans, fontSize: 10, color: colors.textMuted, marginTop: 4 },
+  lineTotal: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.textPrimary },
+  summary: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  summaryLabel: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeMd, color: colors.textPrimary },
+  summaryValue: { fontFamily: typography.fontFamilySansBold, fontSize: typography.sizeLg, color: colors.action },
+  secondaryButton: { marginTop: spacing.md, alignItems: "center", minHeight: touchTarget, justifyContent: "center" },
+  secondaryButtonText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.action, fontSize: typography.sizeSm },
+  error: { color: colors.error, marginTop: spacing.sm, fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm },
 });

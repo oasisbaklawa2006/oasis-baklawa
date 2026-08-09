@@ -42,6 +42,8 @@ export function AccountScreen({ navigation }: Props) {
 
   async function signOut() {
     await supabase.auth.signOut();
+    setCompany(null);
+    setTeam([]);
     await refresh();
     navigation.getParent()?.reset({ index: 0, routes: [{ name: "Welcome" }] });
   }

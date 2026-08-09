@@ -1,19 +1,25 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import { BuyerGate } from "@/components/BuyerGate";
+import { OasisButton } from "@/components/OasisButton";
 import { Screen } from "@/components/Screen";
+import { ErrorState, LoadingState } from "@/components/StateViews";
+import { useNetwork } from "@/context/NetworkContext";
 import { calculateCustomerAdvance, submitCustomerOrder } from "@/lib/api/checkout";
 import { getCustomerOrderDraft } from "@/lib/api/draft";
 import { clearCheckoutIdempotencyKey, resolveCheckoutIdempotencyKey } from "@/lib/checkout-idempotency";
 import { formatAdvanceDisplay, isCheckoutSubmitEnabled, type AdvanceLoadState } from "@/lib/checkout-submit-guards";
 import { parseRpcError } from "@/lib/rpc-errors";
 import type { CustomerOrderDraft } from "@/types/database.types";
+import { colors, spacing, typography } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Checkout">;
 
 export function CheckoutScreen({ navigation }: Props) {
+  const { isOnline } = useNetwork();
+  const submitInFlightRef = useRef(false);
   const [draft, setDraft] = useState<CustomerOrderDraft | null>(null);
   const [advanceState, setAdvanceState] = useState<AdvanceLoadState>({ status: "loading" });
   const [loading, setLoading] = useState(true);
@@ -89,11 +95,13 @@ export function CheckoutScreen({ navigation }: Props) {
     idempotencyKey,
     keyPersisted,
     advanceState,
+    isOnline,
   });
 
   async function submitOrder() {
-    if (!canSubmit || !idempotencyKey || !draft?.draft_id) return;
+    if (!canSubmit || !idempotencyKey || !draft?.draft_id || submitInFlightRef.current) return;
 
+    submitInFlightRef.current = true;
     setSubmitting(true);
     setError(null);
     try {
@@ -113,6 +121,7 @@ export function CheckoutScreen({ navigation }: Props) {
     } catch (e) {
       setError(parseRpcError(e).message);
     } finally {
+      submitInFlightRef.current = false;
       setSubmitting(false);
     }
   }
@@ -128,9 +137,17 @@ export function CheckoutScreen({ navigation }: Props) {
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
       <Screen title="Checkout" subtitle="Authoritative draft totals · Advance due">
         {loading ? (
-          <ActivityIndicator color="#7A1B2B" style={styles.loader} />
+          <LoadingState message="Preparing checkout…" />
+        ) : error && !draft ? (
+          <ErrorState message={error} onRetry={loadCheckout} />
         ) : (
           <>
+            {!isOnline ? (
+              <Text style={styles.offline} accessibilityRole="alert">
+                You are offline. Order submission is disabled until your connection returns.
+              </Text>
+            ) : null}
+
             <View style={styles.summaryCard}>
               <Row label="Order value (SO)" value={`₹${orderValue.toLocaleString("en-IN")}`} />
               <Row label="Advance due" value={advanceDisplay} emphasis />
@@ -138,37 +155,47 @@ export function CheckoutScreen({ navigation }: Props) {
             </View>
 
             {!draft?.is_checkout_ready ? (
-              <Text style={styles.warning}>
+              <Text style={styles.warning} accessibilityRole="alert">
                 Your cart is not checkout-ready. Return to the cart and fix MOQ/carton issues.
               </Text>
             ) : null}
 
             {advanceState.status === "failed" ? (
-              <Text style={styles.warning}>{advanceState.message}</Text>
+              <Text style={styles.warning} accessibilityRole="alert">
+                {advanceState.message}
+              </Text>
             ) : null}
 
             {persistenceError ? (
               <View style={styles.persistenceBlock}>
-                <Text style={styles.warning}>{persistenceError}</Text>
-                <TouchableOpacity style={styles.retryButton} onPress={loadCheckout}>
-                  <Text style={styles.retryButtonText}>Retry saving checkout attempt</Text>
-                </TouchableOpacity>
+                <Text style={styles.warning} accessibilityRole="alert">
+                  {persistenceError}
+                </Text>
+                <OasisButton label="Retry saving checkout attempt" onPress={loadCheckout} variant="secondary" />
               </View>
             ) : null}
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-
-            <Text style={styles.note}>Payment capture is not enabled in this release. Submitting creates your Sales Order.</Text>
-
-            <TouchableOpacity
-              style={[styles.button, !canSubmit && styles.buttonDisabled]}
-              disabled={!canSubmit}
-              onPress={submitOrder}
-            >
-              <Text style={styles.buttonText}>
-                {submitting ? "Submitting order…" : `Submit Sales Order · Advance ${submitLabelAdvance}`}
+            {error ? (
+              <Text style={styles.error} accessibilityRole="alert">
+                {error}
               </Text>
-            </TouchableOpacity>
+            ) : null}
+
+            <Text style={styles.note}>
+              Payment capture is not enabled in this release. Submitting creates your Sales Order only after the server confirms success.
+            </Text>
+
+            <OasisButton
+              label={
+                submitting
+                  ? "Submitting order…"
+                  : `Submit Sales Order · Advance ${submitLabelAdvance}`
+              }
+              onPress={submitOrder}
+              disabled={!canSubmit}
+              loading={submitting}
+              accessibilityHint="Creates a governed Sales Order using your saved idempotency key"
+            />
           </>
         )}
       </Screen>
@@ -186,19 +213,20 @@ function Row({ label, value, emphasis }: { label: string; value: string; emphasi
 }
 
 const styles = StyleSheet.create({
-  summaryCard: { backgroundColor: "#F0DED0", borderRadius: 12, padding: 16, marginTop: 16, gap: 10 },
+  summaryCard: {
+    backgroundColor: colors.surfacePremium,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
   row: { flexDirection: "row", justifyContent: "space-between" },
-  rowLabel: { fontSize: 13, color: "#5A4438", flex: 1 },
-  rowValue: { fontSize: 13, fontWeight: "700", color: "#3A2A22" },
-  rowValueEmphasis: { color: "#7A1B2B", fontSize: 15 },
-  warning: { marginTop: 16, fontSize: 13, color: "#B26A00" },
-  persistenceBlock: { marginTop: 12, gap: 8 },
-  retryButton: { alignSelf: "flex-start", paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, backgroundColor: "#F0DED0" },
-  retryButtonText: { color: "#7A1B2B", fontWeight: "700", fontSize: 12 },
-  note: { marginTop: 20, fontSize: 12, color: "#8A6B5C", lineHeight: 18 },
-  button: { backgroundColor: "#7A1B2B", paddingVertical: 14, borderRadius: 10, alignItems: "center", marginTop: 20 },
-  buttonDisabled: { backgroundColor: "#B0A296" },
-  buttonText: { color: "#FFF", fontWeight: "700", textAlign: "center" },
-  error: { color: "#B3261E", marginTop: 12 },
-  loader: { marginTop: 24 },
+  rowLabel: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textSecondary, flex: 1 },
+  rowValue: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.textPrimary },
+  rowValueEmphasis: { color: colors.action, fontSize: typography.sizeLg },
+  warning: { marginTop: spacing.md, fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.warning },
+  offline: { marginTop: spacing.md, fontFamily: typography.fontFamilySansMedium, fontSize: typography.sizeSm, color: colors.warning },
+  persistenceBlock: { marginTop: spacing.md, gap: spacing.sm },
+  note: { marginTop: spacing.lg, fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted, lineHeight: 18 },
+  error: { color: colors.error, marginTop: spacing.md, fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm },
 });

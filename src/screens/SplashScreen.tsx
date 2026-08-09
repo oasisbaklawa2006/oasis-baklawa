@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import { resolveBuyerSession } from "@/lib/api/buyer";
+import { hasCompletedOnboarding } from "@/lib/onboarding-storage";
 import { supabase } from "@/lib/supabase";
 import { colors, typography } from "@/theme";
 
@@ -17,7 +18,9 @@ export function SplashScreen({ navigation }: Props) {
       if (cancelled) return;
 
       if (!data.session) {
-        navigation.replace("Welcome");
+        const onboarded = await hasCompletedOnboarding();
+        if (cancelled) return;
+        navigation.replace(onboarded ? "Welcome" : "Onboarding");
         return;
       }
 
@@ -25,9 +28,12 @@ export function SplashScreen({ navigation }: Props) {
       if (cancelled) return;
 
       switch (snapshot.state) {
-        case "unauthenticated":
-          navigation.replace("Welcome");
+        case "unauthenticated": {
+          const onboarded = await hasCompletedOnboarding();
+          if (cancelled) return;
+          navigation.replace(onboarded ? "Welcome" : "Onboarding");
           break;
+        }
         case "approved_buyer":
           navigation.replace("MainTabs", { screen: "Dashboard" });
           break;
@@ -51,9 +57,11 @@ export function SplashScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
-      <Text style={styles.brand}>Oasis Baklawa</Text>
-      <ActivityIndicator color={colors.white} style={styles.spinner} />
+      <StatusBar style="dark" />
+      <Text style={styles.brand} accessibilityRole="header">
+        Oasis Baklawa
+      </Text>
+      <ActivityIndicator color={colors.action} style={styles.spinner} accessibilityLabel="Loading" />
     </View>
   );
 }
@@ -61,14 +69,14 @@ export function SplashScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.textPrimary,
+    backgroundColor: colors.canvas,
     alignItems: "center",
     justifyContent: "center",
   },
   brand: {
     fontFamily: typography.fontFamilySerifBold,
     fontSize: typography.sizeXxl,
-    color: colors.canvas,
+    color: colors.textPrimary,
     letterSpacing: 0.5,
   },
   spinner: { marginTop: 20 },

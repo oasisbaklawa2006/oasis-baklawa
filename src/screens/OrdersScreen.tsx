@@ -1,14 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { CompositeScreenProps } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { MainTabParamList, RootStackParamList } from "@/navigation/types";
 import { BuyerGate } from "@/components/BuyerGate";
 import { Screen } from "@/components/Screen";
+import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { fetchCustomerOrderItems, fetchCustomerOrderStatus } from "@/lib/api/orders";
 import { parseRpcError } from "@/lib/rpc-errors";
 import type { CustomerOrderItem, CustomerOrderStatus } from "@/types/database.types";
+import { colors, spacing, typography } from "@/theme";
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<MainTabParamList, "Orders">,
@@ -96,17 +98,17 @@ export function OrdersScreen({ navigation, route }: Props) {
           </View>
         ) : null}
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? <ErrorState message={error} onRetry={loadOrders} /> : null}
 
         {loading ? (
-          <ActivityIndicator color="#7A1B2B" style={styles.loader} />
+          <LoadingState message="Loading orders…" />
         ) : (
           <FlatList
             data={orders}
             keyExtractor={(item) => item.order_id}
             contentContainerStyle={styles.list}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-            ListEmptyComponent={<Text style={styles.empty}>No orders yet</Text>}
+            ListEmptyComponent={<EmptyState title="No orders yet" message="Submitted Sales Orders will appear here." />}
           renderItem={({ item }) => {
             const activeStage = stageIndex(item.customer_stage);
             const orderItems = itemsByOrder.get(item.order_id) ?? [];
@@ -170,27 +172,30 @@ export function OrdersScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
-  list: { paddingVertical: 12, gap: 20 },
-  card: { backgroundColor: "#FFF", borderRadius: 12, padding: 16, borderWidth: 1, borderColor: "#F0DED0" },
+  list: { paddingVertical: spacing.md, gap: spacing.lg },
+  card: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
   cardHeader: { flexDirection: "row", justifyContent: "space-between" },
-  orderNumber: { fontSize: 15, fontWeight: "700", color: "#3A2A22" },
-  orderValue: { fontSize: 15, fontWeight: "700", color: "#7A1B2B" },
-  stageMeta: { fontSize: 11, color: "#8A6B5C", marginTop: 4 },
-  stagnancy: { fontSize: 11, color: "#B26A00", marginTop: 4 },
-  timeline: { marginTop: 14, gap: 8 },
+  orderNumber: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeMd, color: colors.textPrimary },
+  orderValue: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeMd, color: colors.action },
+  stageMeta: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted, marginTop: 4 },
+  stagnancy: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.warning, marginTop: 4 },
+  timeline: { marginTop: 14, gap: spacing.sm },
   timelineRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#F0DED0" },
-  dotActive: { backgroundColor: "#7A1B2B" },
-  timelineLabel: { fontSize: 12, color: "#B0A296" },
-  timelineLabelActive: { color: "#3A2A22", fontWeight: "600" },
-  dispatchDate: { fontSize: 11, color: "#5A4438", marginTop: 10 },
-  tracking: { fontSize: 11, color: "#8A6B5C", marginTop: 12 },
-  itemsToggle: { fontSize: 12, color: "#7A1B2B", fontWeight: "700", marginTop: 12 },
-  itemLine: { fontSize: 11, color: "#5A4438", marginTop: 4 },
-  empty: { fontSize: 13, color: "#8A6B5C", textAlign: "center", paddingVertical: 20 },
-  error: { color: "#B3261E", marginBottom: 8 },
-  successCard: { backgroundColor: "#E8F3E8", borderRadius: 12, padding: 14, marginBottom: 12 },
-  successTitle: { fontSize: 14, fontWeight: "700", color: "#2E7D32" },
-  successLine: { fontSize: 13, color: "#3A2A22", marginTop: 4 },
-  loader: { marginTop: 24 },
+  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.border },
+  dotActive: { backgroundColor: colors.action },
+  timelineLabel: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textMuted },
+  timelineLabelActive: { fontFamily: typography.fontFamilySansSemiBold, color: colors.textPrimary },
+  dispatchDate: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textSecondary, marginTop: 10 },
+  tracking: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted, marginTop: spacing.md },
+  itemsToggle: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.action, marginTop: spacing.md },
+  itemLine: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textSecondary, marginTop: 4 },
+  successCard: { backgroundColor: colors.successSurface, borderRadius: 12, padding: 14, marginBottom: spacing.md },
+  successTitle: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.success },
+  successLine: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textPrimary, marginTop: 4 },
 });

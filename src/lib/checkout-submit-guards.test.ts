@@ -24,6 +24,11 @@ describe("checkout submit guards", () => {
     );
   });
 
+  it("blocks submit while offline", () => {
+    assert.equal(isCheckoutSubmitEnabled({ ...base, isOnline: false }), false);
+    assert.equal(isCheckoutSubmitEnabled({ ...base, isOnline: true }), true);
+  });
+
   it("blocks submit while advance is loading or failed", () => {
     assert.equal(isCheckoutSubmitEnabled({ ...base, advanceState: { status: "loading" } }), false);
     assert.equal(

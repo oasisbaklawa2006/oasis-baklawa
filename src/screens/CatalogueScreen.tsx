@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { CompositeScreenProps } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -7,6 +7,7 @@ import type { MainTabParamList, RootStackParamList } from "@/navigation/types";
 import { BuyerGate } from "@/components/BuyerGate";
 import { ProductImage } from "@/components/ProductImage";
 import { Screen } from "@/components/Screen";
+import { LoadingState } from "@/components/StateViews";
 import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
 import { addCustomerOrderDraftLine } from "@/lib/api/draft";
@@ -112,7 +113,7 @@ export function CatalogueScreen({ navigation }: Props) {
           accessibilityLabel="Search catalogue"
         />
         {loading ? (
-          <ActivityIndicator color="#7A1B2B" style={styles.loader} />
+          <LoadingState message="Loading catalogue…" />
         ) : (
           <>
             <FlatList
@@ -223,29 +224,28 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     color: colors.textPrimary,
   },
-  categoryChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: "#F0DED0", marginRight: 8 },
-  categoryChipActive: { backgroundColor: "#7A1B2B" },
-  categoryText: { fontSize: 12, color: "#7A1B2B", fontWeight: "600" },
-  categoryTextActive: { color: "#FFF" },
+  categoryChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: colors.surfacePremium, marginRight: 8 },
+  categoryChipActive: { backgroundColor: colors.action },
+  categoryText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeXs, color: colors.action },
+  categoryTextActive: { color: colors.white },
   list: { paddingVertical: 12, gap: 14 },
   row: { flexDirection: "row", gap: 12 },
-  rowImage: { width: 72, height: 72, borderRadius: 10, backgroundColor: "#F0DED0" },
+  rowImage: { width: 72, height: 72, borderRadius: 10 },
   rowInfo: { flex: 1 },
-  rowTitle: { fontSize: 14, fontWeight: "700", color: "#3A2A22" },
-  rowMeta: { fontSize: 12, color: "#8A6B5C", marginTop: 2 },
-  priceBadge: { alignSelf: "flex-start", backgroundColor: "#E8F3E8", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, marginTop: 4 },
-  priceBadgeText: { fontSize: 12, color: "#2E7D32", fontWeight: "700" },
+  rowTitle: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.textPrimary },
+  rowMeta: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted, marginTop: 2 },
+  priceBadge: { alignSelf: "flex-start", backgroundColor: colors.successSurface, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, marginTop: 4 },
+  priceBadgeText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeXs, color: colors.success },
   stepper: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8 },
-  stepperButton: { width: 28, height: 28, borderRadius: 6, backgroundColor: "#F0DED0", alignItems: "center", justifyContent: "center" },
-  stepperButtonText: { fontSize: 16, color: "#7A1B2B", fontWeight: "700" },
-  stepperValue: { fontSize: 13, fontWeight: "600", minWidth: 30, textAlign: "center" },
-  moqNote: { fontSize: 10, color: "#8A6B5C", marginLeft: 6 },
-  addButton: { marginTop: 8, backgroundColor: "#7A1B2B", paddingVertical: 8, borderRadius: 8, alignItems: "center" },
-  addButtonText: { color: "#FFF", fontWeight: "600", fontSize: 12 },
-  empty: { fontSize: 13, color: "#8A6B5C", paddingVertical: 20, textAlign: "center" },
-  fab: { position: "absolute", bottom: 16, right: 0, left: 0, marginHorizontal: 20, backgroundColor: "#7A1B2B", paddingVertical: 14, borderRadius: 10, alignItems: "center" },
-  fabText: { color: "#FFF", fontWeight: "700" },
-  error: { color: "#B3261E", marginTop: 8, fontSize: 13 },
-  success: { color: "#2E7D32", marginTop: 8, fontSize: 13, fontWeight: "600" },
-  loader: { marginTop: 24 },
+  stepperButton: { width: 44, height: 44, borderRadius: 6, backgroundColor: colors.surfacePremium, alignItems: "center", justifyContent: "center" },
+  stepperButtonText: { fontSize: 16, color: colors.action, fontWeight: "700" },
+  stepperValue: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, minWidth: 30, textAlign: "center" },
+  moqNote: { fontFamily: typography.fontFamilySans, fontSize: 10, color: colors.textMuted, marginLeft: 6 },
+  addButton: { marginTop: 8, backgroundColor: colors.action, paddingVertical: 8, borderRadius: 8, alignItems: "center", minHeight: 44, justifyContent: "center" },
+  addButtonText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.white, fontSize: typography.sizeSm },
+  empty: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textMuted, paddingVertical: 20, textAlign: "center" },
+  fab: { position: "absolute", bottom: 16, right: 0, left: 0, marginHorizontal: 20, backgroundColor: colors.textPrimary, paddingVertical: 14, borderRadius: 10, alignItems: "center", minHeight: 44, justifyContent: "center" },
+  fabText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.white },
+  error: { color: colors.error, marginTop: 8, fontSize: typography.sizeSm },
+  success: { color: colors.success, marginTop: 8, fontSize: typography.sizeSm, fontFamily: typography.fontFamilySansSemiBold },
 });

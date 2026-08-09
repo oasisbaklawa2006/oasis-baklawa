@@ -1,6 +1,8 @@
 import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { OfflineBanner } from "@/components/OfflineBanner";
+import { ResponsiveContainer } from "@/components/ResponsiveContainer";
 import { colors, spacing, typography } from "@/theme";
 
 interface ScreenProps {
@@ -15,6 +17,7 @@ export function Screen({ title, subtitle, children, scroll = true, headerRight }
   const Body = scroll ? ScrollView : View;
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
+      <OfflineBanner />
       <View style={styles.header}>
         <View style={styles.headerText}>
           <Text style={styles.title} accessibilityRole="header">
@@ -24,9 +27,15 @@ export function Screen({ title, subtitle, children, scroll = true, headerRight }
         </View>
         {headerRight}
       </View>
-      <Body style={styles.body} contentContainerStyle={scroll ? styles.scrollContent : undefined}>
-        {children}
-      </Body>
+      <ResponsiveContainer style={styles.responsive}>
+        <Body
+          style={[styles.body, !scroll && styles.bodyPadded]}
+          contentContainerStyle={scroll ? styles.scrollContent : undefined}
+          keyboardShouldPersistTaps="handled"
+        >
+          {children}
+        </Body>
+      </ResponsiveContainer>
     </SafeAreaView>
   );
 }
@@ -56,6 +65,8 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: spacing.xs,
   },
-  body: { flex: 1, paddingHorizontal: spacing.lg },
-  scrollContent: { paddingBottom: spacing.xl },
+  responsive: { flex: 1 },
+  body: { flex: 1 },
+  bodyPadded: { paddingHorizontal: spacing.lg },
+  scrollContent: { paddingBottom: spacing.xl, paddingHorizontal: spacing.lg },
 });

@@ -10,14 +10,16 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings 0",
-    "test": "node --import tsx --test src/lib/checkout-idempotency.test.ts src/lib/checkout-submit-guards.test.ts src/lib/rpc-errors.test.ts",
+    "test": "node --import tsx --test src/lib/checkout-idempotency.test.ts src/lib/checkout-submit-guards.test.ts src/lib/rpc-errors.test.ts src/theme/layout.test.ts src/lib/golden-journey.test.ts",
     "verify:boundary": "node scripts/verify-contract-boundary.mjs",
-    "quality": "npm run verify:boundary && npm run typecheck && npm run test && npx expo config --type public"
+    "rc:scan": "node scripts/rc-forensic-scan.mjs",
+    "quality": "npm run verify:boundary && npm run rc:scan && npm run typecheck && npm run lint && npm run test && npx expo config --type public"
   },
   "dependencies": {
     "@expo-google-fonts/hanken-grotesk": "^0.4.3",
     "@expo-google-fonts/libre-caslon-text": "^0.4.0",
     "@react-native-async-storage/async-storage": "1.23.1",
+    "@react-native-community/netinfo": "11.3.1",
     "@react-navigation/bottom-tabs": "^6.6.1",
     "@react-navigation/native": "^6.1.18",
     "@react-navigation/native-stack": "^6.11.0",

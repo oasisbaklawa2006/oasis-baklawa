@@ -64,6 +64,14 @@ export function QuickOrderScreen({ navigation }: Props) {
         <TouchableOpacity onPress={() => navigation.goBack()} accessibilityRole="button">
           <Text style={styles.back}>‹ Back</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => navigation.navigate("AiOrder")}
+          style={styles.aiLink}
+          accessibilityRole="button"
+          accessibilityLabel="Open text AI order parser"
+        >
+          <Text style={styles.aiLinkText}>Paste a text order (AI parser)</Text>
+        </TouchableOpacity>
         <TextInput
           style={styles.search}
           placeholder="Search SKU or product name"
@@ -114,6 +122,8 @@ export function QuickOrderScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   back: { fontFamily: typography.fontFamilySansMedium, color: colors.action, marginTop: spacing.sm },
+  aiLink: { marginTop: spacing.md, minHeight: 44, justifyContent: "center" },
+  aiLinkText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.action, textDecorationLine: "underline" },
   search: {
     marginTop: spacing.md,
     borderWidth: 1,

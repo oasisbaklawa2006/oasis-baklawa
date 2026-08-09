@@ -11,7 +11,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#EFEFE9"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.oasisbaklawa.customer"
@@ -27,7 +29,11 @@
       "bundler": "metro"
     },
     "extra": {
-      "supabaseUrl": "https://tcxvcatsqqertcnycuop.supabase.co"
-    }
+      "supabaseUrl": "https://tcxvcatsqqertcnycuop.supabase.co",
+      "eas": {
+        "projectId": "369e4480-3bbf-49cd-8a10-5bac5f8290a1"
+      }
+    },
+    "owner": "oasisbaklawa"
   }
 }

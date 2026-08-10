@@ -1,7 +1,8 @@
 # RC-1B — iPhone qualification & owner device QA
 
 Canonical RC branch: `cursor/buyer-app-completion-72ab` (PR #5)  
-Immutable software SHA: `2da7bb76f7841e59394df0f1b968c0ac3f2328c1`  
+Branch HEAD: `2542a00f6bc1b9d5cbb98b53969871573da98591`  
+Software SHA (code): `2da7bb76f7841e59394df0f1b968c0ac3f2328c1` (doc-only commit atop this SHA)  
 EAS project: `369e4480-3bbf-49cd-8a10-5bac5f8290a1`  
 Preview environment only — **do not use production profile or production env vars.**
 
@@ -9,8 +10,8 @@ Preview environment only — **do not use production profile or production env v
 
 | Platform | Build ID | Install artifact | Notes |
 |----------|----------|------------------|-------|
-| Android | `5518b7d5-8dfb-49a2-a857-7952cc715107` | https://expo.dev/artifacts/eas/3Qsj4RKMXJlVOV_SS0iuh-p5ARbKO5W4D9TnSdq8rBw.apk | FINISHED @ `2da7bb7` |
-| Android | `f49a72d7-0983-48f7-8344-6e3398cc99e3` | *(poll build page)* | Fresh RC continuation build @ `2da7bb7` |
+| Android | `5518b7d5-8dfb-49a2-a857-7952cc715107` | https://expo.dev/artifacts/eas/3Qsj4RKMXJlVOV_SS0iuh-p5ARbKO5W4D9TnSdq8rBw.apk | **Use this** — FINISHED @ `2da7bb7` |
+| Android | `f49a72d7-0983-48f7-8344-6e3398cc99e3` | https://expo.dev/accounts/oasisbaklawa/projects/oasis-baklawa/builds/f49a72d7-0983-48f7-8344-6e3398cc99e3 | Queued duplicate @ `2da7bb7` (optional) |
 | iOS | — | — | **Blocked** until Apple Developer team is linked to Expo and internal-distribution credentials exist |
 
 **Android poll:** `npx eas-cli build:view f49a72d7-0983-48f7-8344-6e3398cc99e3`  

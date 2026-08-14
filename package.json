@@ -8,16 +8,27 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "test": "node --import tsx --test src/lib/checkout-idempotency.test.ts src/lib/checkout-submit-guards.test.ts src/lib/rpc-errors.test.ts src/lib/rpc.test.ts src/lib/order-stages.test.ts src/theme/layout.test.ts src/lib/golden-journey.test.ts",
+    "verify:boundary": "node scripts/verify-contract-boundary.mjs",
+    "rc:scan": "node scripts/rc-forensic-scan.mjs",
+    "rc:navigation": "node scripts/rc-navigation-audit.mjs",
+    "quality": "npm run verify:boundary && npm run rc:scan && npm run rc:navigation && npm run typecheck && npm run lint && npm run test && npx expo config --type public"
   },
   "dependencies": {
+    "@expo-google-fonts/hanken-grotesk": "^0.4.3",
+    "@expo-google-fonts/libre-caslon-text": "^0.4.0",
     "@react-native-async-storage/async-storage": "1.23.1",
+    "@react-native-community/netinfo": "11.3.1",
+    "@react-navigation/bottom-tabs": "^6.6.1",
     "@react-navigation/native": "^6.1.18",
     "@react-navigation/native-stack": "^6.11.0",
     "@supabase/supabase-js": "^2.45.4",
     "expo": "~51.0.28",
     "expo-constants": "~16.0.2",
     "expo-dev-client": "~4.0.28",
+    "expo-font": "~12.0.10",
     "expo-status-bar": "~1.12.1",
     "react": "18.2.0",
     "react-native": "0.74.5",
@@ -28,6 +39,9 @@
   "devDependencies": {
     "@babel/core": "^7.24.0",
     "@types/react": "~18.2.79",
+    "eslint": "^8.57.0",
+    "eslint-config-expo": "^7.1.2",
+    "tsx": "^4.23.11",
     "typescript": "~5.3.3"
   }
 }

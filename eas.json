@@ -9,10 +9,20 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "environment": "preview",
+      "ios": {
+        "image": "sdk-51"
+      },
+      "android": {
+        "image": "sdk-51"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "android": {
+        "image": "sdk-51"
+      }
     }
   },
   "submit": {

@@ -3,20 +3,28 @@
     "name": "Oasis Baklawa",
     "slug": "oasis-baklawa",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "backgroundColor": "#7A1B2B"
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#EFEFE9"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.oasisbaklawa.customer"
+      "bundleIdentifier": "com.oasisbaklawa.customer",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#7A1B2B"
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#EFEFE9"
       },
       "package": "com.oasisbaklawa.customer"
     },
@@ -24,7 +32,11 @@
       "bundler": "metro"
     },
     "extra": {
-      "supabaseUrl": "https://tcxvcatsqqertcnycuop.supabase.co"
-    }
+      "supabaseUrl": "https://tcxvcatsqqertcnycuop.supabase.co",
+      "eas": {
+        "projectId": "369e4480-3bbf-49cd-8a10-5bac5f8290a1"
+      }
+    },
+    "owner": "oasisbaklawa"
   }
 }

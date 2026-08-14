@@ -1,106 +1,258 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
+import { BuyerGate } from "@/components/BuyerGate";
+import { OasisButton } from "@/components/OasisButton";
 import { Screen } from "@/components/Screen";
+import { EmptyState, LoadingState } from "@/components/StateViews";
+import { useNetwork } from "@/context/NetworkContext";
+import { fetchBuyerProductPrices } from "@/lib/api/catalogue";
+import {
+  clearCustomerOrderDraft,
+  getCustomerOrderDraft,
+  removeCustomerOrderDraftLine,
+  updateCustomerOrderDraftLine,
+} from "@/lib/api/draft";
+import { issueMessage, nextValidQuantity } from "@/lib/draft-utils";
+import { parseRpcError } from "@/lib/rpc-errors";
+import type { BuyerProductPrice, CustomerOrderDraft, CustomerOrderDraftLine } from "@/types/database.types";
+import { colors, spacing, typography, touchTarget } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Cart">;
 
-interface CartLine {
-  id: string;
-  productName: string;
-  triad: "Sweets" | "Namkeen" | "Dry Fruits";
-  quantity: number;
-  cartonSize: number;
-  unitPrice: number;
-}
-
-const SAMPLE_LINES: CartLine[] = [
-  { id: "1", productName: "Kaju Katli 1kg", triad: "Sweets", quantity: 18, cartonSize: 20, unitPrice: 620 },
-  { id: "2", productName: "Almond Baklawa Box", triad: "Sweets", quantity: 24, cartonSize: 24, unitPrice: 480 },
-  { id: "3", productName: "Masala Mathri 500g", triad: "Namkeen", quantity: 10, cartonSize: 12, unitPrice: 140 },
-  { id: "4", productName: "Premium Mixed Dry Fruits", triad: "Dry Fruits", quantity: 6, cartonSize: 10, unitPrice: 950 },
-];
-
 export function CartScreen({ navigation }: Props) {
-  const [lines] = useState<CartLine[]>(SAMPLE_LINES);
+  const { isOnline } = useNetwork();
+  const [draft, setDraft] = useState<CustomerOrderDraft | null>(null);
+  const [pricesByProduct, setPricesByProduct] = useState<Record<string, BuyerProductPrice>>({});
+  const [loading, setLoading] = useState(true);
+  const [busyLineId, setBusyLineId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadDraft = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [draftData, prices] = await Promise.all([getCustomerOrderDraft(), fetchBuyerProductPrices()]);
+      setDraft(draftData);
+      setPricesByProduct(Object.fromEntries(prices.map((price) => [price.product_id, price])));
+    } catch (e) {
+      setError(parseRpcError(e).message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadDraft();
+  }, [loadDraft]);
 
   const grouped = useMemo(() => {
-    const groups: Record<CartLine["triad"], CartLine[]> = { Sweets: [], Namkeen: [], "Dry Fruits": [] };
-    lines.forEach((line) => groups[line.triad].push(line));
+    const groups: Record<string, CustomerOrderDraftLine[]> = {};
+    if (!draft) return groups;
+    draft.lines.forEach((line) => {
+      const category = pricesByProduct[line.product_id]?.minimum_order_uom ?? "Items";
+      if (!groups[category]) groups[category] = [];
+      groups[category].push(line);
+    });
     return groups;
-  }, [lines]);
+  }, [draft, pricesByProduct]);
 
-  const total = useMemo(() => lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0), [lines]);
+  async function changeQuantity(lineId: string, productId: string, delta: number, currentQty: number) {
+    const price = pricesByProduct[productId];
+    const moq = price?.minimum_order_quantity ?? 1;
+    const increment = price?.order_increment ?? 1;
+    const nextQty = nextValidQuantity(currentQty, moq, increment, delta);
+
+    setBusyLineId(lineId);
+    setError(null);
+    try {
+      const updated = await updateCustomerOrderDraftLine(lineId, nextQty);
+      setDraft(updated);
+    } catch (e) {
+      setError(parseRpcError(e).message);
+      await loadDraft();
+    } finally {
+      setBusyLineId(null);
+    }
+  }
+
+  async function removeLine(lineId: string) {
+    setBusyLineId(lineId);
+    setError(null);
+    try {
+      const updated = await removeCustomerOrderDraftLine(lineId);
+      setDraft(updated);
+    } catch (e) {
+      await loadDraft();
+      setError(parseRpcError(e).message);
+    } finally {
+      setBusyLineId(null);
+    }
+  }
+
+  async function clearCart() {
+    setBusyLineId("clear");
+    setError(null);
+    try {
+      const updated = await clearCustomerOrderDraft();
+      setDraft(updated);
+    } catch (e) {
+      await loadDraft();
+      setError(parseRpcError(e).message);
+    } finally {
+      setBusyLineId(null);
+    }
+  }
+
+  const checkoutReady = draft?.is_checkout_ready ?? false;
 
   return (
-    <Screen title="Cart" subtitle="Triad split · Carton fill · Smart Fill">
-      {(Object.keys(grouped) as CartLine["triad"][]).map((triad) => {
-        const triadLines = grouped[triad];
-        if (triadLines.length === 0) return null;
-        return (
-          <View key={triad} style={styles.triadSection}>
-            <Text style={styles.triadTitle}>{triad}</Text>
-            <FlatList
-              data={triadLines}
-              scrollEnabled={false}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => {
-                const cartonFillShort = item.quantity % item.cartonSize !== 0;
-                const suggestedFill = Math.ceil(item.quantity / item.cartonSize) * item.cartonSize;
-                return (
-                  <View style={styles.line}>
-                    <View style={styles.lineInfo}>
-                      <Text style={styles.lineTitle}>{item.productName}</Text>
-                      <Text style={styles.lineMeta}>
-                        Qty {item.quantity} · ₹{item.unitPrice}/unit
-                      </Text>
-                      {cartonFillShort && (
-                        <View style={styles.warning}>
-                          <Text style={styles.warningText}>
-                            ⚠ {item.cartonSize - (item.quantity % item.cartonSize)} short of a full carton
+    <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
+      <Screen title="Cart" subtitle="Server draft · MOQ · Carton readiness" safeAreaEdges={["top", "bottom"]}>
+        {error ? (
+          <Text style={styles.error} accessibilityRole="alert">
+            {error}
+          </Text>
+        ) : null}
+        {loading ? (
+          <LoadingState message="Loading cart…" />
+        ) : !draft || draft.lines.length === 0 ? (
+          <EmptyState
+            title="Your cart is empty"
+            message="Add products from the catalogue to build a server-backed draft."
+            actionLabel="Browse catalogue"
+            onAction={() => navigation.navigate("MainTabs", { screen: "Catalogue" })}
+          />
+        ) : (
+          <>
+            {Object.entries(grouped).map(([group, lines]) => (
+              <View key={group} style={styles.groupSection}>
+                <Text style={styles.groupTitle}>{group}</Text>
+                <FlatList
+                  data={lines}
+                  scrollEnabled={false}
+                  keyExtractor={(item) => item.line_id}
+                  renderItem={({ item }) => {
+                    const price = pricesByProduct[item.product_id];
+                    const moq = price?.minimum_order_quantity ?? 1;
+                    const increment = price?.order_increment ?? 1;
+                    const lineIssues = draft.readiness_issues.filter((issue) => issue.product_id === item.product_id);
+                    const busy = busyLineId === item.line_id;
+                    return (
+                      <View style={styles.line}>
+                        <View style={styles.lineInfo}>
+                          <Text style={styles.lineTitle}>{item.product_name_snapshot ?? item.sku_snapshot ?? "Product"}</Text>
+                          <Text style={styles.lineMeta}>
+                            Qty {item.quantity} · ₹{item.unit_price_snapshot}/{item.uom_snapshot ?? "unit"}
                           </Text>
-                          <TouchableOpacity>
-                            <Text style={styles.smartFill}>Smart Fill to {suggestedFill}</Text>
-                          </TouchableOpacity>
+                          {lineIssues.map((issue, index) => (
+                            <Text key={`${issue.code}-${index}`} style={styles.warningText}>
+                              {issueMessage(issue, price)}
+                            </Text>
+                          ))}
+                          <View style={styles.lineActions}>
+                            <TouchableOpacity
+                              disabled={busy || !isOnline}
+                              onPress={() => changeQuantity(item.line_id, item.product_id, -1, item.quantity)}
+                              accessibilityRole="button"
+                              accessibilityLabel="Decrease quantity"
+                            >
+                              <Text style={styles.actionText}>−</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              disabled={busy || !isOnline}
+                              onPress={() => changeQuantity(item.line_id, item.product_id, 1, item.quantity)}
+                              accessibilityRole="button"
+                              accessibilityLabel="Increase quantity"
+                            >
+                              <Text style={styles.actionText}>+</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              disabled={busy || !isOnline}
+                              onPress={() => removeLine(item.line_id)}
+                              accessibilityRole="button"
+                              accessibilityLabel="Remove line"
+                            >
+                              <Text style={styles.removeText}>Remove</Text>
+                            </TouchableOpacity>
+                          </View>
+                          <Text style={styles.hintText}>MOQ {moq} · step {increment}</Text>
                         </View>
-                      )}
-                    </View>
-                    <Text style={styles.lineTotal}>₹{(item.quantity * item.unitPrice).toLocaleString("en-IN")}</Text>
-                  </View>
-                );
-              }}
-            />
-          </View>
-        );
-      })}
+                        <Text style={styles.lineTotal}>₹{item.line_total.toLocaleString("en-IN")}</Text>
+                      </View>
+                    );
+                  }}
+                />
+              </View>
+            ))}
 
-      <View style={styles.summary}>
-        <Text style={styles.summaryLabel}>Order Total</Text>
-        <Text style={styles.summaryValue}>₹{total.toLocaleString("en-IN")}</Text>
-      </View>
+            {draft.readiness_issues
+              .filter((issue) => !issue.product_id)
+              .map((issue, index) => (
+                <Text key={`global-${issue.code}-${index}`} style={styles.warningText}>
+                  {issueMessage(issue)}
+                </Text>
+              ))}
 
-      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate("Checkout")}>
-        <Text style={styles.buttonText}>Proceed to Checkout</Text>
-      </TouchableOpacity>
-    </Screen>
+            <View style={styles.summary}>
+              <Text style={styles.summaryLabel}>Order Total (server draft)</Text>
+              <Text style={styles.summaryValue}>₹{draft.order_total.toLocaleString("en-IN")}</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              disabled={busyLineId === "clear" || !isOnline}
+              onPress={clearCart}
+              accessibilityRole="button"
+              accessibilityLabel="Clear cart"
+            >
+              <Text style={styles.secondaryButtonText}>{busyLineId === "clear" ? "Clearing…" : "Clear cart"}</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        <OasisButton
+          label={checkoutReady ? "Proceed to Checkout" : "Complete carton/MOQ rules to checkout"}
+          onPress={() => navigation.navigate("Checkout")}
+          disabled={!checkoutReady || !isOnline}
+          accessibilityHint="Opens governed checkout with advance calculation"
+        />
+      </Screen>
+    </BuyerGate>
   );
 }
 
 const styles = StyleSheet.create({
-  triadSection: { marginTop: 16 },
-  triadTitle: { fontSize: 14, fontWeight: "700", color: "#7A1B2B", marginBottom: 8 },
-  line: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#F0DED0" },
+  groupSection: { marginTop: spacing.md },
+  groupTitle: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.action, marginBottom: spacing.sm },
+  line: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
   lineInfo: { flex: 1 },
-  lineTitle: { fontSize: 13, fontWeight: "600", color: "#3A2A22" },
-  lineMeta: { fontSize: 11, color: "#8A6B5C", marginTop: 2 },
-  warning: { marginTop: 4 },
-  warningText: { fontSize: 11, color: "#B26A00" },
-  smartFill: { fontSize: 11, color: "#7A1B2B", fontWeight: "700", marginTop: 2 },
-  lineTotal: { fontSize: 13, fontWeight: "700", color: "#3A2A22" },
-  summary: { flexDirection: "row", justifyContent: "space-between", marginTop: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#E0C9B8" },
-  summaryLabel: { fontSize: 15, fontWeight: "700", color: "#3A2A22" },
-  summaryValue: { fontSize: 17, fontWeight: "800", color: "#7A1B2B" },
-  button: { backgroundColor: "#7A1B2B", paddingVertical: 14, borderRadius: 10, alignItems: "center", marginTop: 20 },
-  buttonText: { color: "#FFF", fontWeight: "700" },
+  lineTitle: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.textPrimary },
+  lineMeta: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted, marginTop: 2 },
+  warningText: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.warning, marginTop: 4 },
+  lineActions: { flexDirection: "row", gap: spacing.md, marginTop: 6 },
+  actionText: { fontSize: 16, color: colors.action, fontWeight: "700", minWidth: touchTarget, textAlign: "center" },
+  removeText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeXs, color: colors.error },
+  hintText: { fontFamily: typography.fontFamilySans, fontSize: 10, color: colors.textMuted, marginTop: 4 },
+  lineTotal: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.textPrimary },
+  summary: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  summaryLabel: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeMd, color: colors.textPrimary },
+  summaryValue: { fontFamily: typography.fontFamilySansBold, fontSize: typography.sizeLg, color: colors.action },
+  secondaryButton: { marginTop: spacing.md, alignItems: "center", minHeight: touchTarget, justifyContent: "center" },
+  secondaryButtonText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.action, fontSize: typography.sizeSm },
+  error: { color: colors.error, marginTop: spacing.sm, fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm },
 });

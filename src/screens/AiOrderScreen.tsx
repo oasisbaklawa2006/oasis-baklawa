@@ -4,6 +4,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import { Screen } from "@/components/Screen";
 import { supabase } from "@/lib/supabase";
+import { colors, spacing, typography, touchTarget } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "AiOrder">;
 type InputMode = "text" | "audio" | "image";
@@ -69,18 +70,18 @@ export function AiOrderScreen({ navigation }: Props) {
         />
       )}
       {mode === "audio" && (
-        <TouchableOpacity style={styles.recordButton}>
-          <Text style={styles.recordButtonText}>🎙 Tap to record order</Text>
-        </TouchableOpacity>
+        <View style={styles.unavailable}>
+          <Text style={styles.unavailableText}>Voice ordering is not yet available. The ai-order-parse contract for audio input has not been verified for production.</Text>
+        </View>
       )}
       {mode === "image" && (
-        <TouchableOpacity style={styles.recordButton}>
-          <Text style={styles.recordButtonText}>📷 Capture or upload PO image</Text>
-        </TouchableOpacity>
+        <View style={styles.unavailable}>
+          <Text style={styles.unavailableText}>PO image capture is not yet available. OCR ordering requires a verified edge function contract.</Text>
+        </View>
       )}
 
-      <TouchableOpacity style={styles.button} disabled={parsing} onPress={parseOrder}>
-        <Text style={styles.buttonText}>{parsing ? "Parsing…" : "Parse Order"}</Text>
+      <TouchableOpacity style={styles.button} disabled={parsing || mode !== "text"} onPress={parseOrder}>
+        <Text style={styles.buttonText}>{parsing ? "Parsing…" : mode === "text" ? "Parse Order" : "Text mode only"}</Text>
       </TouchableOpacity>
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -117,22 +118,77 @@ export function AiOrderScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  tabs: { flexDirection: "row", gap: 8, marginTop: 16, marginBottom: 16 },
-  tab: { flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: "#F0DED0", alignItems: "center" },
-  tabActive: { backgroundColor: "#7A1B2B" },
-  tabText: { fontSize: 11, color: "#7A1B2B", fontWeight: "600", textAlign: "center" },
-  tabTextActive: { color: "#FFF" },
-  textArea: { borderWidth: 1, borderColor: "#E0C9B8", borderRadius: 10, padding: 14, minHeight: 120, textAlignVertical: "top", fontSize: 14 },
-  recordButton: { borderWidth: 1, borderStyle: "dashed", borderColor: "#7A1B2B", borderRadius: 10, paddingVertical: 40, alignItems: "center" },
-  recordButtonText: { color: "#7A1B2B", fontWeight: "600" },
-  button: { backgroundColor: "#7A1B2B", paddingVertical: 14, borderRadius: 10, alignItems: "center", marginTop: 16 },
-  buttonText: { color: "#FFF", fontWeight: "600" },
-  secondaryButton: { flex: 1, borderWidth: 1, borderColor: "#7A1B2B", paddingVertical: 14, borderRadius: 10, alignItems: "center" },
-  secondaryButtonText: { color: "#7A1B2B", fontWeight: "600" },
-  error: { color: "#B3261E", marginTop: 8 },
-  reviewRow: { flexDirection: "row", gap: 8, alignItems: "center", marginBottom: 10 },
-  reviewInput: { flex: 2, borderWidth: 1, borderColor: "#E0C9B8", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 },
-  reviewQty: { flex: 1, borderWidth: 1, borderColor: "#E0C9B8", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, textAlign: "center" },
-  reviewUom: { width: 40, fontSize: 12, color: "#8A6B5C" },
-  reviewActions: { flexDirection: "row", gap: 10, marginTop: 12 },
+  tabs: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md, marginBottom: spacing.md },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: colors.surfacePremium,
+    alignItems: "center",
+    minHeight: touchTarget,
+    justifyContent: "center",
+  },
+  tabActive: { backgroundColor: colors.action },
+  tabText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeXs, color: colors.action, textAlign: "center" },
+  tabTextActive: { color: colors.white },
+  textArea: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    padding: 14,
+    minHeight: 120,
+    textAlignVertical: "top",
+    fontSize: typography.sizeSm,
+    fontFamily: typography.fontFamilySans,
+    color: colors.textPrimary,
+    backgroundColor: colors.white,
+  },
+  button: {
+    backgroundColor: colors.action,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: spacing.md,
+    minHeight: touchTarget,
+    justifyContent: "center",
+  },
+  buttonText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.white },
+  secondaryButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.action,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: "center",
+    minHeight: touchTarget,
+    justifyContent: "center",
+  },
+  secondaryButtonText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.action },
+  error: { color: colors.error, marginTop: spacing.sm, fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm },
+  unavailable: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: spacing.md, backgroundColor: colors.surfaceUtility },
+  unavailableText: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textSecondary, lineHeight: 20 },
+  reviewRow: { flexDirection: "row", gap: spacing.sm, alignItems: "center", marginBottom: 10 },
+  reviewInput: {
+    flex: 2,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontFamily: typography.fontFamilySans,
+    color: colors.textPrimary,
+  },
+  reviewQty: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    textAlign: "center",
+    fontFamily: typography.fontFamilySans,
+    color: colors.textPrimary,
+  },
+  reviewUom: { width: 40, fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textMuted },
+  reviewActions: { flexDirection: "row", gap: 10, marginTop: spacing.md },
 });

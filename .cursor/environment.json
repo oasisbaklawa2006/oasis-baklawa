@@ -1,0 +1,5 @@
+{
+  "name": "Oasis Baklawa Buyer App",
+  "install": "npm install --no-audit --no-fund",
+  "start": "true"
+}

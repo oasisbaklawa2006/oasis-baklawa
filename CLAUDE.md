@@ -4,7 +4,7 @@ The Appverse programme is governed by Mission Control in `oasisbaklawa2006/Oasis
 
 This repository owns the customer-facing/mobile Buyer App. Do not absorb Core shared backend/migrations, Central operational/admin work, AI Studio, or Trace without explicit Mission Control reassignment.
 
-For mismatched instructions start with `ROUTING REJECTED — instruction does not belong to this thread.`, identify the likely ASM route when possible, state `No code, PR, migration, deployment, or scope expansion performed.`, and stop.
+For mismatched instructions start with `ROUTING REJECTED — instruction does not belong to this thread.`, identify the likely ASM route when possible, state `No code, PR, migration, deployment, or scope expansion performed.`, route the item to Mission Control, and stop.
 
 If any required routing field or upstream dependency is missing, conflicting, or ambiguous, report `BLOCKED`, route to Mission Control, and stop. Do not infer authority or fabricate backend truth, commercial values, stock/order/payment state, identifiers, or parallel schema.
 

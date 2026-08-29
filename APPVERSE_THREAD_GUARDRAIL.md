@@ -1,0 +1,19 @@
+# APPVERSE THREAD / AGENT ROUTING GUARDRAIL — BUYER APP
+
+Canonical programme authority: `oasisbaklawa2006/Oasis-Baklawa-Central` → `APPVERSE_MISSION_CONTROL.md` and `appverse-control/state.json`.
+
+## Repository authority
+
+This repository owns the customer-facing/mobile Buyer App experience. Shared transactional/database authority and Appverse Supabase migration ownership remain in `oasis-supabase-core`; internal operational/admin surfaces belong in `Oasis-Baklawa-Central`.
+
+## Fail-closed routing
+
+If a pasted instruction, response, or requested change belongs to Core migrations/shared authority, Central operational/admin UI, AI Studio, Trace, or another workstream outside the current Buyer App ASM mission:
+
+`ROUTING REJECTED — instruction does not belong to this thread.`
+
+Route the rejected item to Mission Control. Identify the likely ASM route when evidence permits, state `No code, PR, migration, deployment, or scope expansion performed.`, and stop. Do not silently absorb foreign scope.
+
+If an upstream dependency is missing or ambiguous, report `BLOCKED`, route to Mission Control, and stop; never fabricate backend authority, commercial values, stock state, order state, payment truth, or a parallel schema. `PR MERGED != STAGE CLEARED`; only Mission Control gates establish programme clearance.
+
+Preserve the current `ASM-ID`, `THREAD-ID`, `REPOSITORY`, `MISSION`, `DEPENDENCIES`, and `STOP CONDITION` only when they are explicit and verified. If any required routing field is missing, conflicting, or ambiguous, report `BLOCKED`, state `No code, PR, migration, deployment, or scope expansion performed.`, route to Mission Control, and stop. Do not infer authority. Return to Mission Control on gate completion, blocker, cross-repo requirement, merge milestone, or production/device boundary.

@@ -5,9 +5,11 @@ import type { RootStackParamList } from "@/navigation/types";
 import { Screen } from "@/components/Screen";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { fetchCustomerOrderItems, fetchCustomerOrderStatus } from "@/lib/api/orders";
+import { formatInr } from "@/lib/customer-projections";
 import { FULFILMENT_TIMELINE_STAGES, fulfilmentStageIndex } from "@/lib/order-stages";
 import { parseRpcError } from "@/lib/rpc-errors";
-import type { CustomerOrderItem, CustomerOrderStatus } from "@/types/database.types";
+import { customerGateway } from "@/services/customerGateway";
+import type { CustomerFinanceFacts, CustomerOrderItem, CustomerOrderStatus } from "@/types/database.types";
 import { colors, spacing, typography } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "OrderDetail">;
@@ -16,6 +18,7 @@ export function OrderDetailScreen({ navigation, route }: Props) {
   const { orderId, order: initialOrder } = route.params;
   const [order, setOrder] = useState<CustomerOrderStatus | null>(initialOrder ?? null);
   const [items, setItems] = useState<CustomerOrderItem[]>([]);
+  const [financeFacts, setFinanceFacts] = useState<CustomerFinanceFacts | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,6 +33,11 @@ export function OrderDetailScreen({ navigation, route }: Props) {
       } else {
         const orders = await fetchCustomerOrderStatus();
         setOrder(orders.find((o) => o.order_id === orderId) ?? null);
+      }
+      try {
+        setFinanceFacts(await customerGateway.financeFacts(orderId));
+      } catch {
+        setFinanceFacts(null);
       }
     } catch (e) {
       setError(parseRpcError(e).message);
@@ -80,6 +88,26 @@ export function OrderDetailScreen({ navigation, route }: Props) {
               {order.courier_name ?? "Courier"} · AWB {order.tracking_number}
             </Text>
           ) : null}
+          {financeFacts?.customer_safe_projection ? (
+            <View style={styles.financeCard}>
+              <Text style={styles.section}>Finance facts</Text>
+              <Text style={styles.financeMeta}>
+                {financeFacts.finance_status?.replace(/_/g, " ") ?? "Status pending"}
+              </Text>
+              {financeFacts.commercial_value !== null ? (
+                <Text style={styles.financeLine}>Commercial value: {formatInr(financeFacts.commercial_value)}</Text>
+              ) : null}
+              {financeFacts.required_advance !== null ? (
+                <Text style={styles.financeLine}>Required advance: {formatInr(financeFacts.required_advance)}</Text>
+              ) : null}
+              {financeFacts.covered_amount !== null ? (
+                <Text style={styles.financeLine}>Covered amount: {formatInr(financeFacts.covered_amount)}</Text>
+              ) : null}
+              {financeFacts.pi_number ? (
+                <Text style={styles.financeLine}>PI reference: {financeFacts.pi_number}</Text>
+              ) : null}
+            </View>
+          ) : null}
           <Text style={styles.section}>Line items</Text>
           <FlatList
             data={items}
@@ -114,6 +142,9 @@ const styles = StyleSheet.create({
   timelineLabel: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textMuted },
   timelineLabelActive: { color: colors.textPrimary, fontFamily: typography.fontFamilySansSemiBold },
   tracking: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textSecondary, marginTop: spacing.md },
+  financeCard: { backgroundColor: colors.surfacePremium, borderRadius: 12, padding: spacing.md, marginTop: spacing.md, gap: 4 },
+  financeMeta: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.textPrimary },
+  financeLine: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textSecondary },
   line: { paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
   lineTitle: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeMd, color: colors.textPrimary },
   lineMeta: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted, marginTop: 2 },

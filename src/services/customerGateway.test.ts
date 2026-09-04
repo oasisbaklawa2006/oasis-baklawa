@@ -19,7 +19,7 @@ describe("customerGateway tranche-5 bindings", () => {
   it("binds all customer-safe Core contracts through the buyer gateway", () => {
     const source = readFileSync(join(__dirname, "../services/customerGateway.ts"), "utf8");
     for (const rpc of REQUIRED_BINDINGS) {
-      assert.match(source, new RegExp(`"${rpc}"`));
+      assert.ok(source.includes(`"${rpc}"`), `customerGateway missing binding for ${rpc}`);
     }
     assert.match(source, /if \(!input\.orderId\.trim\(\)\)/);
     assert.match(source, /normalizeCustomerStatement/);

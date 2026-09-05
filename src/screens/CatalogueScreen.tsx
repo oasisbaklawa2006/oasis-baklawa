@@ -13,6 +13,7 @@ import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
 import { addCustomerOrderDraftLine } from "@/lib/api/draft";
 import { nextValidQuantity } from "@/lib/draft-utils";
 import { parseRpcError } from "@/lib/rpc-errors";
+import { useCustomerFavourites } from "@/hooks/useCustomerFavourites";
 import { colors, spacing, typography } from "@/theme";
 
 type Props = CompositeScreenProps<
@@ -22,6 +23,7 @@ type Props = CompositeScreenProps<
 
 export function CatalogueScreen({ navigation }: Props) {
   const { isApprovedBuyer } = useBuyerSession();
+  const { isFavourite, toggleFavourite } = useCustomerFavourites();
   const [products, setProducts] = useState<CatalogueProduct[]>([]);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
@@ -30,6 +32,7 @@ export function CatalogueScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [favouriteBusyId, setFavouriteBusyId] = useState<string | null>(null);
 
   const loadCatalogue = useCallback(async () => {
     setLoading(true);
@@ -99,6 +102,18 @@ export function CatalogueScreen({ navigation }: Props) {
     }
   }
 
+  async function onToggleFavourite(productId: string, nextValue: boolean) {
+    setFavouriteBusyId(productId);
+    setError(null);
+    try {
+      await toggleFavourite(productId, nextValue);
+    } catch (e) {
+      setError(parseRpcError(e).message);
+    } finally {
+      setFavouriteBusyId(null);
+    }
+  }
+
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")} requireApprovedBuyer={false}>
       <Screen title="Catalogue" subtitle="Categories · Tiered pricing · MOQ" scroll={false}>
@@ -143,6 +158,24 @@ export function CatalogueScreen({ navigation }: Props) {
                 const adding = busyProductId === item.product_id;
                 return (
                   <View style={styles.row}>
+                    {isApprovedBuyer ? (
+                      <TouchableOpacity
+                        style={styles.favouriteButton}
+                        disabled={favouriteBusyId === item.product_id}
+                        onPress={() => void onToggleFavourite(item.product_id, !isFavourite(item.product_id))}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: isFavourite(item.product_id) }}
+                        accessibilityLabel={
+                          isFavourite(item.product_id)
+                            ? `Remove ${item.product_name} from favourites`
+                            : `Add ${item.product_name} to favourites`
+                        }
+                      >
+                        <Text style={[styles.favouriteIcon, isFavourite(item.product_id) && styles.favouriteIconActive]}>
+                          {isFavourite(item.product_id) ? "♥" : "♡"}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
                     <TouchableOpacity
                       onPress={() => navigation.navigate("ProductDetail", { productId: item.product_id })}
                       accessibilityRole="button"
@@ -229,7 +262,18 @@ const styles = StyleSheet.create({
   categoryText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeXs, color: colors.action },
   categoryTextActive: { color: colors.white },
   list: { paddingVertical: 12, gap: 14 },
-  row: { flexDirection: "row", gap: 12 },
+  row: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
+  favouriteButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceUtility,
+    marginTop: 18,
+  },
+  favouriteIcon: { fontSize: 18, color: colors.textMuted },
+  favouriteIconActive: { color: colors.action },
   rowImage: { width: 72, height: 72, borderRadius: 10 },
   rowInfo: { flex: 1 },
   rowTitle: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.textPrimary },

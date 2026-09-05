@@ -61,6 +61,19 @@ describe("golden journey invariants", () => {
     assert.deepEqual(hits, []);
   });
 
+  it("does not keep DocumentsScreen on BLOCKED-BACKEND stub", () => {
+    const source = readFileSync(join(ROOT, "screens/DocumentsScreen.tsx"), "utf8");
+    assert.doesNotMatch(source, /BLOCKED-BACKEND/);
+    assert.match(source, /customerGateway\.documents\(\)/);
+  });
+
+  it("routes general support through governed general-query contract", () => {
+    const source = readFileSync(join(ROOT, "screens/SupportScreen.tsx"), "utf8");
+    assert.match(source, /submitGeneralQuery/);
+    assert.match(source, /getGeneralQueryIdempotencyKey/);
+    assert.doesNotMatch(source, /orderId:\s*""/);
+  });
+
   it("registers all stack routes in RootNavigator", () => {
     const navSource = readFileSync(join(ROOT, "navigation/RootNavigator.tsx"), "utf8");
     for (const route of STACK_ROUTES) {

@@ -30,6 +30,15 @@ const allowedRpcs = new Set([
   "submit_customer_order_v1",
   "calculate_customer_advance_v1",
   "submit_b2b_trade_application_v1",
+  "customer_sales_order_commercial_facts_v1",
+  "customer_order_finance_facts_v1",
+  "customer_proforma_invoice_facts_v1",
+  "customer_documents_v1",
+  "customer_statement_v1",
+  "customer_product_favourites_v1",
+  "set_customer_product_favourite_v1",
+  "customer_general_queries_v1",
+  "submit_customer_general_query_v1",
 ]);
 const violations = [];
 

@@ -4,7 +4,9 @@ import { getCatalogueColumns, getContentWidth, getDeviceClass } from "./layout-u
 
 describe("responsive layout", () => {
   it("classifies phone, tablet portrait and landscape", () => {
+    assert.equal(getDeviceClass(375, 812), "phone");
     assert.equal(getDeviceClass(390, 844), "phone");
+    assert.equal(getDeviceClass(430, 932), "phone");
     assert.equal(getDeviceClass(820, 1180), "tablet");
     assert.equal(getDeviceClass(1180, 820), "tabletLandscape");
   });

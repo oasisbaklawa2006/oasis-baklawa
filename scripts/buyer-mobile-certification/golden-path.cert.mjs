@@ -5,8 +5,14 @@
  * Read-only RPC probes only; no order/general-query/favourite mutations.
  */
 import { createClient } from "@supabase/supabase-js";
-import { readFileSync, unlinkSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, unlinkSync, writeFileSync, mkdirSync, appendFileSync } from "node:fs";
 import { join } from "node:path";
+import {
+  CENTRAL_APPROVAL_BLOCKER_ISSUE,
+  CERT_PENDING_APPLICATION_HINT,
+  formatCertBuyerStateSummary,
+  resolveCertBuyerState,
+} from "./cert-buyer-state.mjs";
 
 const READ_RPCS = [
   "customer_sales_order_commercial_facts_v1",
@@ -47,6 +53,9 @@ function missingSecretGate() {
 
 function companyContextGate(userId, detail, pendingApplications) {
   const hasPendingApplication = Array.isArray(pendingApplications) && pendingApplications.length > 0;
+  const pendingIds = hasPendingApplication
+    ? pendingApplications.map((row) => row.id).join(", ")
+    : CERT_PENDING_APPLICATION_HINT;
   fail(
     [
       "HUMAN GATE — authenticated Buyer Mobile golden-path certification is blocked on buyer company context.",
@@ -61,12 +70,14 @@ function companyContextGate(userId, detail, pendingApplications) {
         : "Applicant-visible pending application census: none (submit_b2b_trade_application_v1 did not establish a pending row for this Auth user).",
       "",
       hasPendingApplication
-        ? "Verified authority blocker: pending application exists for this Auth user but is not yet approved."
-        : "Verified authority blocker: no pending application is linked to this Auth user; inspect ensure-cert-buyer-onboarding submit failure output before requesting Central approval.",
-      "",
-      hasPendingApplication
-        ? "Central-owned human action (only when a pending row exists): approve the pending B2B trade application in Oasis Central (Admin → Clients → Approve), invoking approve_b2b_trade_application_v1 as internal staff."
-        : "Buyer-owned action: fix governed submit integration / collision inputs and re-run certification; Central approval alone cannot help when Pending Review = 0.",
+        ? [
+            "Verified authority blocker: pending application exists but buyer eligibility is not yet established.",
+            `Pending application id(s): ${pendingIds}`,
+            `Central P0 approval UI blocker: ${CENTRAL_APPROVAL_BLOCKER_ISSUE} — Pricing Slab / Account Manager selectors render behind the Admin Clients sheet (Select z-50 vs Sheet z-200).`,
+            "Do not bypass governed onboarding or mutate production approval state from Buyer CI.",
+            "After Central merges P0 #481 and staff approve via approve_b2b_trade_application_v1, re-run this workflow — certification auto-resumes when eligibility is detected.",
+          ].join("\n")
+        : "Verified authority blocker: no pending application is linked to this Auth user; inspect ensure-cert-buyer-onboarding output before requesting Central approval.",
       "",
       "Canonical post-approval state:",
       "  profiles.id = certification auth uid",
@@ -78,7 +89,7 @@ function companyContextGate(userId, detail, pendingApplications) {
       "  companies.is_frozen = false",
       "",
       "Do not weaken customer_buyer_eligible_company_id(), bypass eligibility, or direct-write production tables.",
-      "Then re-run Buyer Mobile Golden Path Certification.",
+      "Then re-run Buyer Mobile Golden Path Certification (workflow_dispatch or PR sync).",
     ]
       .filter(Boolean)
       .join("\n")
@@ -137,8 +148,31 @@ try {
 
   console.log(`Authenticated buyer certification user: ${session.userId}`);
 
+  const buyerState = await resolveCertBuyerState(supabase, session.userId);
+  const buyerSummary = formatCertBuyerStateSummary(buyerState, session.userId);
+  console.log(`Certification buyer auto-resume state: ${JSON.stringify(buyerSummary)}`);
+  if (buyerState.phase === "APPROVED") {
+    console.log(`AUTO_RESUME_READY — proceeding with read-only golden-path probes for company ${buyerState.eligibleCompanyId}.`);
+  }
+
+  const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+  if (summaryPath) {
+    appendFileSync(
+      summaryPath,
+      [
+        "## Authenticated golden-path certification",
+        "",
+        `- Auto-resume phase: **${buyerSummary.autoResumePhase}**`,
+        `- Eligible company: ${buyerSummary.eligibleCompanyId ? `\`${buyerSummary.eligibleCompanyId}\`` : "none"}`,
+        "",
+      ].join("\n")
+    );
+  }
+
   const evidence = {
     authenticatedUserId: session.userId,
+    autoResumePhase: buyerSummary.autoResumePhase,
+    eligibleCompanyId: buyerSummary.eligibleCompanyId,
     readOnly: true,
     rpcResults: [],
     projectionChecks: [],

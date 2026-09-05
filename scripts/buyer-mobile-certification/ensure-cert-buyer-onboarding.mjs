@@ -1,30 +1,28 @@
 #!/usr/bin/env node
 /**
- * Governed certification buyer onboarding prep.
- * Matches RegisterScreen / submitB2bTradeApplication integration via supabase-js.
+ * Governed certification buyer onboarding prep (auto-resumable).
+ * APPROVED → no-op; PENDING_CENTRAL → no duplicate submit; NEEDS_SUBMIT → submit once.
  */
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
-import { createClient } from "@supabase/supabase-js";
-
-const sessionFile = process.env.BUYER_CERT_SESSION_FILE ?? "/tmp/oasis-buyer-mobile-cert-session.json";
+import { appendFileSync, existsSync } from "node:fs";
+import {
+  CENTRAL_APPROVAL_BLOCKER_ISSUE,
+  CERT_PENDING_APPLICATION_HINT,
+  createAuthenticatedCertClient,
+  formatCertBuyerStateSummary,
+  getSessionFilePath,
+  resolveCertBuyerState,
+} from "./cert-buyer-state.mjs";
 
 function fail(message) {
   console.error(message);
   process.exit(1);
 }
 
-function loadSessionArtifact(path) {
-  const parsed = JSON.parse(readFileSync(path, "utf8"));
-  if (
-    typeof parsed.supabaseUrl !== "string" ||
-    typeof parsed.anonKey !== "string" ||
-    typeof parsed.accessToken !== "string" ||
-    typeof parsed.userId !== "string"
-  ) {
-    throw new Error("Session artifact is missing required fields.");
-  }
-  return parsed;
+function writeStepSummary(markdown) {
+  const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+  if (!summaryPath) return;
+  appendFileSync(summaryPath, `${markdown}\n`);
 }
 
 function deriveCertMobile(userId) {
@@ -34,47 +32,60 @@ function deriveCertMobile(userId) {
   return String(9000000000 + (n % 999999999));
 }
 
+const sessionFile = getSessionFilePath();
 if (!existsSync(sessionFile)) {
   console.log("ensure-cert-buyer-onboarding: session artifact missing; skipping.");
   process.exit(0);
 }
 
 let session;
+let supabase;
 try {
-  session = loadSessionArtifact(sessionFile);
+  ({ session, supabase } = await createAuthenticatedCertClient(sessionFile));
 } catch (error) {
-  fail(`Session artifact could not be loaded: ${error instanceof Error ? error.message : "unknown error"}`);
+  fail(error instanceof Error ? error.message : "Session setup failed.");
 }
 
-const supabase = createClient(session.supabaseUrl, session.anonKey, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
+if (!session || !supabase) {
+  fail("Session artifact unavailable after load.");
+}
 
-const { error: sessionError } = await supabase.auth.setSession({
-  access_token: session.accessToken,
-  refresh_token: session.refreshToken ?? "",
-});
-if (sessionError) fail(`Authenticated session could not be established: ${sessionError.message}`);
+const state = await resolveCertBuyerState(supabase, session.userId);
+const summary = formatCertBuyerStateSummary(state, session.userId);
+console.log(`Certification buyer auto-resume state: ${JSON.stringify(summary)}`);
 
-const { data: eligibleCompanyId, error: eligibilityError } = await supabase.rpc(
-  "customer_buyer_eligible_company_id"
+writeStepSummary(
+  [
+    "## Certification buyer auto-resume state",
+    "",
+    `- Phase: **${summary.autoResumePhase}**`,
+    `- Auth user: \`${summary.authenticatedUserId}\``,
+    `- Eligible company: ${summary.eligibleCompanyId ? `\`${summary.eligibleCompanyId}\`` : "none"}`,
+    `- Pending applications: ${summary.pendingApplicationIds.length ? summary.pendingApplicationIds.map((id) => `\`${id}\``).join(", ") : "none"}`,
+    summary.centralApprovalBlockerIssue
+      ? `- Central blocker: [Oasis-Baklawa-Central#481](https://github.com/oasisbaklawa2006/Oasis-Baklawa-Central/issues/481) (Pricing Slab selector invisible in Admin Clients sheet)`
+      : null,
+  ]
+    .filter(Boolean)
+    .join("\n")
 );
-if (eligibilityError) fail(`customer_buyer_eligible_company_id failed: ${eligibilityError.message}`);
-if (eligibleCompanyId) {
-  console.log(`Certification buyer already has governed company context: ${eligibleCompanyId}`);
+
+if (state.phase === "APPROVED") {
+  console.log(`AUTO_RESUME_READY — governed buyer company context established: ${state.eligibleCompanyId}`);
   process.exit(0);
 }
 
-const { data: pendingBefore, error: pendingBeforeError } = await supabase
-  .from("b2b_applications")
-  .select("id,status,resolved_company_id,business_name,mobile_number,contact_email")
-  .eq("user_id", session.userId)
-  .eq("status", "pending");
-if (pendingBeforeError) fail(`Pending-application census failed: ${pendingBeforeError.message}`);
-console.log(`Certification buyer pending-application census (before ensure): ${JSON.stringify(pendingBefore ?? [])}`);
-
-if ((pendingBefore ?? []).length > 0) {
-  console.log("Pending governed application already exists for certification buyer; skipping submit.");
+if (state.phase === "PENDING_CENTRAL") {
+  const pendingIds = state.pendingApplications.map((row) => row.id).join(", ");
+  console.log(
+    [
+      "AUTO_RESUME_PENDING — governed application exists; skipping duplicate submit.",
+      `Pending application ids: ${pendingIds}`,
+      `Certification application hint: ${CERT_PENDING_APPLICATION_HINT}`,
+      `Central approval blocked by ${CENTRAL_APPROVAL_BLOCKER_ISSUE} until Pricing Slab is selectable in Admin Clients.`,
+      "Re-run this workflow after Central staff approval; golden-path certification will auto-pass when eligibility is established.",
+    ].join("\n")
+  );
   process.exit(0);
 }
 
@@ -110,17 +121,10 @@ if (!result?.application_id) {
   fail(`submit_b2b_trade_application_v1 returned no application row for ${session.userId}.`);
 }
 
-const { data: pendingAfter, error: pendingAfterError } = await supabase
-  .from("b2b_applications")
-  .select("id,status,resolved_company_id,business_name,mobile_number,contact_email")
-  .eq("user_id", session.userId)
-  .eq("status", "pending");
-if (pendingAfterError) fail(`Pending-application census failed: ${pendingAfterError.message}`);
-
-console.log(`Certification buyer pending-application census (after ensure): ${JSON.stringify(pendingAfter ?? [])}`);
+const afterSubmit = await resolveCertBuyerState(supabase, session.userId);
 console.log(
   `Governed trade application ensured for ${session.userId}: application=${result.application_id} status=${result.application_status} duplicate=${result.is_duplicate_submission} mobile=${certMobile}`
 );
 console.log(
-  `Central visibility keys: b2b_applications.user_id=${session.userId} status=pending (Staff read all applications / is_internal_staff).`
+  `Post-submit auto-resume state: ${JSON.stringify(formatCertBuyerStateSummary(afterSubmit, session.userId))}`
 );

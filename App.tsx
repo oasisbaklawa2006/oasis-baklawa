@@ -14,6 +14,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { BuyerSessionProvider } from "@/context/BuyerSessionContext";
+import { CustomerFavouritesProvider } from "@/context/CustomerFavouritesContext";
 import { NetworkProvider } from "@/context/NetworkContext";
 import { RootNavigator } from "@/navigation/RootNavigator";
 import { colors, typography } from "@/theme";
@@ -41,8 +42,10 @@ export default function App() {
     <SafeAreaProvider>
       <NetworkProvider>
         <BuyerSessionProvider>
-          <StatusBar style="dark" />
-          <RootNavigator />
+          <CustomerFavouritesProvider>
+            <StatusBar style="dark" />
+            <RootNavigator />
+          </CustomerFavouritesProvider>
         </BuyerSessionProvider>
       </NetworkProvider>
     </SafeAreaProvider>

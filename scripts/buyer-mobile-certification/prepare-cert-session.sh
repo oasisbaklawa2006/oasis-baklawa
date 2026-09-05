@@ -33,11 +33,12 @@ AUTH_PAYLOAD="$(jq -n --arg email "${CERT_EMAIL}" --arg pass "${CERT_PASSWORD}" 
 unset CERT_PASSWORD BUYER_CERT_PASSWORD
 
 AUTH_RESPONSE="$(
-  curl -sS -X POST "${SUPABASE_URL%/}/auth/v1/token?grant_type=password" \
+  printf '%s' "${AUTH_PAYLOAD}" | curl -sS -X POST "${SUPABASE_URL%/}/auth/v1/token?grant_type=password" \
     -H "apikey: ${SUPABASE_ANON_KEY}" \
     -H "Content-Type: application/json" \
-    --data "${AUTH_PAYLOAD}"
+    --data @-
 )"
+unset AUTH_PAYLOAD
 
 ACCESS_TOKEN="$(printf '%s' "${AUTH_RESPONSE}" | jq -r '.access_token // empty')"
 REFRESH_TOKEN="$(printf '%s' "${AUTH_RESPONSE}" | jq -r '.refresh_token // empty')"

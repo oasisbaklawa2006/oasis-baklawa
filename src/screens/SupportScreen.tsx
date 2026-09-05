@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FlatList,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -138,12 +137,14 @@ export function SupportScreen({ navigation }: Props) {
         message,
         category: queryCategory,
       });
-      if (!result.is_duplicate_submission) {
-        await clearGeneralQueryIdempotencyKey();
-      }
+      await clearGeneralQueryIdempotencyKey();
       setQuerySubject("");
       setQueryMessage("");
-      setQueryNotice("Your general enquiry has been submitted.");
+      setQueryNotice(
+        result.is_duplicate_submission
+          ? "This enquiry was already received. We have not created a duplicate."
+          : "Your general enquiry has been submitted."
+      );
       await load();
     } catch (e) {
       setQueryNotice(parseRpcError(e).message);
@@ -165,7 +166,7 @@ export function SupportScreen({ navigation }: Props) {
             keyExtractor={(item) => item.id}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.action} />}
             ListHeaderComponent={
-              <ScrollView nestedScrollEnabled contentContainerStyle={styles.form}>
+              <View style={styles.form}>
                 <Text style={styles.intro}>
                   Order support and general enquiries use separate governed paths. A general enquiry never creates an order.
                 </Text>
@@ -269,7 +270,7 @@ export function SupportScreen({ navigation }: Props) {
 
                 <Text style={[styles.sectionTitle, styles.listHeader]}>Communication log</Text>
                 <Text style={styles.sectionCopy}>Order-linked tickets and general enquiries, newest first.</Text>
-              </ScrollView>
+              </View>
             }
             renderItem={({ item }) =>
               item.kind === "general_enquiry" && item.query ? (

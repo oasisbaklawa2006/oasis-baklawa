@@ -33,7 +33,7 @@ const requireAuth =
 
 function fail(message) {
   console.error(message);
-  process.exit(1);
+  throw new Error(message);
 }
 
 function missingSecretGate() {
@@ -266,8 +266,6 @@ try {
     }
   }
 
-  await supabase.auth.signOut();
-
   try {
     mkdirSync("/opt/cursor/artifacts", { recursive: true });
     writeFileSync(
@@ -284,6 +282,12 @@ try {
 
   console.log("Authenticated mobile golden-path certification passed (read-only).");
   console.log(JSON.stringify(evidence, null, 2));
+} catch (error) {
+  process.exitCode = 1;
+  if (!(error instanceof Error && error.message.startsWith("HUMAN GATE"))) {
+    console.error(error instanceof Error ? error.message : error);
+  }
 } finally {
+  await supabase.auth.signOut().catch(() => undefined);
   removeSessionArtifact(sessionFile);
 }

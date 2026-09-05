@@ -3,6 +3,8 @@
 //   npx supabase gen types typescript --project-id tcxvcatsqqertcnycuop
 // once CLI auth is available.
 
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+
 export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.4";
@@ -100,6 +102,47 @@ export type Database = {
           p_quantity_affected?: number | null;
         };
         Returns: string;
+      };
+      customer_sales_order_commercial_facts_v1: {
+        Args: Record<string, never>;
+        Returns: CustomerCommercialFacts[];
+      };
+      customer_order_finance_facts_v1: {
+        Args: { p_order_id: string };
+        Returns: Json;
+      };
+      customer_proforma_invoice_facts_v1: {
+        Args: Record<string, never>;
+        Returns: CustomerProformaInvoiceFacts[];
+      };
+      customer_documents_v1: {
+        Args: Record<string, never>;
+        Returns: CustomerDocument[];
+      };
+      customer_statement_v1: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+      customer_product_favourites_v1: {
+        Args: Record<string, never>;
+        Returns: CustomerProductFavourite[];
+      };
+      set_customer_product_favourite_v1: {
+        Args: { p_product_id: string; p_is_favourite: boolean };
+        Returns: CustomerProductFavouriteMutation[];
+      };
+      customer_general_queries_v1: {
+        Args: Record<string, never>;
+        Returns: CustomerGeneralQuery[];
+      };
+      submit_customer_general_query_v1: {
+        Args: {
+          p_idempotency_key: string;
+          p_subject: string;
+          p_message: string;
+          p_category?: string;
+        };
+        Returns: SubmitCustomerGeneralQueryResult[];
       };
     };
   };
@@ -309,4 +352,122 @@ export interface SubmitSupportTicketInput {
   description: string;
   productSku?: string | null;
   quantityAffected?: number | null;
+}
+
+export interface CustomerCommercialFacts {
+  order_id: string;
+  order_number: string;
+  commercial_version_id: string | null;
+  commercial_version_number: number | null;
+  frozen_sales_order_value: number | null;
+  requested_dispatch_date: string | null;
+  promised_dispatch_date: string | null;
+  commercial_status: string | null;
+  finance_status: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CustomerFinanceFacts {
+  order_id: string;
+  order_number: string;
+  commercial_version_id: string | null;
+  commercial_version_number: number | null;
+  commercial_value: number | null;
+  required_advance: number | null;
+  pi_id: string | null;
+  pi_number: string | null;
+  pi_status: string | null;
+  verified_payment_amount: number | null;
+  wallet_applied_amount: number | null;
+  approved_credit_amount: number | null;
+  covered_amount: number | null;
+  advance_covered: boolean | null;
+  finance_status: string | null;
+  facts_as_of: string | null;
+  customer_safe_projection: boolean;
+}
+
+export interface CustomerProformaInvoiceFacts {
+  pi_id: string;
+  customer_visible_pi_number: string | null;
+  order_id: string;
+  order_number: string;
+  commercial_version_id: string | null;
+  commercial_version_number: number | null;
+  status: string | null;
+  issued_at: string | null;
+  frozen_customer_total: number | null;
+  created_at: string;
+}
+
+export interface CustomerDocument {
+  document_type: string;
+  document_id: string;
+  document_number: string | null;
+  order_id: string;
+  order_number: string;
+  commercial_version_id: string | null;
+  status: string | null;
+  issued_at: string | null;
+  customer_total: number | null;
+  availability_state: string | null;
+}
+
+export interface CustomerStatementEntry {
+  order_id: string | null;
+  invoice_date: string | null;
+  invoice_number: string | null;
+  invoice_gross_total: number | null;
+  verified_payment_total: number | null;
+  wallet_applied_total: number | null;
+  approved_credit_total: number | null;
+  credit_note_total: number | null;
+  debit_note_total: number | null;
+  refund_total: number | null;
+  pre_dispatch_net_due: number | null;
+  complaint_window_status: string | null;
+  complaint_deadline: string | null;
+  commercially_closed: boolean | null;
+}
+
+export interface CustomerStatement {
+  company_id: string;
+  wallet_balance: number | null;
+  entries: CustomerStatementEntry[];
+  facts_as_of: string | null;
+  statement_facts_only: boolean;
+}
+
+export interface CustomerProductFavourite {
+  product_id: string;
+  created_at: string;
+}
+
+export interface CustomerProductFavouriteMutation {
+  product_id: string;
+  is_favourite: boolean;
+}
+
+export interface CustomerGeneralQuery {
+  query_id: string;
+  category: string;
+  subject: string;
+  message: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SubmitCustomerGeneralQueryInput {
+  idempotencyKey: string;
+  subject: string;
+  message: string;
+  category: string;
+}
+
+export interface SubmitCustomerGeneralQueryResult {
+  query_id: string;
+  status: string;
+  is_duplicate_submission: boolean;
 }

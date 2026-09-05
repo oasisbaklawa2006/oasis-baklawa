@@ -11,6 +11,7 @@ import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
 import { addCustomerOrderDraftLine } from "@/lib/api/draft";
 import { nextValidQuantity } from "@/lib/draft-utils";
 import { parseRpcError } from "@/lib/rpc-errors";
+import { useCustomerFavourites } from "@/hooks/useCustomerFavourites";
 import { colors, spacing, typography } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ProductDetail">;
@@ -26,11 +27,13 @@ function formatMoney(value: number, currency: string) {
 export function ProductDetailScreen({ navigation, route }: Props) {
   const { productId } = route.params;
   const { isApprovedBuyer } = useBuyerSession();
+  const { isFavourite, toggleFavourite } = useCustomerFavourites();
   const [product, setProduct] = useState<CatalogueProduct | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [adding, setAdding] = useState(false);
+  const [favouriteBusy, setFavouriteBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -77,6 +80,18 @@ export function ProductDetailScreen({ navigation, route }: Props) {
     }
   }
 
+  async function onToggleFavourite() {
+    setFavouriteBusy(true);
+    setNotice(null);
+    try {
+      await toggleFavourite(productId, !isFavourite(productId));
+    } catch (e) {
+      setNotice(parseRpcError(e).message);
+    } finally {
+      setFavouriteBusy(false);
+    }
+  }
+
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
       <Screen title="Product" subtitle={product?.sku ?? ""}>
@@ -87,6 +102,19 @@ export function ProductDetailScreen({ navigation, route }: Props) {
         ) : product ? (
           <ScrollView contentContainerStyle={styles.content}>
             <ProductImage uri={product.hero_image_url} style={styles.hero} accessibilityLabel={product.product_name} />
+            {isApprovedBuyer ? (
+              <TouchableOpacity
+                style={styles.favouriteButton}
+                disabled={favouriteBusy}
+                onPress={() => void onToggleFavourite()}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isFavourite(productId) }}
+              >
+                <Text style={[styles.favouriteIcon, isFavourite(productId) && styles.favouriteIconActive]}>
+                  {isFavourite(productId) ? "Saved to favourites" : "Save to favourites"}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
             <Text style={styles.name}>{product.product_name}</Text>
             <Text style={styles.meta}>{[product.category, product.subcategory].filter(Boolean).join(" · ")}</Text>
             {priceLabel ? (
@@ -147,6 +175,9 @@ export function ProductDetailScreen({ navigation, route }: Props) {
 const styles = StyleSheet.create({
   content: { paddingBottom: spacing.xl, gap: spacing.md },
   hero: { width: "100%", height: 240, marginTop: spacing.md },
+  favouriteButton: { alignSelf: "flex-start" },
+  favouriteIcon: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.textSecondary },
+  favouriteIconActive: { color: colors.action },
   name: { fontFamily: typography.fontFamilySerifBold, fontSize: typography.sizeXxl, color: colors.textPrimary },
   meta: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textMuted },
   price: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeLg, color: colors.action },

@@ -1,0 +1,65 @@
+name: Buyer Mobile Golden Path Certification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/buyer-mobile-golden-path-certification.yml'
+      - 'scripts/buyer-mobile-certification/**'
+      - 'src/services/customerGateway.ts'
+      - 'src/screens/DocumentsScreen.tsx'
+      - 'src/screens/SupportScreen.tsx'
+      - 'src/lib/customer-projections.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tranche5-binding-certification:
+    name: Tranche-5 binding and authenticated certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BUYER_CERT_SESSION_FILE: /tmp/oasis-buyer-mobile-cert-session.json
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify Tranche-5 gateway bindings
+        run: node scripts/buyer-mobile-certification/verify-bindings.mjs
+
+      - name: Run focused unit and layout certification matrix
+        run: npm run test
+
+      - name: Materialize short-lived buyer certification session
+        env:
+          BUYER_CERT_REQUIRE_AUTH: "true"
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          BUYER_CERT_EMAIL: ${{ secrets.BUYER_CERT_EMAIL }}
+          BUYER_CERT_PASSWORD: ${{ secrets.BUYER_CERT_PASSWORD }}
+        run: bash scripts/buyer-mobile-certification/prepare-cert-session.sh >> "$GITHUB_ENV"
+
+      - name: Ensure governed certification buyer onboarding
+        env:
+          BUYER_CERT_EMAIL: ${{ secrets.BUYER_CERT_EMAIL }}
+        run: node scripts/buyer-mobile-certification/ensure-cert-buyer-onboarding.mjs
+
+      - name: Authenticated read-only golden-path certification
+        env:
+          BUYER_CERT_REQUIRE_AUTH: "true"
+        run: node scripts/buyer-mobile-certification/golden-path.cert.mjs
+
+      - name: Cleanup certification session artifact
+        if: always()
+        run: rm -f "${BUYER_CERT_SESSION_FILE}"

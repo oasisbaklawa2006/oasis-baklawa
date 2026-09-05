@@ -45,6 +45,40 @@ function missingSecretGate() {
   );
 }
 
+function companyContextGate(userId, detail) {
+  fail(
+    [
+      "HUMAN GATE — authenticated Buyer Mobile golden-path certification is blocked on buyer company context.",
+      `Authenticated certification user: ${userId}`,
+      detail ? `Probe detail: ${detail}` : null,
+      "",
+      "Root cause: customer_statement_v1 fail-closes when customer_buyer_eligible_company_id() is NULL.",
+      "Required governed identity chain (Core): auth.users → public.profiles → public.companies.",
+      "",
+      "Buyer-owned prep (already attempted in CI when applicable):",
+      "  submit_b2b_trade_application_v1 — creates pending application + pending_buyer profile.",
+      "",
+      "Single Central-owned human action required (cannot be executed from Buyer repo CI):",
+      "  Approve the pending B2B trade application for this certification Auth user in Oasis Central",
+      "  (Admin → Clients → Approve), which calls approve_b2b_trade_application_v1 as internal staff.",
+      "",
+      "Canonical post-approval state:",
+      "  profiles.id = certification auth uid",
+      "  profiles.company_id = application.resolved_company_id",
+      "  profiles.role = 'b2b_buyer'",
+      "  profiles.is_approved = true",
+      "  profiles.status = 'approved'",
+      "  companies.status = 'active'",
+      "  companies.is_frozen = false",
+      "",
+      "Do not weaken customer_buyer_eligible_company_id(), bypass eligibility, or direct-write production tables.",
+      "Then re-run Buyer Mobile Golden Path Certification.",
+    ]
+      .filter(Boolean)
+      .join("\n")
+  );
+}
+
 function loadSessionArtifact(path) {
   const raw = readFileSync(path, "utf8");
   const parsed = JSON.parse(raw);
@@ -174,6 +208,13 @@ try {
   const failed = results.filter((row) => !row.ok);
   for (const row of results) {
     console.log(`${row.ok ? "PASS" : "FAIL"} ${row.rpc} ${row.detail}`);
+  }
+
+  const companyContextFailure = failed.find((row) =>
+    String(row.detail).includes("CUSTOMER_STATEMENT_COMPANY_CONTEXT_REQUIRED")
+  );
+  if (companyContextFailure) {
+    companyContextGate(session.userId, companyContextFailure.detail);
   }
 
   await supabase.auth.signOut();

@@ -50,6 +50,11 @@ jobs:
           BUYER_CERT_PASSWORD: ${{ secrets.BUYER_CERT_PASSWORD }}
         run: bash scripts/buyer-mobile-certification/prepare-cert-session.sh >> "$GITHUB_ENV"
 
+      - name: Ensure governed certification buyer onboarding
+        env:
+          BUYER_CERT_EMAIL: ${{ secrets.BUYER_CERT_EMAIL }}
+        run: bash scripts/buyer-mobile-certification/ensure-cert-buyer-onboarding.sh
+
       - name: Authenticated read-only golden-path certification
         env:
           BUYER_CERT_REQUIRE_AUTH: "true"

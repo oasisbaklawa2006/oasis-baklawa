@@ -53,7 +53,7 @@ jobs:
       - name: Ensure governed certification buyer onboarding
         env:
           BUYER_CERT_EMAIL: ${{ secrets.BUYER_CERT_EMAIL }}
-        run: bash scripts/buyer-mobile-certification/ensure-cert-buyer-onboarding.sh
+        run: node scripts/buyer-mobile-certification/ensure-cert-buyer-onboarding.mjs
 
       - name: Authenticated read-only golden-path certification
         env:

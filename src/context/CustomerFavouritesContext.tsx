@@ -21,62 +21,101 @@ export function CustomerFavouritesProvider({ children }: { children: React.React
   const [error, setError] = useState<string | null>(null);
   const loadRequestIdRef = useRef(0);
   const mutationEpochRef = useRef(0);
+  const authEpochRef = useRef(0);
+  const toggleChainRef = useRef(Promise.resolve());
+
+  const invalidateInFlightWork = useCallback(() => {
+    authEpochRef.current += 1;
+    loadRequestIdRef.current += 1;
+    mutationEpochRef.current += 1;
+    setFavourites([]);
+    setLoading(false);
+    setError(null);
+  }, []);
 
   const load = useCallback(async () => {
     if (!isApprovedBuyer) {
-      setFavourites([]);
+      invalidateInFlightWork();
       return;
     }
     const requestId = ++loadRequestIdRef.current;
+    const authEpochAtStart = authEpochRef.current;
     const mutationEpochAtStart = mutationEpochRef.current;
     setLoading(true);
     setError(null);
     try {
       const rows = await customerGateway.favourites();
       if (requestId !== loadRequestIdRef.current) return;
+      if (authEpochAtStart !== authEpochRef.current) return;
       if (mutationEpochAtStart !== mutationEpochRef.current) return;
       setFavourites(rows.map((row) => row.product_id));
     } catch (e) {
       if (requestId !== loadRequestIdRef.current) return;
+      if (authEpochAtStart !== authEpochRef.current) return;
       setError(parseRpcError(e).message);
     } finally {
-      if (requestId === loadRequestIdRef.current) {
+      if (requestId === loadRequestIdRef.current && authEpochAtStart === authEpochRef.current) {
         setLoading(false);
       }
     }
-  }, [isApprovedBuyer]);
+  }, [invalidateInFlightWork, isApprovedBuyer]);
 
   useEffect(() => {
+    authEpochRef.current += 1;
+    loadRequestIdRef.current += 1;
+    mutationEpochRef.current += 1;
+    if (!isApprovedBuyer) {
+      setFavourites([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     void load();
-  }, [load]);
+  }, [isApprovedBuyer, load]);
 
   const toggleFavourite = useCallback(
-    async (productId: string, nextValue: boolean) => {
-      if (!isApprovedBuyer) return;
-      mutationEpochRef.current += 1;
-      loadRequestIdRef.current += 1;
-      const previous = favourites;
-      const optimistic = nextValue
-        ? Array.from(new Set([...previous, productId]))
-        : previous.filter((id) => id !== productId);
-      setFavourites(optimistic);
-      try {
-        const result = await customerGateway.setFavourite(productId, nextValue);
-        const row = result?.[0];
-        if (!row || row.product_id !== productId || row.is_favourite !== nextValue) {
-          throw new Error("Favourite update was not acknowledged.");
-        }
+    (productId: string, nextValue: boolean) => {
+      if (!isApprovedBuyer) return Promise.resolve();
+
+      const run = async () => {
+        if (!isApprovedBuyer) return;
+        const authEpochAtStart = authEpochRef.current;
         mutationEpochRef.current += 1;
+        loadRequestIdRef.current += 1;
+        const mutationEpochAtStart = mutationEpochRef.current;
+        const previous = favourites;
+        const optimistic = nextValue
+          ? Array.from(new Set([...previous, productId]))
+          : previous.filter((id) => id !== productId);
+        setFavourites(optimistic);
         try {
-          const serverRows = await customerGateway.favourites();
-          setFavourites(serverRows.map((favourite) => favourite.product_id));
-        } catch {
-          // Keep acknowledged optimistic state when follow-up read is unavailable.
+          const result = await customerGateway.setFavourite(productId, nextValue);
+          if (authEpochAtStart !== authEpochRef.current) return;
+          if (mutationEpochAtStart !== mutationEpochRef.current) return;
+          const row = result?.[0];
+          if (!row || row.product_id !== productId || row.is_favourite !== nextValue) {
+            throw new Error("Favourite update was not acknowledged.");
+          }
+          mutationEpochRef.current += 1;
+          try {
+            const serverRows = await customerGateway.favourites();
+            if (authEpochAtStart !== authEpochRef.current) return;
+            if (mutationEpochAtStart !== mutationEpochRef.current) return;
+            setFavourites(serverRows.map((favourite) => favourite.product_id));
+          } catch {
+            // Keep acknowledged optimistic state when follow-up read is unavailable.
+          }
+        } catch (e) {
+          if (authEpochAtStart !== authEpochRef.current) return;
+          if (mutationEpochAtStart !== mutationEpochRef.current) return;
+          setFavourites(previous);
+          throw e;
         }
-      } catch (e) {
-        setFavourites(previous);
-        throw e;
-      }
+      };
+
+      const next = toggleChainRef.current.then(run);
+      toggleChainRef.current = next.catch(() => undefined);
+      return next;
     },
     [favourites, isApprovedBuyer]
   );

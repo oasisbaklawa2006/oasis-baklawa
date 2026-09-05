@@ -45,7 +45,8 @@ function missingSecretGate() {
   );
 }
 
-function companyContextGate(userId, detail) {
+function companyContextGate(userId, detail, pendingApplications) {
+  const hasPendingApplication = Array.isArray(pendingApplications) && pendingApplications.length > 0;
   fail(
     [
       "HUMAN GATE — authenticated Buyer Mobile golden-path certification is blocked on buyer company context.",
@@ -55,12 +56,17 @@ function companyContextGate(userId, detail) {
       "Root cause: customer_statement_v1 fail-closes when customer_buyer_eligible_company_id() is NULL.",
       "Required governed identity chain (Core): auth.users → public.profiles → public.companies.",
       "",
-      "Buyer-owned prep (already attempted in CI when applicable):",
-      "  submit_b2b_trade_application_v1 — creates pending application + pending_buyer profile.",
+      hasPendingApplication
+        ? `Applicant-visible pending application census: ${JSON.stringify(pendingApplications)}`
+        : "Applicant-visible pending application census: none (submit_b2b_trade_application_v1 did not establish a pending row for this Auth user).",
       "",
-      "Single Central-owned human action required (cannot be executed from Buyer repo CI):",
-      "  Approve the pending B2B trade application for this certification Auth user in Oasis Central",
-      "  (Admin → Clients → Approve), which calls approve_b2b_trade_application_v1 as internal staff.",
+      hasPendingApplication
+        ? "Verified authority blocker: pending application exists for this Auth user but is not yet approved."
+        : "Verified authority blocker: no pending application is linked to this Auth user; inspect ensure-cert-buyer-onboarding submit failure output before requesting Central approval.",
+      "",
+      hasPendingApplication
+        ? "Central-owned human action (only when a pending row exists): approve the pending B2B trade application in Oasis Central (Admin → Clients → Approve), invoking approve_b2b_trade_application_v1 as internal staff."
+        : "Buyer-owned action: fix governed submit integration / collision inputs and re-run certification; Central approval alone cannot help when Pending Review = 0.",
       "",
       "Canonical post-approval state:",
       "  profiles.id = certification auth uid",
@@ -214,7 +220,16 @@ try {
     String(row.detail).includes("CUSTOMER_STATEMENT_COMPANY_CONTEXT_REQUIRED")
   );
   if (companyContextFailure) {
-    companyContextGate(session.userId, companyContextFailure.detail);
+    const { data: pendingApplications, error: pendingError } = await supabase
+      .from("b2b_applications")
+      .select("id,status,resolved_company_id,business_name,mobile_number,contact_email")
+      .eq("user_id", session.userId)
+      .eq("status", "pending");
+    if (pendingError) {
+      companyContextGate(session.userId, `${companyContextFailure.detail}; pending census error: ${pendingError.message}`);
+    } else {
+      companyContextGate(session.userId, companyContextFailure.detail, pendingApplications ?? []);
+    }
   }
 
   await supabase.auth.signOut();

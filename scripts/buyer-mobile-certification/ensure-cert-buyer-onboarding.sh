@@ -30,23 +30,72 @@ rpc_post() {
     --data "${payload}"
 }
 
+read_own_pending_applications() {
+  curl -sS -G "${SUPABASE_URL%/}/rest/v1/b2b_applications" \
+    --data-urlencode "user_id=eq.${USER_ID}" \
+    --data-urlencode "status=eq.pending" \
+    --data-urlencode "select=id,status,resolved_company_id,business_name,mobile_number,contact_email" \
+    -H "apikey: ${ANON_KEY}" \
+    -H "Authorization: Bearer ${ACCESS_TOKEN}"
+}
+
+derive_cert_mobile() {
+  if [[ -n "${BUYER_CERT_MOBILE_NUMBER:-}" ]]; then
+    printf '%s' "${BUYER_CERT_MOBILE_NUMBER}"
+    return
+  fi
+  # Stable synthetic mobile per certification Auth user; avoids shared placeholder collisions.
+  local suffix
+  suffix="$(printf '%s' "${USER_ID}" | tr -d '-' | md5sum | awk '{print substr($1,1,9)}')"
+  printf '9%s' "${suffix}"
+}
+
+parse_submit_response() {
+  local response="$1"
+  APPLICATION_ID=""
+  APPLICATION_STATUS=""
+  IS_DUPLICATE="false"
+  SUBMIT_ERROR=""
+
+  if jq -e 'type == "array" and length > 0' <<<"${response}" >/dev/null 2>&1; then
+    APPLICATION_ID="$(jq -r '.[0].application_id // empty' <<<"${response}")"
+    APPLICATION_STATUS="$(jq -r '.[0].application_status // empty' <<<"${response}")"
+    IS_DUPLICATE="$(jq -r '.[0].is_duplicate_submission // false' <<<"${response}")"
+    return 0
+  fi
+
+  if jq -e 'type == "object" and has("application_id")' <<<"${response}" >/dev/null 2>&1; then
+    APPLICATION_ID="$(jq -r '.application_id // empty' <<<"${response}")"
+    APPLICATION_STATUS="$(jq -r '.application_status // empty' <<<"${response}")"
+    IS_DUPLICATE="$(jq -r '.is_duplicate_submission // false' <<<"${response}")"
+    return 0
+  fi
+
+  SUBMIT_ERROR="$(jq -r '[.message, .details, .hint, .code] | map(select(. != null and . != "")) | unique | join(" — ")' <<<"${response}")"
+  return 1
+}
+
 ELIGIBILITY_RESPONSE="$(rpc_post "customer_buyer_eligible_company_id")"
-ELIGIBLE_COMPANY_ID="$(printf '%s' "${ELIGIBILITY_RESPONSE}" | jq -r 'if type == "string" and . != "" then . else empty end')"
-if [[ -n "${ELIGIBLE_COMPANY_ID}" && "${ELIGIBLE_COMPANY_ID}" != "null" ]]; then
+ELIGIBLE_COMPANY_ID="$(printf '%s' "${ELIGIBILITY_RESPONSE}" | jq -r 'if type == "string" and . != "" and . != "null" then . else empty end')"
+if [[ -n "${ELIGIBLE_COMPANY_ID}" ]]; then
   echo "Certification buyer already has governed company context: ${ELIGIBLE_COMPANY_ID}"
   exit 0
 fi
 
+PENDING_BEFORE="$(read_own_pending_applications)"
+echo "Certification buyer pending-application census (before ensure): ${PENDING_BEFORE}"
+
 BUSINESS_NAME="${BUYER_CERT_BUSINESS_NAME:-BUYER MOBILE GOLDEN PATH CERTIFICATION}"
 GST_NUMBER="${BUYER_CERT_GST_NUMBER:-99MOBCT0001CZ5}"
 CONTACT_EMAIL="${CERT_EMAIL:-buyer-mobile-cert@oasis-disposable.test}"
+CERT_MOBILE="$(derive_cert_mobile)"
 
 SUBMIT_PAYLOAD="$(jq -n \
   --arg businessName "${BUSINESS_NAME}" \
   --arg gstNumber "${GST_NUMBER}" \
   --arg contactPerson "Buyer Mobile Certification" \
   --arg contactEmail "${CONTACT_EMAIL}" \
-  --arg mobileNumber "9999999999" \
+  --arg mobileNumber "${CERT_MOBILE}" \
   --arg city "Certification City" \
   --arg registeredAddress "Synthetic certification buyer — not a production customer." \
   --argjson tradeDeclaration true \
@@ -64,14 +113,20 @@ SUBMIT_PAYLOAD="$(jq -n \
   }')"
 
 SUBMIT_RESPONSE="$(rpc_post "submit_b2b_trade_application_v1" "${SUBMIT_PAYLOAD}")"
-SUBMIT_ERROR="$(printf '%s' "${SUBMIT_RESPONSE}" | jq -r '.message // .error // .code // empty')"
-APPLICATION_ID="$(printf '%s' "${SUBMIT_RESPONSE}" | jq -r '.[0].application_id // empty')"
-APPLICATION_STATUS="$(printf '%s' "${SUBMIT_RESPONSE}" | jq -r '.[0].application_status // empty')"
-
-if [[ -n "${SUBMIT_ERROR}" && -z "${APPLICATION_ID}" ]]; then
-  echo "Governed trade-application submit failed for certification buyer ${USER_ID}: ${SUBMIT_ERROR}" >&2
+if ! parse_submit_response "${SUBMIT_RESPONSE}"; then
+  echo "Governed trade-application submit failed for certification buyer ${USER_ID}." >&2
+  echo "submit_b2b_trade_application_v1 response: ${SUBMIT_ERROR:-unknown error}" >&2
+  echo "Raw response shape: $(jq -r 'type' <<<"${SUBMIT_RESPONSE}")" >&2
   exit 1
 fi
 
-echo "Governed trade application ensured for certification buyer ${USER_ID}: application=${APPLICATION_ID} status=${APPLICATION_STATUS}"
-echo "HUMAN GATE — Central staff must approve this pending application via approve_b2b_trade_application_v1 (Oasis Central → Admin → Clients) before customer_statement_v1 can pass."
+PENDING_AFTER="$(read_own_pending_applications)"
+echo "Certification buyer pending-application census (after ensure): ${PENDING_AFTER}"
+
+if [[ -z "${APPLICATION_ID}" ]]; then
+  echo "Governed trade-application submit returned no application_id for certification buyer ${USER_ID}." >&2
+  exit 1
+fi
+
+echo "Governed trade application ensured for certification buyer ${USER_ID}: application=${APPLICATION_ID} status=${APPLICATION_STATUS} duplicate=${IS_DUPLICATE} mobile=${CERT_MOBILE}"
+echo "Central visibility keys: b2b_applications.user_id=${USER_ID} status=pending (Staff read all applications / is_internal_staff)."

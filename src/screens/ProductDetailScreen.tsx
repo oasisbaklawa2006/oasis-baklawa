@@ -9,6 +9,7 @@ import { Screen } from "@/components/Screen";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
 import { addCustomerOrderDraftLine } from "@/lib/api/draft";
+import { defaultOrderQuantity, resolveCommercialRules, validateOrderQuantity } from "@/lib/buyer-commercial-validation";
 import { nextValidQuantity } from "@/lib/draft-utils";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { useCustomerFavourites } from "@/hooks/useCustomerFavourites";
@@ -44,7 +45,10 @@ export function ProductDetailScreen({ navigation, route }: Props) {
       const match = catalogue.find((p) => p.product_id === productId) ?? null;
       setProduct(match);
       if (match) {
-        setQuantity(match.price?.minimum_order_quantity ?? 1);
+        const moq = defaultOrderQuantity(match.price);
+        if (moq !== null) {
+          setQuantity(moq);
+        }
       }
       if (!match) setError("Product not found in the published catalogue.");
     } catch (e) {
@@ -58,8 +62,10 @@ export function ProductDetailScreen({ navigation, route }: Props) {
     load();
   }, [load]);
 
-  const moq = product?.price?.minimum_order_quantity ?? 1;
-  const increment = product?.price?.order_increment ?? 1;
+  const commercial = resolveCommercialRules(product?.price);
+  const moq = commercial.rules?.moq ?? 0;
+  const increment = commercial.rules?.increment ?? 0;
+  const canOrder = commercial.orderable && moq > 0 && increment > 0;
 
   const priceLabel = useMemo(() => {
     if (!product?.price) return null;
@@ -67,7 +73,12 @@ export function ProductDetailScreen({ navigation, route }: Props) {
   }, [product]);
 
   async function addToCart() {
-    if (!product?.price) return;
+    if (!product?.price || !canOrder) return;
+    const quantityCheck = validateOrderQuantity(product.price, quantity);
+    if (!quantityCheck.orderable) {
+      setNotice(quantityCheck.message ?? "Quantity does not satisfy MOQ or carton rules.");
+      return;
+    }
     setAdding(true);
     setNotice(null);
     try {
@@ -122,7 +133,7 @@ export function ProductDetailScreen({ navigation, route }: Props) {
                 {priceLabel} / {product.price?.uom}
               </Text>
             ) : (
-              <Text style={styles.unavailable}>Buyer pricing unavailable</Text>
+              <Text style={styles.unavailable}>{commercial.message ?? "Buyer pricing unavailable"}</Text>
             )}
             {product.short_description ? <Text style={styles.description}>{product.short_description}</Text> : null}
             {product.long_description ? <Text style={styles.description}>{product.long_description}</Text> : null}
@@ -132,6 +143,7 @@ export function ProductDetailScreen({ navigation, route }: Props) {
               <Text style={styles.fact}>Tags: {product.dietary_tags.join(", ")}</Text>
             ) : null}
 
+            {canOrder ? (
             <View style={styles.stepper}>
               <TouchableOpacity
                 style={styles.stepBtn}
@@ -152,10 +164,11 @@ export function ProductDetailScreen({ navigation, route }: Props) {
               </TouchableOpacity>
               <Text style={styles.moq}>MOQ {moq}</Text>
             </View>
+            ) : null}
 
             <TouchableOpacity
-              style={[styles.button, (!product.price || adding) && styles.buttonDisabled]}
-              disabled={!product.price || adding}
+              style={[styles.button, (!canOrder || adding) && styles.buttonDisabled]}
+              disabled={!canOrder || adding}
               onPress={addToCart}
               accessibilityRole="button"
             >

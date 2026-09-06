@@ -27,4 +27,9 @@ describe("parseRpcError", () => {
     const parsed = parseRpcError({ message: "Failed to fetch" });
     assert.equal(parsed.code, "NETWORK");
   });
+
+  it("maps quote expiry from governed message", () => {
+    const parsed = parseRpcError({ message: "QUOTE_EXPIRED: quotation validity has ended" });
+    assert.equal(parsed.code, "QUOTE_EXPIRED");
+  });
 });

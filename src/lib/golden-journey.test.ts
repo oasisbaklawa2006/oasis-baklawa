@@ -22,6 +22,8 @@ const STACK_ROUTES = [
   "Cart",
   "Checkout",
   "Documents",
+  "Quotations",
+  "QuotationDetail",
   "SessionRecovery",
 ] as const;
 

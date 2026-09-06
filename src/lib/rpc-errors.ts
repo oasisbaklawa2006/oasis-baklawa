@@ -7,6 +7,12 @@ export type RpcErrorCode =
   | "DRAFT_NOT_FOUND"
   | "DRAFT_NOT_READY"
   | "DRAFT_NOT_ACTIVE"
+  | "QUOTE_NOT_FOUND"
+  | "QUOTE_NOT_ISSUED"
+  | "QUOTE_EXPIRED"
+  | "QUOTE_ALREADY_ACCEPTED"
+  | "QUOTE_ALREADY_DECLINED"
+  | "QUOTE_VERSION_MISMATCH"
   | "VALIDATION_FAILED"
   | "DUPLICATE_APPLICATION"
   | "MOBILE_NUMBER_ALREADY_REGISTERED"
@@ -22,6 +28,12 @@ export const KNOWN_RPC_ERROR_CODES: ReadonlySet<RpcErrorCode> = new Set([
   "DRAFT_NOT_FOUND",
   "DRAFT_NOT_READY",
   "DRAFT_NOT_ACTIVE",
+  "QUOTE_NOT_FOUND",
+  "QUOTE_NOT_ISSUED",
+  "QUOTE_EXPIRED",
+  "QUOTE_ALREADY_ACCEPTED",
+  "QUOTE_ALREADY_DECLINED",
+  "QUOTE_VERSION_MISMATCH",
   "VALIDATION_FAILED",
   "DUPLICATE_APPLICATION",
   "MOBILE_NUMBER_ALREADY_REGISTERED",
@@ -80,6 +92,12 @@ function inferCode(raw: string, sqlState: string | null): RpcErrorCode {
   if (raw.includes("DRAFT_NOT_FOUND") || sqlState === "P0002") return "DRAFT_NOT_FOUND";
   if (raw.includes("DRAFT_NOT_READY")) return "DRAFT_NOT_READY";
   if (raw.includes("DRAFT_NOT_ACTIVE")) return "DRAFT_NOT_ACTIVE";
+  if (raw.includes("QUOTE_NOT_FOUND")) return "QUOTE_NOT_FOUND";
+  if (raw.includes("QUOTE_NOT_ISSUED")) return "QUOTE_NOT_ISSUED";
+  if (raw.includes("QUOTE_EXPIRED")) return "QUOTE_EXPIRED";
+  if (raw.includes("QUOTE_ALREADY_ACCEPTED")) return "QUOTE_ALREADY_ACCEPTED";
+  if (raw.includes("QUOTE_ALREADY_DECLINED")) return "QUOTE_ALREADY_DECLINED";
+  if (raw.includes("QUOTE_VERSION_MISMATCH")) return "QUOTE_VERSION_MISMATCH";
   if (raw.includes("VALIDATION_FAILED")) return "VALIDATION_FAILED";
   if (raw.includes("DUPLICATE_APPLICATION") || (sqlState === "23505" && raw.includes("APPLICATION"))) {
     return "DUPLICATE_APPLICATION";
@@ -128,6 +146,18 @@ function customerMessage(code: RpcErrorCode, raw: string): string {
       return "Your cart is not ready for checkout. Review quantity rules below.";
     case "DRAFT_NOT_ACTIVE":
       return "This order draft can no longer be changed.";
+    case "QUOTE_NOT_FOUND":
+      return "This quotation could not be found for your account.";
+    case "QUOTE_NOT_ISSUED":
+      return "This quotation is not ready for review yet.";
+    case "QUOTE_EXPIRED":
+      return "This quotation has expired. Request a fresh quotation from Support.";
+    case "QUOTE_ALREADY_ACCEPTED":
+      return "This quotation has already been accepted.";
+    case "QUOTE_ALREADY_DECLINED":
+      return "This quotation has already been declined.";
+    case "QUOTE_VERSION_MISMATCH":
+      return "This quotation was updated. Refresh and review the latest version.";
     case "VALIDATION_FAILED":
       return raw.replace(GOVERNED_PREFIX_PATTERN, "").trim() || "Please check your input and try again.";
     case "DUPLICATE_APPLICATION":

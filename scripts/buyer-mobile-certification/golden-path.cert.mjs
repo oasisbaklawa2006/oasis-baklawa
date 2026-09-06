@@ -15,6 +15,8 @@ import {
 } from "./cert-buyer-state.mjs";
 
 const READ_RPCS = [
+  "published_products_v1",
+  "buyer_product_prices_v1",
   "customer_sales_order_commercial_facts_v1",
   "customer_proforma_invoice_facts_v1",
   "customer_documents_v1",
@@ -189,6 +191,30 @@ try {
     const detail = Array.isArray(data) ? `rows=${data.length}` : typeof data;
     results.push({ rpc, ok: true, detail });
     evidence.rpcResults.push({ rpc, ok: true, detail });
+
+    if (rpc === "published_products_v1" && Array.isArray(data)) {
+      const sample = data[0];
+      evidence.projectionChecks.push({
+        surface: "published_catalogue",
+        rowCount: data.length,
+        customerSafeKeysOnly:
+          !sample ||
+          !Object.keys(sample).some((key) =>
+            /^(internal_|cost_|margin|supplier|publication_state|is_published)/.test(key)
+          ),
+      });
+    }
+
+    if (rpc === "buyer_product_prices_v1" && Array.isArray(data)) {
+      const sample = data[0];
+      evidence.projectionChecks.push({
+        surface: "buyer_product_prices",
+        rowCount: data.length,
+        customerSafeKeysOnly:
+          !sample ||
+          !Object.keys(sample).some((key) => /^(internal_|cost_|margin|supplier)/.test(key)),
+      });
+    }
   }
 
   const { data: orders, error: ordersError } = await supabase.rpc("customer_order_status_v1");

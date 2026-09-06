@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const REQUIRED_BINDINGS = [
+  "published_products_v1",
+  "buyer_product_prices_v1",
   "customer_sales_order_commercial_facts_v1",
   "customer_order_finance_facts_v1",
   "customer_proforma_invoice_facts_v1",
@@ -24,5 +26,7 @@ describe("customerGateway tranche-5 bindings", () => {
     assert.match(source, /if \(!input\.orderId\.trim\(\)\)/);
     assert.match(source, /normalizeCustomerStatement/);
     assert.match(source, /normalizeCustomerFinanceFacts/);
+    assert.match(source, /normalizePublishedProducts/);
+    assert.match(source, /normalizeBuyerProductPrices/);
   });
 });

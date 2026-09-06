@@ -13,6 +13,11 @@ import {
   formatCertBuyerStateSummary,
   resolveCertBuyerState,
 } from "./cert-buyer-state.mjs";
+import {
+  allRowsHaveCustomerSafeKeysOnly,
+  BUYER_PRICE_FIELDS,
+  PUBLISHED_PRODUCT_FIELDS,
+} from "./product-publication-allowlist.mjs";
 
 const READ_RPCS = [
   "published_products_v1",
@@ -193,27 +198,27 @@ try {
     evidence.rpcResults.push({ rpc, ok: true, detail });
 
     if (rpc === "published_products_v1" && Array.isArray(data)) {
-      const sample = data[0];
+      const customerSafeKeysOnly = allRowsHaveCustomerSafeKeysOnly(data, PUBLISHED_PRODUCT_FIELDS);
       evidence.projectionChecks.push({
         surface: "published_catalogue",
         rowCount: data.length,
-        customerSafeKeysOnly:
-          !sample ||
-          !Object.keys(sample).some((key) =>
-            /^(internal_|cost_|margin|supplier|publication_state|is_published)/.test(key)
-          ),
+        customerSafeKeysOnly,
       });
+      if (!customerSafeKeysOnly) {
+        results.push({ rpc: "published_products_v1_projection", ok: false, detail: "unsafe product projection keys detected" });
+      }
     }
 
     if (rpc === "buyer_product_prices_v1" && Array.isArray(data)) {
-      const sample = data[0];
+      const customerSafeKeysOnly = allRowsHaveCustomerSafeKeysOnly(data, BUYER_PRICE_FIELDS);
       evidence.projectionChecks.push({
         surface: "buyer_product_prices",
         rowCount: data.length,
-        customerSafeKeysOnly:
-          !sample ||
-          !Object.keys(sample).some((key) => /^(internal_|cost_|margin|supplier)/.test(key)),
+        customerSafeKeysOnly,
       });
+      if (!customerSafeKeysOnly) {
+        results.push({ rpc: "buyer_product_prices_v1_projection", ok: false, detail: "unsafe buyer-price projection keys detected" });
+      }
     }
   }
 

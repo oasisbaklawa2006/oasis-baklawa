@@ -65,6 +65,9 @@ describe("P106 quotation authority invariants", () => {
     assert.deepEqual(readCoreQuoteRpcPrerequisites(quoteContractSource), [...CORE_QUOTE_RPC_PREREQUISITES]);
     assert.match(censusSource, /CORE_QUOTE_RPC_PREREQUISITES/);
     assert.match(censusSource, /prerequisiteMismatch/);
+    assert.doesNotMatch(censusSource, /const\s+CORE_QUOTE_RPC_PREREQUISITES\s*=/);
+    assert.doesNotMatch(censusSource, /hasCallRpcInvocation/);
+    assert.doesNotMatch(censusSource, /p106-quote-authority-census\.mjs/);
   });
 
   it("runs the P106 census on the enforced quality path", () => {

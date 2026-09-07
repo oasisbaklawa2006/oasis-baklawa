@@ -37,6 +37,20 @@ async function readOrCreateKey(storageKey: string, fallback: string | null, setF
   }
 }
 
+/** Rotate to a fresh in-memory key after Core acknowledgement; best-effort replace persisted value. */
+async function rotateKeyAfterAcknowledgement(
+  storageKey: string,
+  setRotatedFallback: (key: string) => void
+): Promise<void> {
+  const rotated = createIdempotencyKey();
+  setRotatedFallback(rotated);
+  try {
+    await storage.setItem(storageKey, rotated);
+  } catch {
+    // Best-effort persistence; in-memory rotation prevents replay even when storage is degraded.
+  }
+}
+
 /** Returns a stable key so a lost quotation-request response can be retried safely. */
 export async function getQuoteRequestIdempotencyKey(): Promise<string> {
   return readOrCreateKey(REQUEST_STORAGE_KEY, requestFallbackKey, (key) => {
@@ -47,12 +61,9 @@ export async function getQuoteRequestIdempotencyKey(): Promise<string> {
 
 /** Clears the quotation-request retry key once Core acknowledges the submission. */
 export async function clearQuoteRequestIdempotencyKey(): Promise<void> {
-  requestFallbackKey = null;
-  try {
-    await storage.removeItem(REQUEST_STORAGE_KEY);
-  } catch {
-    // Best-effort cleanup.
-  }
+  await rotateKeyAfterAcknowledgement(REQUEST_STORAGE_KEY, (key) => {
+    requestFallbackKey = key;
+  });
 }
 
 /** Returns a stable key so a lost quotation-acceptance response can be retried safely. */
@@ -67,12 +78,10 @@ export async function getQuoteAcceptIdempotencyKey(quotationId: string): Promise
 
 /** Clears the quotation-acceptance retry key once Core acknowledges the handoff. */
 export async function clearQuoteAcceptIdempotencyKey(quotationId: string): Promise<void> {
-  acceptFallbackKeys.delete(quotationId);
-  try {
-    await storage.removeItem(`${ACCEPT_STORAGE_KEY}:${quotationId}`);
-  } catch {
-    // Best-effort cleanup.
-  }
+  const storageKey = `${ACCEPT_STORAGE_KEY}:${quotationId}`;
+  await rotateKeyAfterAcknowledgement(storageKey, (key) => {
+    acceptFallbackKeys.set(quotationId, key);
+  });
 }
 
 /** Returns a stable key so a lost quotation-decline response can be retried safely. */
@@ -87,12 +96,10 @@ export async function getQuoteDeclineIdempotencyKey(quotationId: string): Promis
 
 /** Clears the quotation-decline retry key once Core acknowledges the decline. */
 export async function clearQuoteDeclineIdempotencyKey(quotationId: string): Promise<void> {
-  declineFallbackKeys.delete(quotationId);
-  try {
-    await storage.removeItem(`${DECLINE_STORAGE_KEY}:${quotationId}`);
-  } catch {
-    // Best-effort cleanup.
-  }
+  const storageKey = `${DECLINE_STORAGE_KEY}:${quotationId}`;
+  await rotateKeyAfterAcknowledgement(storageKey, (key) => {
+    declineFallbackKeys.set(quotationId, key);
+  });
 }
 
 /** Test-only: reset in-memory fallback between isolated test cases. */

@@ -12,8 +12,8 @@ import {
   type QuoteIdempotencyStorage,
 } from "./quote-idempotency";
 
-function createMemoryStorage(seed?: Map<string, string>): QuoteIdempotencyStorage {
-  const map = new Map(seed ?? []);
+function createMemoryStorage(backing?: Map<string, string>): QuoteIdempotencyStorage {
+  const map = backing ?? new Map<string, string>();
   return {
     getItem: async (key) => map.get(key) ?? null,
     setItem: async (key, value) => {
@@ -39,12 +39,61 @@ function failingStorage(): QuoteIdempotencyStorage {
   };
 }
 
+function persistenceFailureAfterSeed(seed: Map<string, string>): QuoteIdempotencyStorage {
+  const map = new Map(seed);
+  return {
+    getItem: async (key) => map.get(key) ?? null,
+    setItem: async () => {
+      throw new Error("storage write unavailable");
+    },
+    removeItem: async () => {
+      throw new Error("storage delete unavailable");
+    },
+  };
+}
+
+type QuoteIdempotencyAction = {
+  label: string;
+  getKey: () => Promise<string>;
+  clearKey: () => Promise<void>;
+};
+
+const quoteIdempotencyActions: QuoteIdempotencyAction[] = [
+  {
+    label: "request",
+    getKey: () => getQuoteRequestIdempotencyKey(),
+    clearKey: () => clearQuoteRequestIdempotencyKey(),
+  },
+  {
+    label: "accept",
+    getKey: () => getQuoteAcceptIdempotencyKey("quote-accept"),
+    clearKey: () => clearQuoteAcceptIdempotencyKey("quote-accept"),
+  },
+  {
+    label: "decline",
+    getKey: () => getQuoteDeclineIdempotencyKey("quote-decline"),
+    clearKey: () => clearQuoteDeclineIdempotencyKey("quote-decline"),
+  },
+];
+
 async function assertReusesFallbackAfterStorageFailure(getKey: () => Promise<string>): Promise<void> {
   const memory = createMemoryStorage();
   setQuoteIdempotencyStorageForTests(memory);
   const first = await getKey();
   setQuoteIdempotencyStorageForTests(failingStorage());
   assert.equal(await getKey(), first);
+}
+
+async function assertRotatesAfterAcknowledgementDespitePersistenceFailure(
+  action: QuoteIdempotencyAction
+): Promise<void> {
+  const backingMap = new Map<string, string>();
+  setQuoteIdempotencyStorageForTests(createMemoryStorage(backingMap));
+  const acknowledged = await action.getKey();
+  setQuoteIdempotencyStorageForTests(persistenceFailureAfterSeed(backingMap));
+  await action.clearKey();
+  const nextKey = await action.getKey();
+  assert.notEqual(nextKey, acknowledged);
 }
 
 describe("quote idempotency", () => {
@@ -69,17 +118,15 @@ describe("quote idempotency", () => {
     assert.notEqual(nextRequest, acknowledged);
   });
 
-  it("reuses in-memory fallback when storage fails after a key was cached", async () => {
-    await assertReusesFallbackAfterStorageFailure(() => getQuoteRequestIdempotencyKey());
-  });
+  for (const action of quoteIdempotencyActions) {
+    it(`reuses in-memory fallback when storage read fails after ${action.label} key was cached`, async () => {
+      await assertReusesFallbackAfterStorageFailure(action.getKey);
+    });
 
-  it("reuses accept fallback when storage fails after a key was cached", async () => {
-    await assertReusesFallbackAfterStorageFailure(() => getQuoteAcceptIdempotencyKey("quote-accept"));
-  });
-
-  it("reuses decline fallback when storage fails after a key was cached", async () => {
-    await assertReusesFallbackAfterStorageFailure(() => getQuoteDeclineIdempotencyKey("quote-decline"));
-  });
+    it(`rotates ${action.label} key after acknowledgement even when persistence delete/write fails`, async () => {
+      await assertRotatesAfterAcknowledgementDespitePersistenceFailure(action);
+    });
+  }
 
   it("scopes accept and decline idempotency per quotation", async () => {
     const acceptA = await getQuoteAcceptIdempotencyKey("quote-1");

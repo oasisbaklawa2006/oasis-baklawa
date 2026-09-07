@@ -1,13 +1,19 @@
 import type { CatalogueProduct } from "@/lib/api/catalogue";
-import { defaultOrderQuantity, validateOrderQuantity } from "@/lib/buyer-commercial-validation";
+import {
+  defaultOrderQuantity,
+  isQuantityIncrementAligned,
+  validateOrderQuantity,
+} from "@/lib/buyer-commercial-validation";
 
 export interface GenieParsedLine {
+  lineId: string;
   rawName: string;
   quantity: number;
   uom: string;
 }
 
 export interface GenieResolvedLine {
+  lineId: string;
   rawName: string;
   quantity: number;
   uom: string;
@@ -16,6 +22,7 @@ export interface GenieResolvedLine {
 }
 
 export interface GenieAmbiguousLine {
+  lineId: string;
   rawName: string;
   quantity: number;
   uom: string;
@@ -23,6 +30,7 @@ export interface GenieAmbiguousLine {
 }
 
 export interface GenieUnresolvedLine {
+  lineId: string;
   rawName: string;
   quantity: number;
   uom: string;
@@ -81,7 +89,9 @@ function scoreProductMatch(queryTokens: string[], product: CatalogueProduct): nu
   if (hits === 0) return 0;
 
   const coverage = hits / queryTokens.length;
-  const skuExact = queryTokens.some((token) => normalizeAliasText(product.sku) === token) ? 0.35 : 0;
+  const skuTokens = tokenize(product.sku);
+  const skuExact =
+    skuTokens.length > 0 && skuTokens.every((token) => queryTokens.includes(token)) ? 0.35 : 0;
   return coverage + skuExact;
 }
 
@@ -91,9 +101,9 @@ function normalizeLineQuantity(product: CatalogueProduct, quantity: number): num
   if (moq === null) return null;
   const increment = product.price?.order_increment ?? moq;
   let stepped = Math.max(quantity, moq);
-  if (increment > 0 && moq > 0) {
-    const remainder = (stepped - moq) % increment;
-    if (remainder !== 0) stepped += increment - remainder;
+  if (increment > 0 && moq > 0 && !isQuantityIncrementAligned(moq, increment, stepped)) {
+    const steps = Math.ceil((stepped - moq) / increment);
+    stepped = moq + steps * increment;
   }
   const check = validateOrderQuantity(product.price ?? null, stepped);
   return check.orderable ? stepped : null;
@@ -174,6 +184,7 @@ export function applyGenieCandidateSelection(
   const normalizedQuantity = normalizeLineQuantity(product, line.quantity);
   if (normalizedQuantity === null) {
     return {
+      lineId: line.lineId,
       rawName: line.rawName,
       quantity: line.quantity,
       uom: line.uom,
@@ -181,6 +192,7 @@ export function applyGenieCandidateSelection(
     };
   }
   return {
+    lineId: line.lineId,
     rawName: line.rawName,
     quantity: line.quantity,
     uom: line.uom,

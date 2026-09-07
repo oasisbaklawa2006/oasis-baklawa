@@ -7,6 +7,10 @@ import {
   type GenieParsedLine,
 } from "./genie-product-resolution";
 
+function parsedLine(rawName: string, quantity: number, lineId = "line-0"): GenieParsedLine {
+  return { lineId, rawName, quantity, uom: "kg" };
+}
+
 const basePrice = {
   product_id: "p1",
   selling_price: 100,
@@ -54,7 +58,7 @@ const catalogue = [
 
 describe("genie product resolution", () => {
   it("resolves unambiguous alias matches and normalizes quantity to MOQ/increment", () => {
-    const lines: GenieParsedLine[] = [{ rawName: "20kg kaju katli", quantity: 7, uom: "kg" }];
+    const lines: GenieParsedLine[] = [parsedLine("20kg kaju katli", 7)];
     const result = resolveGenieLines(lines, catalogue);
     assert.equal(result.resolved.length, 1);
     assert.equal(result.resolved[0].product.product_id, "p1");
@@ -63,8 +67,16 @@ describe("genie product resolution", () => {
     assert.deepEqual(result.unresolved, []);
   });
 
+  it("boosts exact hyphenated SKU matches above ambiguous name-only ties", () => {
+    const lines: GenieParsedLine[] = [parsedLine("KK-01", 10, "line-sku")];
+    const result = resolveGenieLines(lines, catalogue);
+    assert.equal(result.resolved.length, 1);
+    assert.equal(result.resolved[0].product.sku, "KK-01");
+    assert.deepEqual(result.ambiguous, []);
+  });
+
   it("returns ambiguity instead of inventing a product", () => {
-    const lines: GenieParsedLine[] = [{ rawName: "sweets", quantity: 10, uom: "kg" }];
+    const lines: GenieParsedLine[] = [parsedLine("sweets", 10, "line-1")];
     const result = resolveGenieLines(lines, catalogue);
     assert.equal(result.resolved.length, 0);
     assert.equal(result.ambiguous.length, 1);
@@ -72,7 +84,7 @@ describe("genie product resolution", () => {
   });
 
   it("fails closed on unknown products", () => {
-    const lines: GenieParsedLine[] = [{ rawName: "mystery mithai", quantity: 10, uom: "kg" }];
+    const lines: GenieParsedLine[] = [parsedLine("mystery mithai", 10, "line-2")];
     const result = resolveGenieLines(lines, catalogue);
     assert.equal(result.unresolved.length, 1);
     assert.match(result.unresolved[0].reason, /No published catalogue match/);
@@ -80,6 +92,7 @@ describe("genie product resolution", () => {
 
   it("applies candidate selection without inventing quantities", () => {
     const ambiguous = {
+      lineId: "line-3",
       rawName: "badam baklawa",
       quantity: 5,
       uom: "kg",

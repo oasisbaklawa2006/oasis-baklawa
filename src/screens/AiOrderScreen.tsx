@@ -44,6 +44,7 @@ export function AiOrderScreen({ navigation }: Props) {
   const [unresolvedLines, setUnresolvedLines] = useState<GenieUnresolvedLine[]>([]);
   const [clarifyingLine, setClarifyingLine] = useState<GenieAmbiguousLine | null>(null);
   const [committing, setCommitting] = useState(false);
+  const [committedLineIds, setCommittedLineIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -95,7 +96,8 @@ export function AiOrderScreen({ navigation }: Props) {
   }
 
   function applyResolution(lines: ParsedLine[]) {
-    const parsed: GenieParsedLine[] = lines.map((line) => ({
+    const parsed: GenieParsedLine[] = lines.map((line, index) => ({
+      lineId: `line-${index}`,
       rawName: line.productName,
       quantity: line.quantity,
       uom: line.uom,
@@ -118,7 +120,7 @@ export function AiOrderScreen({ navigation }: Props) {
   function chooseCandidate(product: CatalogueProduct) {
     if (!clarifyingLine) return;
     const selected = applyGenieCandidateSelection(clarifyingLine, product);
-    setAmbiguousLines((prev) => prev.filter((line) => line.rawName !== clarifyingLine.rawName));
+    setAmbiguousLines((prev) => prev.filter((line) => line.lineId !== clarifyingLine.lineId));
     if ("product" in selected) {
       setResolvedLines((prev) => [...prev, selected]);
     } else {
@@ -133,6 +135,7 @@ export function AiOrderScreen({ navigation }: Props) {
     setAmbiguousLines([]);
     setUnresolvedLines([]);
     setClarifyingLine(null);
+    setCommittedLineIds([]);
   }
 
   async function confirmOrder() {
@@ -141,8 +144,12 @@ export function AiOrderScreen({ navigation }: Props) {
     setError(null);
     setNotice(null);
     try {
+      const committed = new Set(committedLineIds);
       for (const line of resolvedLines) {
+        if (committed.has(line.lineId)) continue;
         await addCustomerOrderDraftLine(line.product.product_id, line.normalizedQuantity);
+        committed.add(line.lineId);
+        setCommittedLineIds([...committed]);
       }
       resetReview();
       navigation.navigate("Cart");
@@ -247,7 +254,7 @@ export function AiOrderScreen({ navigation }: Props) {
               ))}
 
               {resolvedLines.map((line) => (
-                <View key={`resolved-${line.product.product_id}-${line.rawName}`} style={styles.resolvedRow}>
+                <View key={`resolved-${line.lineId}`} style={styles.resolvedRow}>
                   <Text style={styles.resolvedTitle}>{line.product.product_name}</Text>
                   <Text style={styles.resolvedMeta}>
                     {line.normalizedQuantity} {line.product.price?.uom ?? line.uom} · {line.product.sku}
@@ -256,7 +263,7 @@ export function AiOrderScreen({ navigation }: Props) {
               ))}
 
               {ambiguousLines.map((line) => (
-                <View key={`ambiguous-${line.rawName}`} style={styles.warningCard}>
+                <View key={`ambiguous-${line.lineId}`} style={styles.warningCard}>
                   <Text style={styles.warningTitle}>Clarify: {line.rawName}</Text>
                   <Text style={styles.warningMeta}>Multiple catalogue matches — choose one.</Text>
                   <OasisButton label="Choose product" variant="secondary" onPress={() => setClarifyingLine(line)} />
@@ -264,7 +271,7 @@ export function AiOrderScreen({ navigation }: Props) {
               ))}
 
               {unresolvedLines.map((line) => (
-                <View key={`unresolved-${line.rawName}`} style={styles.warningCard}>
+                <View key={`unresolved-${line.lineId}`} style={styles.warningCard}>
                   <Text style={styles.warningTitle}>{line.rawName}</Text>
                   <Text style={styles.warningMeta}>{line.reason}</Text>
                 </View>

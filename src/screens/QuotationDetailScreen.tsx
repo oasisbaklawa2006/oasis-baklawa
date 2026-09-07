@@ -12,6 +12,7 @@ import {
   clearQuoteDeclineIdempotencyKey,
   getQuoteAcceptIdempotencyKey,
   getQuoteDeclineIdempotencyKey,
+  type ResolvedQuoteIdempotency,
 } from "@/lib/quote-idempotency";
 import {
   customerQuotationStatusLabel,
@@ -42,8 +43,8 @@ export function QuotationDetailScreen({ navigation, route }: Props) {
   const [notice, setNotice] = useState<string | null>(null);
   const [accepting, setAccepting] = useState(false);
   const [declining, setDeclining] = useState(false);
-  const [acceptKey, setAcceptKey] = useState<string | null>(null);
-  const [declineKey, setDeclineKey] = useState<string | null>(null);
+  const [acceptKey, setAcceptKey] = useState<ResolvedQuoteIdempotency | null>(null);
+  const [declineKey, setDeclineKey] = useState<ResolvedQuoteIdempotency | null>(null);
   const [handoffId, setHandoffId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -83,9 +84,9 @@ export function QuotationDetailScreen({ navigation, route }: Props) {
     ? isQuoteAcceptEnabled({
         quotation: actionTarget,
         accepting,
-        keyReady: Boolean(acceptKey),
-        idempotencyKey: acceptKey,
-        keyPersisted: Boolean(acceptKey),
+        keyReady: Boolean(acceptKey?.key),
+        idempotencyKey: acceptKey?.key ?? null,
+        keyPersisted: acceptKey?.persisted ?? false,
         isOnline,
       })
     : false;
@@ -93,23 +94,25 @@ export function QuotationDetailScreen({ navigation, route }: Props) {
     ? isQuoteDeclineEnabled({
         quotation: actionTarget,
         declining,
+        keyReady: Boolean(declineKey?.key),
+        idempotencyKey: declineKey?.key ?? null,
+        keyPersisted: declineKey?.persisted ?? false,
         isOnline,
-      }) && Boolean(declineKey)
+      })
     : false;
 
   async function onAccept() {
-    if (!detail || !acceptKey) return;
+    if (!detail || !acceptKey?.key || !acceptKey.persisted) return;
     setAccepting(true);
     setNotice(null);
     try {
       const result = await customerGateway.acceptQuotation({
         quotationId: detail.quotation_id,
         versionNumber: detail.current_version,
-        idempotencyKey: acceptKey,
+        idempotencyKey: acceptKey.key,
       });
       await clearQuoteAcceptIdempotencyKey(quotationId);
-      const nextAcceptKey = await getQuoteAcceptIdempotencyKey(quotationId);
-      setAcceptKey(nextAcceptKey);
+      setAcceptKey(await getQuoteAcceptIdempotencyKey(quotationId));
       setHandoffId(result.handoff_id);
       setNotice(
         result.handoff_status === "pending"
@@ -131,18 +134,17 @@ export function QuotationDetailScreen({ navigation, route }: Props) {
   }
 
   async function onDecline() {
-    if (!detail || !declineKey) return;
+    if (!detail || !declineKey?.key || !declineKey.persisted) return;
     setDeclining(true);
     setNotice(null);
     try {
       await customerGateway.declineQuotation({
         quotationId: detail.quotation_id,
         versionNumber: detail.current_version,
-        idempotencyKey: declineKey,
+        idempotencyKey: declineKey.key,
       });
       await clearQuoteDeclineIdempotencyKey(quotationId);
-      const nextDeclineKey = await getQuoteDeclineIdempotencyKey(quotationId);
-      setDeclineKey(nextDeclineKey);
+      setDeclineKey(await getQuoteDeclineIdempotencyKey(quotationId));
       setNotice("Quotation declined.");
       await load();
     } catch (e) {

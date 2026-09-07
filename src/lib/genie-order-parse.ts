@@ -45,11 +45,16 @@ export async function invokeGenieOrderParse(request: GenieParseRequest): Promise
   }
 
   const lines = Array.isArray(data?.lines) ? data.lines : [];
-  const normalized = lines
-    .map(normalizeLine)
-    .filter((line: GenieParseLine | null): line is GenieParseLine => Boolean(line));
-  if (normalized.length === 0) {
+  const normalized = lines.map(normalizeLine);
+  const valid = normalized.filter((line: GenieParseLine | null): line is GenieParseLine => Boolean(line));
+  const invalidCount = normalized.length - valid.length;
+  if (invalidCount > 0) {
+    throw new Error(
+      `${invalidCount} order line(s) could not be parsed. Refine the request or choose products manually.`
+    );
+  }
+  if (valid.length === 0) {
     throw new Error("No governed order lines were returned. Refine the request or choose products manually.");
   }
-  return normalized;
+  return valid;
 }

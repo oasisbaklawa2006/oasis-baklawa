@@ -72,6 +72,18 @@ describe("Point73 buyer commercial validation contract", () => {
     assert.equal(quantityCompletionHint(10, 5, 12), "Add 3 more to match order increments of 5");
   });
 
+  it("accepts decimal MOQ and increment alignment", () => {
+    const decimalPrice = samplePrice({ minimum_order_quantity: 0.1, order_increment: 0.1 });
+    assert.equal(validateOrderQuantity(decimalPrice, 0.3).orderable, true);
+    assert.equal(validateOrderQuantity(decimalPrice, 0.25).code, "QUANTITY_INCREMENT_MISMATCH");
+  });
+
+  it("fails closed on malformed pricing validity timestamps", () => {
+    const malformed = resolveCommercialRules(samplePrice({ valid_until: "not-a-date" }));
+    assert.equal(malformed.code, "PRICE_UNAVAILABLE");
+    assert.match(malformed.message ?? "", /validity end/i);
+  });
+
   it("does not invent MOQ defaults when pricing is incomplete", () => {
     assert.equal(defaultOrderQuantity(samplePrice({ minimum_order_quantity: null })), null);
     assert.equal(defaultOrderQuantity(samplePrice()), 10);

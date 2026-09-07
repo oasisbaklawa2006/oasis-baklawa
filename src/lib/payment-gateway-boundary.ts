@@ -1,4 +1,5 @@
 import type { CustomerFinanceFacts } from "@/types/database.types";
+import { getBuyerDeploymentRpcAllowlist } from "@/lib/buyer-deployment-rpc-allowlist";
 import { BUYER_BOUND_PAYMENT_GATEWAY_RPCS } from "@/types/payment-gateway-contract";
 
 /** Core gateway RPCs — Buyer binds these only when Mission Control adds them to verify-contract-boundary. */
@@ -29,6 +30,11 @@ export interface PaymentGatewayBoundaryState {
 
 export function isPaymentGatewayBound(allowedRpcs: readonly string[]): boolean {
   return PAYMENT_GATEWAY_RPCS.every((rpc) => allowedRpcs.includes(rpc));
+}
+
+/** Runtime deployment allowlist — independent from contract-required RPC names. */
+export function getRuntimePaymentGatewayAllowlist(): readonly string[] {
+  return getBuyerDeploymentRpcAllowlist();
 }
 
 /** Derives payable UI state strictly from server finance facts — no client-side amount math beyond display deltas. */

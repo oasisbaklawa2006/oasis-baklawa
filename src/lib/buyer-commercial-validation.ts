@@ -26,29 +26,58 @@ export interface CommercialValidation {
 }
 
 function parseInstant(iso: string | null): Date | null {
-  if (!iso) return null;
+  if (!iso?.trim()) return null;
   const parsed = new Date(iso);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+const QUANTITY_ALIGNMENT_EPSILON = 1e-6;
+
+/** Tolerance-aware MOQ/increment alignment for decimal commercial rules. */
+export function isQuantityIncrementAligned(moq: number, increment: number, quantity: number): boolean {
+  if (quantity + QUANTITY_ALIGNMENT_EPSILON < moq) return false;
+  const steps = (quantity - moq) / increment;
+  return Math.abs(steps - Math.round(steps)) < QUANTITY_ALIGNMENT_EPSILON;
+}
+
 /** Mirrors Core price validity windows without inventing fallback pricing. */
 export function isPriceWithinValidityWindow(price: BuyerProductPrice, asOf: Date = new Date()): CommercialValidation {
-  const validFrom = parseInstant(price.valid_from);
-  const validUntil = parseInstant(price.valid_until);
+  const validFromRaw = price.valid_from;
+  const validUntilRaw = price.valid_until;
 
-  if (validFrom && asOf < validFrom) {
-    return {
-      orderable: false,
-      code: "PRICE_NOT_YET_VALID",
-      message: "Pricing is not yet valid for ordering.",
-    };
+  if (validFromRaw?.trim()) {
+    const validFrom = parseInstant(validFromRaw);
+    if (!validFrom) {
+      return {
+        orderable: false,
+        code: "PRICE_UNAVAILABLE",
+        message: "Pricing validity start is unavailable.",
+      };
+    }
+    if (asOf < validFrom) {
+      return {
+        orderable: false,
+        code: "PRICE_NOT_YET_VALID",
+        message: "Pricing is not yet valid for ordering.",
+      };
+    }
   }
-  if (validUntil && asOf > validUntil) {
-    return {
-      orderable: false,
-      code: "PRICE_EXPIRED",
-      message: "Pricing has expired. Refresh catalogue pricing before ordering.",
-    };
+  if (validUntilRaw?.trim()) {
+    const validUntil = parseInstant(validUntilRaw);
+    if (!validUntil) {
+      return {
+        orderable: false,
+        code: "PRICE_UNAVAILABLE",
+        message: "Pricing validity end is unavailable.",
+      };
+    }
+    if (asOf > validUntil) {
+      return {
+        orderable: false,
+        code: "PRICE_EXPIRED",
+        message: "Pricing has expired. Refresh catalogue pricing before ordering.",
+      };
+    }
   }
   return { orderable: true };
 }
@@ -102,12 +131,13 @@ export function resolveCommercialRules(
 
 /** User-facing carton/MOQ completion guidance without silently changing quantity. */
 export function quantityCompletionHint(moq: number, increment: number, quantity: number): string | null {
-  if (quantity < moq) {
+  if (quantity + QUANTITY_ALIGNMENT_EPSILON < moq) {
     return `Add ${moq - quantity} more to reach MOQ ${moq}`;
   }
-  const remainder = (quantity - moq) % increment;
-  if (remainder !== 0) {
-    return `Add ${increment - remainder} more to match order increments of ${increment}`;
+  if (!isQuantityIncrementAligned(moq, increment, quantity)) {
+    const steps = Math.ceil((quantity - moq) / increment);
+    const target = moq + steps * increment;
+    return `Add ${target - quantity} more to match order increments of ${increment}`;
   }
   return null;
 }
@@ -123,7 +153,7 @@ export function validateOrderQuantity(
   }
 
   const { moq, increment } = resolved.rules;
-  if (quantity < moq) {
+  if (quantity + QUANTITY_ALIGNMENT_EPSILON < moq) {
     return {
       orderable: false,
       code: "QUANTITY_BELOW_MOQ",
@@ -131,7 +161,7 @@ export function validateOrderQuantity(
       rules: resolved.rules,
     };
   }
-  if ((quantity - moq) % increment !== 0) {
+  if (!isQuantityIncrementAligned(moq, increment, quantity)) {
     return {
       orderable: false,
       code: "QUANTITY_INCREMENT_MISMATCH",

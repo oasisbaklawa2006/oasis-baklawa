@@ -39,23 +39,10 @@ function failingStorage(): QuoteIdempotencyStorage {
   };
 }
 
-function persistenceFailureAfterSeed(seed: Map<string, string>): QuoteIdempotencyStorage {
-  const map = new Map(seed);
-  return {
-    getItem: async (key) => map.get(key) ?? null,
-    setItem: async () => {
-      throw new Error("storage write unavailable");
-    },
-    removeItem: async () => {
-      throw new Error("storage delete unavailable");
-    },
-  };
-}
-
 type QuoteIdempotencyAction = {
   label: string;
-  getKey: () => Promise<string>;
-  clearKey: () => Promise<void>;
+  getKey: () => Promise<{ key: string | null; persisted: boolean }>;
+  clearKey: () => Promise<{ key: string | null; persisted: boolean }>;
 };
 
 const quoteIdempotencyActions: QuoteIdempotencyAction[] = [
@@ -76,58 +63,31 @@ const quoteIdempotencyActions: QuoteIdempotencyAction[] = [
   },
 ];
 
-async function assertReusesFallbackAfterStorageFailure(getKey: () => Promise<string>): Promise<void> {
-  const memory = createMemoryStorage();
-  setQuoteIdempotencyStorageForTests(memory);
-  const first = await getKey();
-  setQuoteIdempotencyStorageForTests(failingStorage());
-  assert.equal(await getKey(), first);
-}
-
-async function assertRotatesAfterAcknowledgementDespitePersistenceFailure(
-  action: QuoteIdempotencyAction
-): Promise<void> {
-  const backingMap = new Map<string, string>();
-  setQuoteIdempotencyStorageForTests(createMemoryStorage(backingMap));
-  const acknowledged = await action.getKey();
-  setQuoteIdempotencyStorageForTests(persistenceFailureAfterSeed(backingMap));
-  await action.clearKey();
-  const nextKey = await action.getKey();
-  assert.notEqual(nextKey, acknowledged);
-  assert.equal(await action.getKey(), nextKey);
-}
-
 describe("quote idempotency", () => {
   beforeEach(() => {
     resetQuoteIdempotencyForTests();
-    setQuoteIdempotencyStorageForTests(null);
+    setQuoteIdempotencyStorageForTests(createMemoryStorage());
   });
 
   it("reuses the quotation-request key until Core acknowledges submission", async () => {
     const first = await getQuoteRequestIdempotencyKey();
-    assert.match(first, /^[0-9a-f-]{36}$/i);
-    assert.equal(await getQuoteRequestIdempotencyKey(), first);
+    assert.match(first.key ?? "", /^[0-9a-f-]{36}$/i);
+    assert.equal(first.persisted, true);
+    assert.deepEqual(await getQuoteRequestIdempotencyKey(), first);
     await clearQuoteRequestIdempotencyKey();
     const second = await getQuoteRequestIdempotencyKey();
-    assert.notEqual(second, first);
+    assert.notEqual(second.key, first.key);
+    assert.equal(second.persisted, true);
   });
 
-  it("rotates the request key after acknowledgement so already_applied cannot block the next request", async () => {
-    const acknowledged = await getQuoteRequestIdempotencyKey();
-    await clearQuoteRequestIdempotencyKey();
-    const nextRequest = await getQuoteRequestIdempotencyKey();
-    assert.notEqual(nextRequest, acknowledged);
+  it("fails closed when quotation mutation keys cannot be persisted", async () => {
+    setQuoteIdempotencyStorageForTests(failingStorage());
+    const request = await getQuoteRequestIdempotencyKey();
+    assert.equal(request.key, null);
+    assert.equal(request.persisted, false);
   });
 
   for (const action of quoteIdempotencyActions) {
-    it(`reuses in-memory fallback when storage read fails after ${action.label} key was cached`, async () => {
-      await assertReusesFallbackAfterStorageFailure(action.getKey);
-    });
-
-    it(`rotates ${action.label} key after acknowledgement even when persistence delete/write fails`, async () => {
-      await assertRotatesAfterAcknowledgementDespitePersistenceFailure(action);
-    });
-
     it(`coalesces concurrent ${action.label} key resolution to one storage read and one key`, async () => {
       const map = new Map<string, string>();
       let releaseGetItem: () => void = () => undefined;
@@ -160,8 +120,9 @@ describe("quote idempotency", () => {
       releaseGetItem();
 
       const [keyA, keyB] = await Promise.all([first, second]);
-      assert.equal(keyA, keyB);
-      assert.match(keyA, /^[0-9a-f-]{36}$/i);
+      assert.equal(keyA.key, keyB.key);
+      assert.match(keyA.key ?? "", /^[0-9a-f-]{36}$/i);
+      assert.equal(keyA.persisted, true);
       assert.equal(getItemCalls, 1);
       assert.equal(setItemCalls, 1);
     });
@@ -170,12 +131,12 @@ describe("quote idempotency", () => {
   it("scopes accept and decline idempotency per quotation", async () => {
     const acceptA = await getQuoteAcceptIdempotencyKey("quote-1");
     const acceptB = await getQuoteAcceptIdempotencyKey("quote-2");
-    assert.notEqual(acceptA, acceptB);
+    assert.notEqual(acceptA.key, acceptB.key);
     await clearQuoteAcceptIdempotencyKey("quote-1");
-    assert.notEqual(await getQuoteAcceptIdempotencyKey("quote-1"), acceptA);
+    assert.notEqual((await getQuoteAcceptIdempotencyKey("quote-1")).key, acceptA.key);
 
     const declineA = await getQuoteDeclineIdempotencyKey("quote-1");
     await clearQuoteDeclineIdempotencyKey("quote-1");
-    assert.notEqual(await getQuoteDeclineIdempotencyKey("quote-1"), declineA);
+    assert.notEqual((await getQuoteDeclineIdempotencyKey("quote-1")).key, declineA.key);
   });
 });

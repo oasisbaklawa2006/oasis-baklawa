@@ -43,7 +43,9 @@ export function DashboardScreen({ navigation }: Props) {
       const [productRows, orderRows, statementRow] = await Promise.all([
         fetchPublishedProducts(),
         isApprovedBuyer ? fetchCustomerOrderStatus() : Promise.resolve([]),
-        isApprovedBuyer ? customerGateway.statement() : Promise.resolve(null),
+        isApprovedBuyer
+          ? customerGateway.statement().catch(() => null)
+          : Promise.resolve(null),
       ]);
       setProducts(productRows);
       setOrders(orderRows);

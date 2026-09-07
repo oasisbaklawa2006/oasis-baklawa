@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   derivePayableState,
+  getRuntimePaymentGatewayAllowlist,
   isPaymentGatewayBound,
   isTerminalPaymentStatus,
   resolvePaymentGatewayBoundary,
@@ -50,21 +51,31 @@ describe("payment gateway boundary", () => {
     assert.equal(payable?.advanceCovered, false);
   });
 
+  it("blocks initiation when deployment allowlist omits a required gateway RPC", () => {
+    const deploymentAllowlist = getRuntimePaymentGatewayAllowlist().filter(
+      (rpc) => rpc !== "create_customer_payment_intent_v1"
+    );
+    const boundary = resolvePaymentGatewayBoundary(financeFacts, deploymentAllowlist);
+    assert.equal(boundary.gatewayBound, false);
+    assert.equal(boundary.canInitiatePayment, false);
+    assert.match(boundary.blockedReason ?? "", /not yet bound/i);
+  });
+
   it("enables initiation when gateway RPCs are bound and advance is due", () => {
-    const boundary = resolvePaymentGatewayBoundary(financeFacts, BUYER_BOUND_PAYMENT_GATEWAY_RPCS);
+    const boundary = resolvePaymentGatewayBoundary(financeFacts, getRuntimePaymentGatewayAllowlist());
     assert.equal(boundary.canInitiatePayment, true);
     assert.equal(boundary.blockedReason, null);
   });
 
   it("blocks initiation when advance is already covered", () => {
     const coveredFacts = { ...financeFacts, advance_covered: true, covered_amount: 3000 };
-    const boundary = resolvePaymentGatewayBoundary(coveredFacts, BUYER_BOUND_PAYMENT_GATEWAY_RPCS);
+    const boundary = resolvePaymentGatewayBoundary(coveredFacts, getRuntimePaymentGatewayAllowlist());
     assert.equal(boundary.canInitiatePayment, false);
     assert.match(boundary.blockedReason ?? "", /already covered/i);
   });
 
   it("never enables initiation offline even when gateway RPCs are bound", () => {
-    const boundary = resolvePaymentGatewayBoundary(financeFacts, BUYER_BOUND_PAYMENT_GATEWAY_RPCS, { isOnline: false });
+    const boundary = resolvePaymentGatewayBoundary(financeFacts, getRuntimePaymentGatewayAllowlist(), { isOnline: false });
     assert.equal(boundary.canInitiatePayment, false);
     assert.match(boundary.blockedReason ?? "", /offline/i);
   });

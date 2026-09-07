@@ -3,6 +3,8 @@ import * as FileSystem from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import { invokeGenieOrderParse, type GenieParseMode } from "@/lib/genie-order-parse";
 
+const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
+
 async function readBase64FromUri(uri: string): Promise<string> {
   return FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
 }
@@ -59,6 +61,9 @@ export async function parseGenieIntake(
       throw new Error("No document selected.");
     }
     const asset = result.assets[0];
+    if (asset.size && asset.size > MAX_DOCUMENT_BYTES) {
+      throw new Error("Document is too large. Choose a file under 10 MB.");
+    }
     const contentBase64 = await readBase64FromUri(asset.uri);
     return invokeGenieOrderParse({
       mode: "document",

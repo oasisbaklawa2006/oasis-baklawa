@@ -11,7 +11,7 @@ import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
 import { addCustomerOrderDraftLine } from "@/lib/api/draft";
 import { defaultOrderQuantity, resolveCommercialRules, validateOrderQuantity } from "@/lib/buyer-commercial-validation";
 import { nextValidQuantity } from "@/lib/draft-utils";
-import { clearQuoteRequestIdempotencyKey, getQuoteRequestIdempotencyKey } from "@/lib/quote-idempotency";
+import { clearQuoteRequestIdempotencyKey, getQuoteRequestIdempotencyKey, type ResolvedQuoteIdempotency } from "@/lib/quote-idempotency";
 import { isQuoteRequestEnabled } from "@/lib/quote-guards";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { customerGateway } from "@/services/customerGateway";
@@ -40,7 +40,7 @@ export function ProductDetailScreen({ navigation, route }: Props) {
   const [quantity, setQuantity] = useState(1);
   const [adding, setAdding] = useState(false);
   const [requestingQuote, setRequestingQuote] = useState(false);
-  const [requestKey, setRequestKey] = useState<string | null>(null);
+  const [requestKey, setRequestKey] = useState<ResolvedQuoteIdempotency | null>(null);
   const [favouriteBusy, setFavouriteBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -85,12 +85,17 @@ export function ProductDetailScreen({ navigation, route }: Props) {
   }, [product]);
 
   async function requestQuotation() {
-    if (!product?.price || !requestKey) return;
+    if (!product?.price || !requestKey?.key || !requestKey.persisted || !canOrder) return;
+    const quantityCheck = validateOrderQuantity(product.price, quantity);
+    if (!quantityCheck.orderable) {
+      setNotice(quantityCheck.message ?? "Quantity does not satisfy MOQ or carton rules.");
+      return;
+    }
     setRequestingQuote(true);
     setNotice(null);
     try {
       const result = await customerGateway.submitQuotationRequest({
-        idempotencyKey: requestKey,
+        idempotencyKey: requestKey.key,
         lines: [{ product_id: product.product_id, quantity }],
       });
       await clearQuoteRequestIdempotencyKey();
@@ -106,12 +111,13 @@ export function ProductDetailScreen({ navigation, route }: Props) {
     }
   }
 
+  const quantityCheck = validateOrderQuantity(product?.price, quantity);
   const quoteRequestEnabled = isQuoteRequestEnabled({
-    lineCount: product?.price ? 1 : 0,
+    lineCount: canOrder && quantityCheck.orderable ? 1 : 0,
     submitting: requestingQuote,
-    keyReady: Boolean(requestKey),
-    idempotencyKey: requestKey,
-    keyPersisted: Boolean(requestKey),
+    keyReady: Boolean(requestKey?.key),
+    idempotencyKey: requestKey?.key ?? null,
+    keyPersisted: requestKey?.persisted ?? false,
     isOnline,
   });
 

@@ -50,15 +50,18 @@ describe("quote guards", () => {
     assert.equal(isQuoteAcceptEnabled({ ...base, accepting: true }), false);
   });
 
-  it("blocks decline while offline or while in flight", () => {
-    assert.equal(
-      isQuoteDeclineEnabled({ quotation: issuedQuote, declining: false, isOnline: false }),
-      false
-    );
-    assert.equal(
-      isQuoteDeclineEnabled({ quotation: issuedQuote, declining: true, isOnline: true }),
-      false
-    );
+  it("blocks decline while offline, without persisted idempotency, or while in flight", () => {
+    const base = {
+      quotation: issuedQuote,
+      declining: false,
+      keyReady: true,
+      idempotencyKey: "key",
+      keyPersisted: true,
+      isOnline: true,
+    };
+    assert.equal(isQuoteDeclineEnabled({ ...base, isOnline: false }), false);
+    assert.equal(isQuoteDeclineEnabled({ ...base, keyPersisted: false, idempotencyKey: null }), false);
+    assert.equal(isQuoteDeclineEnabled({ ...base, declining: true }), false);
   });
 
   it("detects stale version errors for refetch", () => {

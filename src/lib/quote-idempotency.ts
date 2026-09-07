@@ -11,12 +11,14 @@ export type QuoteIdempotencyStorage = {
   removeItem: (key: string) => Promise<void>;
 };
 
+export interface ResolvedQuoteIdempotency {
+  key: string | null;
+  persisted: boolean;
+}
+
 let storage: QuoteIdempotencyStorage = AsyncStorage;
 
-let requestFallbackKey: string | null = null;
-const acceptFallbackKeys = new Map<string, string>();
-const declineFallbackKeys = new Map<string, string>();
-const inFlightKeyResolutions = new Map<string, Promise<string>>();
+const inFlightKeyResolutions = new Map<string, Promise<ResolvedQuoteIdempotency>>();
 
 /** Test-only: inject in-memory storage to simulate AsyncStorage failures. */
 export function setQuoteIdempotencyStorageForTests(next: QuoteIdempotencyStorage | null): void {
@@ -24,135 +26,77 @@ export function setQuoteIdempotencyStorageForTests(next: QuoteIdempotencyStorage
 }
 
 async function readOrCreateKeyOnce(
-  storageKey: string,
-  getFallback: () => string | null,
-  setFallback: (value: string) => string
-): Promise<string> {
-  const cached = getFallback();
-  if (cached) return cached;
-
+  storageKey: string
+): Promise<ResolvedQuoteIdempotency> {
   try {
     const existing = await storage.getItem(storageKey);
-    const afterRead = getFallback();
-    if (afterRead) return afterRead;
-    if (existing && existing.trim().length > 0) {
-      return setFallback(existing);
+    if (existing?.trim()) {
+      return { key: existing, persisted: true };
     }
     const generated = createIdempotencyKey();
-    if (!getFallback()) {
-      await storage.setItem(storageKey, generated);
-    }
-    const afterWrite = getFallback();
-    if (afterWrite) return afterWrite;
-    return setFallback(generated);
+    await storage.setItem(storageKey, generated);
+    return { key: generated, persisted: true };
   } catch {
-    const afterFailure = getFallback();
-    if (afterFailure) return afterFailure;
-    return setFallback(createIdempotencyKey());
+    return { key: null, persisted: false };
   }
 }
 
-async function readOrCreateKey(
-  storageKey: string,
-  getFallback: () => string | null,
-  setFallback: (value: string) => string
-): Promise<string> {
-  const existingFallback = getFallback();
-  if (existingFallback) return existingFallback;
-
+async function readOrCreateKey(storageKey: string): Promise<ResolvedQuoteIdempotency> {
   const inflight = inFlightKeyResolutions.get(storageKey);
   if (inflight) return inflight;
 
-  const resolution = readOrCreateKeyOnce(storageKey, getFallback, setFallback).finally(() => {
+  const resolution = readOrCreateKeyOnce(storageKey).finally(() => {
     inFlightKeyResolutions.delete(storageKey);
   });
 
   inFlightKeyResolutions.set(storageKey, resolution);
-  const resolved = await resolution;
-  return getFallback() ?? resolved;
+  return resolution;
 }
 
-/** Rotate to a fresh in-memory key after Core acknowledgement; best-effort replace persisted value. */
-async function rotateKeyAfterAcknowledgement(
-  storageKey: string,
-  setRotatedFallback: (key: string) => void
-): Promise<void> {
+/** Rotate to a fresh key after Core acknowledgement; best-effort replace persisted value. */
+async function rotateKeyAfterAcknowledgement(storageKey: string): Promise<ResolvedQuoteIdempotency> {
   inFlightKeyResolutions.delete(storageKey);
   const rotated = createIdempotencyKey();
-  setRotatedFallback(rotated);
   try {
     await storage.setItem(storageKey, rotated);
+    return { key: rotated, persisted: true };
   } catch {
-    // Best-effort persistence; in-memory rotation prevents replay even when storage is degraded.
+    return { key: null, persisted: false };
   }
 }
 
 /** Returns a stable key so a lost quotation-request response can be retried safely. */
-export async function getQuoteRequestIdempotencyKey(): Promise<string> {
-  return readOrCreateKey(
-    REQUEST_STORAGE_KEY,
-    () => requestFallbackKey,
-    (key) => {
-      requestFallbackKey ??= key;
-      return requestFallbackKey;
-    }
-  );
+export async function getQuoteRequestIdempotencyKey(): Promise<ResolvedQuoteIdempotency> {
+  return readOrCreateKey(REQUEST_STORAGE_KEY);
 }
 
 /** Clears the quotation-request retry key once Core acknowledges the submission. */
-export async function clearQuoteRequestIdempotencyKey(): Promise<void> {
-  await rotateKeyAfterAcknowledgement(REQUEST_STORAGE_KEY, (key) => {
-    requestFallbackKey = key;
-  });
+export async function clearQuoteRequestIdempotencyKey(): Promise<ResolvedQuoteIdempotency> {
+  return rotateKeyAfterAcknowledgement(REQUEST_STORAGE_KEY);
 }
 
 /** Returns a stable key so a lost quotation-acceptance response can be retried safely. */
-export async function getQuoteAcceptIdempotencyKey(quotationId: string): Promise<string> {
-  const storageKey = `${ACCEPT_STORAGE_KEY}:${quotationId}`;
-  return readOrCreateKey(
-    storageKey,
-    () => acceptFallbackKeys.get(quotationId) ?? null,
-    (key) => {
-      acceptFallbackKeys.set(quotationId, key);
-      return key;
-    }
-  );
+export async function getQuoteAcceptIdempotencyKey(quotationId: string): Promise<ResolvedQuoteIdempotency> {
+  return readOrCreateKey(`${ACCEPT_STORAGE_KEY}:${quotationId}`);
 }
 
 /** Clears the quotation-acceptance retry key once Core acknowledges the handoff. */
-export async function clearQuoteAcceptIdempotencyKey(quotationId: string): Promise<void> {
-  const storageKey = `${ACCEPT_STORAGE_KEY}:${quotationId}`;
-  await rotateKeyAfterAcknowledgement(storageKey, (key) => {
-    acceptFallbackKeys.set(quotationId, key);
-  });
+export async function clearQuoteAcceptIdempotencyKey(quotationId: string): Promise<ResolvedQuoteIdempotency> {
+  return rotateKeyAfterAcknowledgement(`${ACCEPT_STORAGE_KEY}:${quotationId}`);
 }
 
 /** Returns a stable key so a lost quotation-decline response can be retried safely. */
-export async function getQuoteDeclineIdempotencyKey(quotationId: string): Promise<string> {
-  const storageKey = `${DECLINE_STORAGE_KEY}:${quotationId}`;
-  return readOrCreateKey(
-    storageKey,
-    () => declineFallbackKeys.get(quotationId) ?? null,
-    (key) => {
-      declineFallbackKeys.set(quotationId, key);
-      return key;
-    }
-  );
+export async function getQuoteDeclineIdempotencyKey(quotationId: string): Promise<ResolvedQuoteIdempotency> {
+  return readOrCreateKey(`${DECLINE_STORAGE_KEY}:${quotationId}`);
 }
 
 /** Clears the quotation-decline retry key once Core acknowledges the decline. */
-export async function clearQuoteDeclineIdempotencyKey(quotationId: string): Promise<void> {
-  const storageKey = `${DECLINE_STORAGE_KEY}:${quotationId}`;
-  await rotateKeyAfterAcknowledgement(storageKey, (key) => {
-    declineFallbackKeys.set(quotationId, key);
-  });
+export async function clearQuoteDeclineIdempotencyKey(quotationId: string): Promise<ResolvedQuoteIdempotency> {
+  return rotateKeyAfterAcknowledgement(`${DECLINE_STORAGE_KEY}:${quotationId}`);
 }
 
-/** Test-only: reset in-memory fallback between isolated test cases. */
+/** Test-only: reset in-flight resolution between isolated test cases. */
 export function resetQuoteIdempotencyForTests(): void {
-  requestFallbackKey = null;
-  acceptFallbackKeys.clear();
-  declineFallbackKeys.clear();
   inFlightKeyResolutions.clear();
   storage = AsyncStorage;
 }

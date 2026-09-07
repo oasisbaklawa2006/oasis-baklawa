@@ -13,11 +13,10 @@ import {
   refreshPaymentIntentStatus,
   type PaymentFlowState,
 } from "@/lib/payment-gateway-flow";
-import { resolvePaymentGatewayBoundary } from "@/lib/payment-gateway-boundary";
+import { resolvePaymentGatewayBoundary, getRuntimePaymentGatewayAllowlist } from "@/lib/payment-gateway-boundary";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { customerGateway } from "@/services/customerGateway";
 import type { CustomerFinanceFacts } from "@/types/database.types";
-import { BUYER_BOUND_PAYMENT_GATEWAY_RPCS } from "@/types/payment-gateway-contract";
 import { colors, spacing, typography } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "OrderPayment">;
@@ -56,7 +55,7 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
   }, [load]);
 
   const boundary = useMemo(
-    () => resolvePaymentGatewayBoundary(financeFacts, BUYER_BOUND_PAYMENT_GATEWAY_RPCS, { isOnline }),
+    () => resolvePaymentGatewayBoundary(financeFacts, getRuntimePaymentGatewayAllowlist(), { isOnline }),
     [financeFacts, isOnline]
   );
 

@@ -27,13 +27,17 @@ export function isQuoteAcceptEnabled(params: {
 export function isQuoteDeclineEnabled(params: {
   quotation: QuotationActionTarget;
   declining: boolean;
+  keyReady: boolean;
+  idempotencyKey: string | null;
+  keyPersisted: boolean;
   isOnline?: boolean;
   backendAvailable?: boolean;
 }): boolean {
   if (params.isOnline === false) return false;
   if (params.backendAvailable === false || !isQuoteBackendAvailable()) return false;
   if (!isQuotationActionable(params.quotation)) return false;
-  if (params.declining) return false;
+  if (params.declining || !params.keyReady) return false;
+  if (!params.idempotencyKey || !params.keyPersisted) return false;
   return true;
 }
 

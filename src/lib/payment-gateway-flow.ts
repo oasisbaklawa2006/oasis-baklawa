@@ -37,10 +37,6 @@ export async function initiateAdvancePayment(orderId: string): Promise<PaymentFl
       idempotencyKey: resolved.key,
     });
 
-    if (intent.already_applied) {
-      await clearPaymentIdempotencyKey(orderId);
-    }
-
     if (intent.gateway_checkout_url) {
       await openExternalUrl(intent.gateway_checkout_url);
     }
@@ -57,7 +53,9 @@ export async function initiateAdvancePayment(orderId: string): Promise<PaymentFl
       },
       message: intent.gateway_checkout_url
         ? "Complete payment in the gateway, then refresh status here."
-        : "Payment intent created. Refresh status when the gateway session completes.",
+        : intent.already_applied
+          ? "Payment intent already applied. Refresh status to confirm advance coverage."
+          : "Payment intent created. Refresh status when the gateway session completes.",
     };
   } catch (error) {
     return {
@@ -79,7 +77,7 @@ export async function refreshPaymentIntentStatus(
     const terminal = isTerminalPaymentStatus(status.status);
 
     if (terminal === "success") {
-      await clearPaymentIdempotencyKey(orderId);
+      await clearPaymentIdempotencyKey(orderId).catch(() => undefined);
       return {
         flow: {
           phase: "succeeded",

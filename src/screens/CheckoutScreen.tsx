@@ -205,7 +205,7 @@ export function CheckoutScreen({ navigation }: Props) {
             ) : null}
 
             <Text style={styles.note}>
-              Payment capture is not enabled in this release. Submitting creates your Sales Order only after the server confirms success.
+              Submitting creates your Sales Order with a server-authoritative advance due. Payment capture uses Core gateway intent/status once bound — no client-side financial truth.
             </Text>
 
             <OasisButton

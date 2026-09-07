@@ -1,13 +1,28 @@
-import React, { useState } from "react";
-import { Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
+import { BuyerGate } from "@/components/BuyerGate";
+import { OasisButton } from "@/components/OasisButton";
+import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { Screen } from "@/components/Screen";
+import { ErrorState, LoadingState } from "@/components/StateViews";
+import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
+import { addCustomerOrderDraftLine } from "@/lib/api/draft";
+import {
+  applyGenieCandidateSelection,
+  resolveGenieLines,
+  type GenieAmbiguousLine,
+  type GenieParsedLine,
+  type GenieResolvedLine,
+  type GenieUnresolvedLine,
+} from "@/lib/genie-product-resolution";
+import { parseRpcError } from "@/lib/rpc-errors";
 import { supabase } from "@/lib/supabase";
 import { colors, spacing, typography, touchTarget } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "AiOrder">;
-type InputMode = "text" | "audio" | "image";
+type InputMode = "text" | "audio" | "image" | "document";
 
 interface ParsedLine {
   productName: string;
@@ -16,22 +31,59 @@ interface ParsedLine {
 }
 
 export function AiOrderScreen({ navigation }: Props) {
+  const { isApprovedBuyer } = useBuyerSession();
   const [mode, setMode] = useState<InputMode>("text");
   const [text, setText] = useState("");
   const [parsing, setParsing] = useState(false);
+  const [catalogueLoading, setCatalogueLoading] = useState(true);
+  const [catalogue, setCatalogue] = useState<CatalogueProduct[]>([]);
+  const [catalogueError, setCatalogueError] = useState<string | null>(null);
   const [reviewLines, setReviewLines] = useState<ParsedLine[] | null>(null);
+  const [resolvedLines, setResolvedLines] = useState<GenieResolvedLine[]>([]);
+  const [ambiguousLines, setAmbiguousLines] = useState<GenieAmbiguousLine[]>([]);
+  const [unresolvedLines, setUnresolvedLines] = useState<GenieUnresolvedLine[]>([]);
+  const [clarifyingLine, setClarifyingLine] = useState<GenieAmbiguousLine | null>(null);
+  const [committing, setCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const loadCatalogue = useCallback(async () => {
+    setCatalogueLoading(true);
+    setCatalogueError(null);
+    try {
+      setCatalogue(await fetchCatalogue({ includeBuyerPrices: isApprovedBuyer }));
+    } catch (e) {
+      setCatalogueError(parseRpcError(e).message);
+    } finally {
+      setCatalogueLoading(false);
+    }
+  }, [isApprovedBuyer]);
+
+  useEffect(() => {
+    void loadCatalogue();
+  }, [loadCatalogue]);
+
+  const readyToCommit = useMemo(
+    () => resolvedLines.length > 0 && ambiguousLines.length === 0 && unresolvedLines.length === 0,
+    [resolvedLines, ambiguousLines, unresolvedLines]
+  );
 
   async function parseOrder() {
     setParsing(true);
     setError(null);
+    setNotice(null);
     try {
       const { data, error: rpcError } = await supabase.functions.invoke("ai-order-parse", {
-        body: { mode, text },
+        body: { mode: mode === "document" ? "text" : mode, text, locale: "en-IN" },
       });
       if (rpcError) throw rpcError;
       const lines: ParsedLine[] = data?.lines ?? [];
+      if (lines.length === 0) {
+        setError("No order lines were parsed. Try clearer Hindi/English product names and quantities.");
+        return;
+      }
       setReviewLines(lines);
+      applyResolution(lines);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not parse order");
     } finally {
@@ -39,88 +91,206 @@ export function AiOrderScreen({ navigation }: Props) {
     }
   }
 
-  function updateLine(index: number, patch: Partial<ParsedLine>) {
-    setReviewLines((prev) => (prev ? prev.map((l, i) => (i === index ? { ...l, ...patch } : l)) : prev));
+  function applyResolution(lines: ParsedLine[]) {
+    const parsed: GenieParsedLine[] = lines.map((line) => ({
+      rawName: line.productName,
+      quantity: line.quantity,
+      uom: line.uom,
+    }));
+    const result = resolveGenieLines(parsed, catalogue);
+    setResolvedLines(result.resolved);
+    setAmbiguousLines(result.ambiguous);
+    setUnresolvedLines(result.unresolved);
   }
 
-  function confirmOrder() {
-    setReviewLines(null);
-    navigation.navigate("Cart");
+  function updateLine(index: number, patch: Partial<ParsedLine>) {
+    setReviewLines((prev) => {
+      if (!prev) return prev;
+      const next = prev.map((line, i) => (i === index ? { ...line, ...patch } : line));
+      applyResolution(next);
+      return next;
+    });
   }
+
+  function chooseCandidate(product: CatalogueProduct) {
+    if (!clarifyingLine) return;
+    const selected = applyGenieCandidateSelection(clarifyingLine, product);
+    setAmbiguousLines((prev) => prev.filter((line) => line.rawName !== clarifyingLine.rawName));
+    if ("product" in selected) {
+      setResolvedLines((prev) => [...prev, selected]);
+    } else {
+      setUnresolvedLines((prev) => [...prev, selected]);
+    }
+    setClarifyingLine(null);
+  }
+
+  function resetReview() {
+    setReviewLines(null);
+    setResolvedLines([]);
+    setAmbiguousLines([]);
+    setUnresolvedLines([]);
+    setClarifyingLine(null);
+  }
+
+  async function confirmOrder() {
+    if (!readyToCommit || committing) return;
+    setCommitting(true);
+    setError(null);
+    setNotice(null);
+    try {
+      for (const line of resolvedLines) {
+        await addCustomerOrderDraftLine(line.product.product_id, line.normalizedQuantity);
+      }
+      resetReview();
+      navigation.navigate("Cart");
+    } catch (e) {
+      setError(parseRpcError(e).message);
+    } finally {
+      setCommitting(false);
+    }
+  }
+
+  const modeUnavailableCopy: Record<Exclude<InputMode, "text">, string> = {
+    audio:
+      "Voice ordering requires a verified ai-order-parse audio contract. Hindi, English, and Hinglish are supported once Core certifies the edge function.",
+    image: "PO photo OCR requires a verified ai-order-parse image contract. Buyer will not invent SKU or quantity from uncertified OCR.",
+    document:
+      "PDF, Excel, and WhatsApp PO imports require a verified document-intake contract. Paste text manually or use catalogue search until Core certifies document intake.",
+  };
 
   return (
-    <Screen title="AI Order" subtitle="Text, voice or PO image → order draft">
-      <View style={styles.tabs}>
-        {(["text", "audio", "image"] as InputMode[]).map((m) => (
-          <TouchableOpacity key={m} style={[styles.tab, mode === m && styles.tabActive]} onPress={() => setMode(m)}>
-            <Text style={[styles.tabText, mode === m && styles.tabTextActive]}>
-              {m === "text" ? "Type Order" : m === "audio" ? "Voice Note" : "PO Image (OCR)"}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {mode === "text" && (
-        <TextInput
-          style={styles.textArea}
-          multiline
-          placeholder="e.g. 20kg Kaju Katli, 10 boxes Almond Baklawa"
-          value={text}
-          onChangeText={setText}
-        />
-      )}
-      {mode === "audio" && (
-        <View style={styles.unavailable}>
-          <Text style={styles.unavailableText}>Voice ordering is not yet available. The ai-order-parse contract for audio input has not been verified for production.</Text>
-        </View>
-      )}
-      {mode === "image" && (
-        <View style={styles.unavailable}>
-          <Text style={styles.unavailableText}>PO image capture is not yet available. OCR ordering requires a verified edge function contract.</Text>
-        </View>
-      )}
-
-      <TouchableOpacity style={styles.button} disabled={parsing || mode !== "text"} onPress={parseOrder}>
-        <Text style={styles.buttonText}>{parsing ? "Parsing…" : mode === "text" ? "Parse Order" : "Text mode only"}</Text>
-      </TouchableOpacity>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-
-      <Modal visible={!!reviewLines} animationType="slide" onRequestClose={() => setReviewLines(null)}>
-        <Screen title="Review Parsed Order" subtitle="Confirm quantities before adding to cart">
-          {(reviewLines ?? []).map((line, index) => (
-            <View key={`${line.productName}-${index}`} style={styles.reviewRow}>
-              <TextInput
-                style={styles.reviewInput}
-                value={line.productName}
-                onChangeText={(v) => updateLine(index, { productName: v })}
-              />
-              <TextInput
-                style={styles.reviewQty}
-                keyboardType="numeric"
-                value={String(line.quantity)}
-                onChangeText={(v) => updateLine(index, { quantity: Number(v) || 0 })}
-              />
-              <Text style={styles.reviewUom}>{line.uom}</Text>
-            </View>
-          ))}
-          <View style={styles.reviewActions}>
-            <TouchableOpacity style={styles.secondaryButton} onPress={() => setReviewLines(null)}>
-              <Text style={styles.secondaryButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.button} onPress={confirmOrder}>
-              <Text style={styles.buttonText}>Add to Cart</Text>
-            </TouchableOpacity>
+    <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
+      <Screen title="Oasis Genie" subtitle="Voice · type · photo · PO · governed catalogue resolution">
+        <ScrollView contentContainerStyle={styles.content}>
+          <View style={styles.tabs}>
+            {(
+              [
+                ["text", "Type"],
+                ["audio", "Voice"],
+                ["image", "Photo/PO"],
+                ["document", "PDF/Excel"],
+              ] as const
+            ).map(([value, label]) => (
+              <TouchableOpacity key={value} style={[styles.tab, mode === value && styles.tabActive]} onPress={() => setMode(value)}>
+                <Text style={[styles.tabText, mode === value && styles.tabTextActive]}>{label}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
-        </Screen>
-      </Modal>
-    </Screen>
+
+          {catalogueLoading ? <LoadingState message="Loading governed catalogue for alias resolution…" /> : null}
+          {catalogueError ? <ErrorState message={catalogueError} onRetry={() => void loadCatalogue()} /> : null}
+
+          {mode === "text" ? (
+            <TextInput
+              style={styles.textArea}
+              multiline
+              placeholder="e.g. 20kg Kaju Katli, 10 box badam baklawa (Hindi/English/Hinglish)"
+              value={text}
+              onChangeText={setText}
+            />
+          ) : (
+            <View style={styles.unavailable}>
+              <Text style={styles.unavailableText}>{modeUnavailableCopy[mode]}</Text>
+            </View>
+          )}
+
+          <OasisButton
+            label={parsing ? "Parsing…" : mode === "text" ? "Parse with Oasis Genie" : "Text mode only"}
+            onPress={() => void parseOrder()}
+            disabled={parsing || mode !== "text" || catalogueLoading || Boolean(catalogueError)}
+            loading={parsing}
+          />
+
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {notice ? <Text style={styles.notice}>{notice}</Text> : null}
+
+          <Text style={styles.helper}>
+            Genie resolves names against the published catalogue only. Ambiguous or unknown products require your clarification — no invented SKU or quantity.
+          </Text>
+        </ScrollView>
+
+        <Modal visible={!!reviewLines} animationType="slide" onRequestClose={resetReview}>
+          <Screen title="Review Genie draft" subtitle="Confirm governed matches before adding to cart">
+            <ScrollView contentContainerStyle={styles.reviewContent}>
+              {(reviewLines ?? []).map((line, index) => (
+                <View key={`${line.productName}-${index}`} style={styles.reviewRow}>
+                  <TextInput
+                    style={styles.reviewInput}
+                    value={line.productName}
+                    onChangeText={(value) => updateLine(index, { productName: value })}
+                  />
+                  <TextInput
+                    style={styles.reviewQty}
+                    keyboardType="numeric"
+                    value={String(line.quantity)}
+                    onChangeText={(value) => updateLine(index, { quantity: Number(value) || 0 })}
+                  />
+                  <Text style={styles.reviewUom}>{line.uom}</Text>
+                </View>
+              ))}
+
+              {resolvedLines.map((line) => (
+                <View key={`resolved-${line.product.product_id}-${line.rawName}`} style={styles.resolvedRow}>
+                  <Text style={styles.resolvedTitle}>{line.product.product_name}</Text>
+                  <Text style={styles.resolvedMeta}>
+                    {line.normalizedQuantity} {line.product.price?.uom ?? line.uom} · {line.product.sku}
+                  </Text>
+                </View>
+              ))}
+
+              {ambiguousLines.map((line) => (
+                <View key={`ambiguous-${line.rawName}`} style={styles.warningCard}>
+                  <Text style={styles.warningTitle}>Clarify: {line.rawName}</Text>
+                  <Text style={styles.warningMeta}>Multiple catalogue matches — choose one.</Text>
+                  <OasisButton label="Choose product" variant="secondary" onPress={() => setClarifyingLine(line)} />
+                </View>
+              ))}
+
+              {unresolvedLines.map((line) => (
+                <View key={`unresolved-${line.rawName}`} style={styles.warningCard}>
+                  <Text style={styles.warningTitle}>{line.rawName}</Text>
+                  <Text style={styles.warningMeta}>{line.reason}</Text>
+                </View>
+              ))}
+
+              <View style={styles.reviewActions}>
+                <OasisButton label="Cancel" variant="secondary" onPress={resetReview} />
+                <OasisButton
+                  label={committing ? "Adding…" : "Add resolved lines to cart"}
+                  onPress={() => void confirmOrder()}
+                  disabled={!readyToCommit || committing}
+                  loading={committing}
+                />
+              </View>
+            </ScrollView>
+          </Screen>
+        </Modal>
+
+        <Modal visible={!!clarifyingLine} animationType="fade" transparent onRequestClose={() => setClarifyingLine(null)}>
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Choose catalogue product</Text>
+              {(clarifyingLine?.candidates ?? []).map((product) => (
+                <TouchableOpacity key={product.product_id} style={styles.candidateRow} onPress={() => chooseCandidate(product)}>
+                  <Text style={styles.candidateTitle}>{product.product_name}</Text>
+                  <Text style={styles.candidateMeta}>{product.sku}</Text>
+                </TouchableOpacity>
+              ))}
+              <OasisButton label="Close" variant="secondary" onPress={() => setClarifyingLine(null)} />
+            </View>
+          </View>
+        </Modal>
+      </Screen>
+    </BuyerGate>
   );
 }
 
 const styles = StyleSheet.create({
-  tabs: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md, marginBottom: spacing.md },
+  content: { paddingBottom: spacing.xl },
+  tabs: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md, marginBottom: spacing.md },
   tab: {
-    flex: 1,
+    flexGrow: 1,
+    minWidth: "45%",
     paddingVertical: 10,
     borderRadius: 8,
     backgroundColor: colors.surfacePremium,
@@ -143,30 +313,12 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     backgroundColor: colors.white,
   },
-  button: {
-    backgroundColor: colors.action,
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: "center",
-    marginTop: spacing.md,
-    minHeight: touchTarget,
-    justifyContent: "center",
-  },
-  buttonText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.white },
-  secondaryButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.action,
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: "center",
-    minHeight: touchTarget,
-    justifyContent: "center",
-  },
-  secondaryButtonText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.action },
+  helper: { marginTop: spacing.md, fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted, lineHeight: 18 },
   error: { color: colors.error, marginTop: spacing.sm, fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm },
+  notice: { color: colors.textSecondary, marginTop: spacing.sm, fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm },
   unavailable: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: spacing.md, backgroundColor: colors.surfaceUtility },
   unavailableText: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textSecondary, lineHeight: 20 },
+  reviewContent: { paddingBottom: spacing.xl, gap: spacing.sm },
   reviewRow: { flexDirection: "row", gap: spacing.sm, alignItems: "center", marginBottom: 10 },
   reviewInput: {
     flex: 2,
@@ -190,5 +342,17 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   reviewUom: { width: 40, fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textMuted },
+  resolvedRow: { backgroundColor: colors.successSurface, borderRadius: 10, padding: spacing.md },
+  resolvedTitle: { fontFamily: typography.fontFamilySansSemiBold, color: colors.textPrimary },
+  resolvedMeta: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textSecondary, marginTop: 4 },
+  warningCard: { backgroundColor: colors.warningSurface, borderRadius: 10, padding: spacing.md, gap: spacing.sm },
+  warningTitle: { fontFamily: typography.fontFamilySansSemiBold, color: colors.textPrimary },
+  warningMeta: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textSecondary },
   reviewActions: { flexDirection: "row", gap: 10, marginTop: spacing.md },
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "center", padding: spacing.lg },
+  modalCard: { backgroundColor: colors.white, borderRadius: 12, padding: spacing.lg, gap: spacing.sm },
+  modalTitle: { fontFamily: typography.fontFamilySerifBold, fontSize: typography.sizeLg, color: colors.textPrimary },
+  candidateRow: { paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
+  candidateTitle: { fontFamily: typography.fontFamilySansSemiBold, color: colors.textPrimary },
+  candidateMeta: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted },
 });

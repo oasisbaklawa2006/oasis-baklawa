@@ -24,6 +24,7 @@ const STACK_ROUTES = [
   "Documents",
   "Quotations",
   "QuotationDetail",
+  "OrderPayment",
   "SessionRecovery",
 ] as const;
 
@@ -120,6 +121,31 @@ describe("golden journey invariants", () => {
     for (const tab of ["Catalogue", "Orders", "Dashboard", "Support", "Account"]) {
       assert.match(navSource, new RegExp(`name="${tab}"`));
     }
+  });
+
+  it("routes Oasis Genie parsed lines through governed draft handoff", () => {
+    const source = readFileSync(join(ROOT, "screens/AiOrderScreen.tsx"), "utf8");
+    assert.match(source, /resolveGenieLines/);
+    assert.match(source, /addCustomerOrderDraftLine/);
+    assert.match(source, /navigation\.navigate\("Cart"\)/);
+    assert.match(source, /Clarify:/);
+  });
+
+  it("consumes server finance facts in payment boundary without dummy success", () => {
+    const paymentScreen = readFileSync(join(ROOT, "screens/OrderPaymentScreen.tsx"), "utf8");
+    assert.match(paymentScreen, /resolvePaymentGatewayBoundary/);
+    assert.match(paymentScreen, /customerGateway\.financeFacts/);
+    assert.match(paymentScreen, /no simulated success path/i);
+    assert.match(paymentScreen, /disabled=\{!boundary\.canInitiatePayment\}/);
+  });
+
+  it("surfaces payable navigation from order detail and dashboard alerts", () => {
+    const orderDetail = readFileSync(join(ROOT, "screens/OrderDetailScreen.tsx"), "utf8");
+    const dashboard = readFileSync(join(ROOT, "screens/DashboardScreen.tsx"), "utf8");
+    assert.match(orderDetail, /navigate\("OrderPayment"/);
+    assert.match(orderDetail, /verified_payment_amount/);
+    assert.match(dashboard, /navigate\("AiOrder"\)/);
+    assert.match(dashboard, /navigate\("OrderPayment"/);
   });
 });
 

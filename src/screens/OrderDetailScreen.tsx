@@ -2,11 +2,13 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
+import { OasisButton } from "@/components/OasisButton";
 import { Screen } from "@/components/Screen";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { fetchCustomerOrderItems, fetchCustomerOrderStatus } from "@/lib/api/orders";
 import { formatInr } from "@/lib/customer-projections";
 import { FULFILMENT_TIMELINE_STAGES, fulfilmentStageIndex } from "@/lib/order-stages";
+import { derivePayableState } from "@/lib/payment-gateway-boundary";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { customerGateway } from "@/services/customerGateway";
 import type { CustomerFinanceFacts, CustomerOrderItem, CustomerOrderStatus } from "@/types/database.types";
@@ -54,6 +56,8 @@ export function OrderDetailScreen({ navigation, route }: Props) {
     if (!order) return -1;
     return fulfilmentStageIndex(order.customer_stage);
   }, [order]);
+
+  const payable = useMemo(() => derivePayableState(financeFacts), [financeFacts]);
 
   return (
     <Screen title="Order Detail" subtitle={order?.order_number ?? ""}>
@@ -103,8 +107,34 @@ export function OrderDetailScreen({ navigation, route }: Props) {
               {financeFacts.covered_amount !== null ? (
                 <Text style={styles.financeLine}>Covered amount: {formatInr(financeFacts.covered_amount)}</Text>
               ) : null}
+              {financeFacts.verified_payment_amount !== null ? (
+                <Text style={styles.financeLine}>Verified payments: {formatInr(financeFacts.verified_payment_amount)}</Text>
+              ) : null}
+              {financeFacts.advance_covered !== null ? (
+                <Text style={styles.financeLine}>
+                  Advance covered: {financeFacts.advance_covered ? "Yes" : "No"}
+                </Text>
+              ) : null}
+              {payable && payable.balanceDue !== null ? (
+                <Text style={styles.financeLine}>Balance due: {formatInr(payable.balanceDue)}</Text>
+              ) : null}
+              {financeFacts.pi_status ? (
+                <Text style={styles.financeLine}>PI status: {financeFacts.pi_status.replace(/_/g, " ")}</Text>
+              ) : null}
               {financeFacts.pi_number ? (
                 <Text style={styles.financeLine}>PI reference: {financeFacts.pi_number}</Text>
+              ) : null}
+              {!financeFacts.advance_covered ? (
+                <OasisButton
+                  label="View payable state"
+                  variant="secondary"
+                  onPress={() =>
+                    navigation.navigate("OrderPayment", {
+                      orderId: order.order_id,
+                      orderNumber: order.order_number,
+                    })
+                  }
+                />
               ) : null}
             </View>
           ) : null}

@@ -25,6 +25,28 @@ function createMemoryStorage(seed?: Map<string, string>): QuoteIdempotencyStorag
   };
 }
 
+function failingStorage(): QuoteIdempotencyStorage {
+  return {
+    getItem: async () => {
+      throw new Error("storage unavailable");
+    },
+    setItem: async () => {
+      throw new Error("storage unavailable");
+    },
+    removeItem: async () => {
+      throw new Error("storage unavailable");
+    },
+  };
+}
+
+async function assertReusesFallbackAfterStorageFailure(getKey: () => Promise<string>): Promise<void> {
+  const memory = createMemoryStorage();
+  setQuoteIdempotencyStorageForTests(memory);
+  const first = await getKey();
+  setQuoteIdempotencyStorageForTests(failingStorage());
+  assert.equal(await getKey(), first);
+}
+
 describe("quote idempotency", () => {
   beforeEach(() => {
     resetQuoteIdempotencyForTests();
@@ -48,21 +70,15 @@ describe("quote idempotency", () => {
   });
 
   it("reuses in-memory fallback when storage fails after a key was cached", async () => {
-    const memory = createMemoryStorage();
-    setQuoteIdempotencyStorageForTests(memory);
-    const first = await getQuoteRequestIdempotencyKey();
-    setQuoteIdempotencyStorageForTests({
-      getItem: async () => {
-        throw new Error("storage unavailable");
-      },
-      setItem: async () => {
-        throw new Error("storage unavailable");
-      },
-      removeItem: async () => {
-        throw new Error("storage unavailable");
-      },
-    });
-    assert.equal(await getQuoteRequestIdempotencyKey(), first);
+    await assertReusesFallbackAfterStorageFailure(() => getQuoteRequestIdempotencyKey());
+  });
+
+  it("reuses accept fallback when storage fails after a key was cached", async () => {
+    await assertReusesFallbackAfterStorageFailure(() => getQuoteAcceptIdempotencyKey("quote-accept"));
+  });
+
+  it("reuses decline fallback when storage fails after a key was cached", async () => {
+    await assertReusesFallbackAfterStorageFailure(() => getQuoteDeclineIdempotencyKey("quote-decline"));
   });
 
   it("scopes accept and decline idempotency per quotation", async () => {

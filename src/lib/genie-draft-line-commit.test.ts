@@ -35,6 +35,7 @@ function createMockDraftWriter(): {
   lines: MockDraftLine[];
   calls: { op: "add" | "update" | "remove"; draftLineId?: string; productId?: string; quantity?: number }[];
   failOnAddAfter?: number;
+  failAddAfterCreate?: boolean;
 } {
   const lines: MockDraftLine[] = [];
   const calls: { op: "add" | "update" | "remove"; draftLineId?: string; productId?: string; quantity?: number }[] =
@@ -42,13 +43,24 @@ function createMockDraftWriter(): {
   let nextId = 1;
   let addCount = 0;
   let failOnAddAfter: number | undefined;
+  let failAddAfterCreate = false;
 
   const writer: GenieDraftLineWriter = {
     add: async (productId, quantity) => {
       addCount += 1;
-      if (failOnAddAfter !== undefined && addCount > failOnAddAfter) {
+      const shouldFail = failOnAddAfter !== undefined && addCount > failOnAddAfter;
+
+      if (shouldFail && failAddAfterCreate) {
+        const draftLineId = `draft-${nextId++}`;
+        lines.push({ draftLineId, productId, quantity });
+        calls.push({ op: "add", productId, quantity, draftLineId });
+        throw new Error("draft add failed after create");
+      }
+
+      if (shouldFail) {
         throw new Error("draft add failed");
       }
+
       const draftLineId = `draft-${nextId++}`;
       lines.push({ draftLineId, productId, quantity });
       calls.push({ op: "add", productId, quantity, draftLineId });
@@ -65,6 +77,10 @@ function createMockDraftWriter(): {
       if (index >= 0) lines.splice(index, 1);
       calls.push({ op: "remove", draftLineId });
     },
+    findReplacementDraftLineId: async (productId, quantity) => {
+      const matches = lines.filter((line) => line.productId === productId && line.quantity === quantity);
+      return matches.length === 1 ? matches[0].draftLineId : null;
+    },
   };
 
   return {
@@ -76,6 +92,12 @@ function createMockDraftWriter(): {
     },
     set failOnAddAfter(value: number | undefined) {
       failOnAddAfter = value;
+    },
+    get failAddAfterCreate() {
+      return failAddAfterCreate;
+    },
+    set failAddAfterCreate(value: boolean) {
+      failAddAfterCreate = value;
     },
   };
 }
@@ -162,5 +184,85 @@ describe("genie draft line commit", () => {
 
     assert.equal(mock.calls.length, 1);
     assert.equal(await isGenieDraftLineCommitted(line), true);
+  });
+
+  it("product replacement retries without duplicating when add creates then rejects", async () => {
+    resetGenieDraftLineCommitForTests();
+    setGenieDraftCommitStorageForTests(createMemoryStorage());
+    const mock = createMockDraftWriter();
+
+    const original: GenieResolvedCommitLine = { lineId: "line-1", productId: "p1", normalizedQuantity: 10 };
+    await commitGenieResolvedLineToDraft(original, mock.writer);
+
+    const edited: GenieResolvedCommitLine = { lineId: "line-1", productId: "p2", normalizedQuantity: 12 };
+    mock.failOnAddAfter = 1;
+    mock.failAddAfterCreate = true;
+    await commitGenieResolvedLineToDraft(edited, mock.writer);
+
+    assert.equal(mock.lines.length, 1);
+    assert.deepEqual(mock.lines[0], { draftLineId: "draft-2", productId: "p2", quantity: 12 });
+    assert.equal(await isGenieDraftLineCommitted(edited), true);
+    assert.deepEqual(
+      mock.calls.filter((call) => call.op === "add"),
+      [
+        { op: "add", productId: "p1", quantity: 10, draftLineId: "draft-1" },
+        { op: "add", productId: "p2", quantity: 12, draftLineId: "draft-2" },
+      ]
+    );
+
+    await commitGenieResolvedLineToDraft(edited, mock.writer);
+
+    assert.equal(mock.lines.length, 1);
+    assert.deepEqual(mock.lines[0], { draftLineId: "draft-2", productId: "p2", quantity: 12 });
+    assert.deepEqual(
+      mock.calls.filter((call) => call.op === "add"),
+      [
+        { op: "add", productId: "p1", quantity: 10, draftLineId: "draft-1" },
+        { op: "add", productId: "p2", quantity: 12, draftLineId: "draft-2" },
+      ]
+    );
+  });
+
+  it("product replacement retries without duplicating when commit record write fails after add", async () => {
+    resetGenieDraftLineCommitForTests();
+    const storage = createMemoryStorage();
+    let writeCount = 0;
+    const instrumentedStorage: GenieDraftCommitStorage = {
+      getItem: (key) => storage.getItem(key),
+      setItem: async (key, value) => {
+        writeCount += 1;
+        if (writeCount === 4) {
+          throw new Error("commit record write failed");
+        }
+        await storage.setItem(key, value);
+      },
+      removeItem: (key) => storage.removeItem(key),
+    };
+    setGenieDraftCommitStorageForTests(instrumentedStorage);
+    const mock = createMockDraftWriter();
+
+    const original: GenieResolvedCommitLine = { lineId: "line-1", productId: "p1", normalizedQuantity: 10 };
+    await commitGenieResolvedLineToDraft(original, mock.writer);
+
+    const edited: GenieResolvedCommitLine = { lineId: "line-1", productId: "p2", normalizedQuantity: 12 };
+    await assert.rejects(
+      () => commitGenieResolvedLineToDraft(edited, mock.writer),
+      /commit record write failed/
+    );
+    assert.equal(mock.lines.length, 1);
+    assert.deepEqual(mock.lines[0], { draftLineId: "draft-2", productId: "p2", quantity: 12 });
+
+    await commitGenieResolvedLineToDraft(edited, mock.writer);
+
+    assert.equal(mock.lines.length, 1);
+    assert.deepEqual(mock.lines[0], { draftLineId: "draft-2", productId: "p2", quantity: 12 });
+    assert.deepEqual(
+      mock.calls.filter((call) => call.op === "add"),
+      [
+        { op: "add", productId: "p1", quantity: 10, draftLineId: "draft-1" },
+        { op: "add", productId: "p2", quantity: 12, draftLineId: "draft-2" },
+      ]
+    );
+    assert.equal(await isGenieDraftLineCommitted(edited), true);
   });
 });

@@ -3,6 +3,7 @@ import { createIdempotencyKey } from "@/lib/idempotency";
 import type { PaymentGatewayPurpose } from "@/types/payment-gateway-contract";
 
 const STORAGE_KEY_PREFIX = "oasis_payment_intent_idempotency_v2:";
+const LEGACY_STORAGE_KEY_PREFIX = "oasis_payment_intent_idempotency_v1:";
 
 export interface PaymentIdempotencyStorage {
   getItem(key: string): Promise<string | null>;
@@ -22,10 +23,28 @@ function storageKeyForOrder(orderId: string, paymentPurpose: PaymentGatewayPurpo
   return `${STORAGE_KEY_PREFIX}${orderId}:${paymentPurpose}`;
 }
 
+function legacyStorageKeyForOrder(orderId: string): string {
+  return `${LEGACY_STORAGE_KEY_PREFIX}${orderId}`;
+}
+
 export interface ResolvedPaymentIdempotency {
   key: string | null;
   reused: boolean;
   persisted: boolean;
+}
+
+async function migrateLegacyAdvanceIdempotencyKey(
+  orderId: string,
+  storage: PaymentIdempotencyStorage
+): Promise<string | null> {
+  const legacyKey = legacyStorageKeyForOrder(orderId);
+  const legacyValue = await storage.getItem(legacyKey);
+  if (!legacyValue?.trim()) return null;
+
+  const v2Key = storageKeyForOrder(orderId, "advance");
+  await storage.setItem(v2Key, legacyValue);
+  await storage.removeItem(legacyKey);
+  return legacyValue;
 }
 
 async function resolvePaymentIdempotencyKeyOnce(
@@ -40,6 +59,14 @@ async function resolvePaymentIdempotencyKeyOnce(
     if (existing?.trim()) {
       return { key: existing, reused: true, persisted: true };
     }
+
+    if (paymentPurpose === "advance") {
+      const migrated = await migrateLegacyAdvanceIdempotencyKey(orderId, storage);
+      if (migrated?.trim()) {
+        return { key: migrated, reused: true, persisted: true };
+      }
+    }
+
     const key = createKey();
     await storage.setItem(storageKey, key);
     return { key, reused: false, persisted: true };
@@ -72,4 +99,16 @@ export async function clearPaymentIdempotencyKey(
 ): Promise<void> {
   inFlightResolutions.delete(`${orderId}:${paymentPurpose}`);
   await storage.removeItem(storageKeyForOrder(orderId, paymentPurpose));
+}
+
+export function legacyPaymentIdempotencyKeyForTests(orderId: string): string {
+  return legacyStorageKeyForOrder(orderId);
+}
+
+export function paymentIdempotencyKeyForTests(orderId: string, paymentPurpose: PaymentGatewayPurpose): string {
+  return storageKeyForOrder(orderId, paymentPurpose);
+}
+
+export function resetPaymentIdempotencyForTests(): void {
+  inFlightResolutions.clear();
 }

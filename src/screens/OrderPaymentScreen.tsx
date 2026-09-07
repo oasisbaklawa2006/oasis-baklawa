@@ -42,6 +42,8 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [financeFacts, setFinanceFacts] = useState<CustomerFinanceFacts | null>(null);
   const [finalPayment, setFinalPayment] = useState<CustomerFinalPaymentRequest | null>(null);
+  const [finalPaymentResolved, setFinalPaymentResolved] = useState(false);
+  const [finalPaymentLoadError, setFinalPaymentLoadError] = useState<string | null>(null);
   const [flow, setFlow] = useState<PaymentFlowState>({
     phase: "idle",
     paymentIntentId: null,
@@ -52,13 +54,22 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
 
   const load = useCallback(async () => {
     setError(null);
+    setFinalPaymentResolved(false);
+    setFinalPaymentLoadError(null);
     try {
-      const [facts, finalPaymentFacts] = await Promise.all([
-        customerGateway.financeFacts(orderId),
-        fetchCustomerFinalPaymentRequest(orderId).catch(() => null),
-      ]);
+      const facts = await customerGateway.financeFacts(orderId);
       setFinanceFacts(facts);
-      setFinalPayment(finalPaymentFacts);
+
+      try {
+        const finalPaymentFacts = await fetchCustomerFinalPaymentRequest(orderId);
+        setFinalPayment(finalPaymentFacts);
+        setFinalPaymentLoadError(null);
+      } catch (e) {
+        setFinalPayment(null);
+        setFinalPaymentLoadError(parseRpcError(e).message);
+      } finally {
+        setFinalPaymentResolved(true);
+      }
     } catch (e) {
       setError(parseRpcError(e).message);
     } finally {
@@ -72,8 +83,14 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
   }, [load]);
 
   const boundary = useMemo(
-    () => resolvePaymentGatewayBoundary(financeFacts, { isOnline, finalPayment }),
-    [financeFacts, finalPayment, isOnline]
+    () =>
+      resolvePaymentGatewayBoundary(financeFacts, {
+        isOnline,
+        finalPayment,
+        finalPaymentLoadError,
+        finalPaymentResolved,
+      }),
+    [financeFacts, finalPayment, finalPaymentLoadError, finalPaymentResolved, isOnline]
   );
 
   async function onInitiatePayment() {

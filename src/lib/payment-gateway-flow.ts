@@ -81,16 +81,6 @@ export async function initiateGovernedPayment(input: InitiatePaymentInput): Prom
   }
 }
 
-/** @deprecated Use initiateGovernedPayment */
-export async function initiateAdvancePayment(orderId: string): Promise<PaymentFlowState> {
-  return initiateGovernedPayment({
-    orderId,
-    piId: "",
-    commercialVersionId: "",
-    paymentPurpose: "advance",
-  });
-}
-
 export async function refreshPaymentIntentStatus(
   paymentIntentId: string,
   orderId: string,

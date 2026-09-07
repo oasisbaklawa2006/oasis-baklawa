@@ -130,6 +130,73 @@ describe("payment gateway boundary", () => {
     assert.match(boundary.blockedReason ?? "", /offline/i);
   });
 
+  it("blocks post-advance initiation when final-payment projection RPC fails", () => {
+    const postAdvanceFacts = {
+      ...financeFacts,
+      advance_covered: true,
+      covered_amount: 3000,
+      verified_payment_amount: 3000,
+    };
+    const boundary = resolvePaymentGatewayBoundary(postAdvanceFacts, {
+      finalPaymentResolved: true,
+      finalPaymentLoadError: "Final payment projection is unavailable.",
+      finalPayment: null,
+    });
+    assert.equal(boundary.canInitiatePayment, false);
+    assert.match(boundary.blockedReason ?? "", /Final payment projection is unavailable/i);
+  });
+
+  it("blocks post-advance initiation until final-payment projection resolves", () => {
+    const postAdvanceFacts = {
+      ...financeFacts,
+      advance_covered: true,
+      covered_amount: 3000,
+      verified_payment_amount: 3000,
+    };
+    const boundary = resolvePaymentGatewayBoundary(postAdvanceFacts, {
+      finalPaymentResolved: false,
+      finalPayment: null,
+    });
+    assert.equal(boundary.canInitiatePayment, false);
+    assert.match(boundary.blockedReason ?? "", /still loading/i);
+  });
+
+  it("allows post-advance balance initiation when final-payment projection resolves with no request", () => {
+    const postAdvanceFacts = {
+      ...financeFacts,
+      advance_covered: true,
+      covered_amount: 3000,
+      verified_payment_amount: 3000,
+    };
+    const boundary = resolvePaymentGatewayBoundary(postAdvanceFacts, {
+      finalPaymentResolved: true,
+      finalPaymentLoadError: null,
+      finalPayment: {
+        order_id: "o1",
+        available: false,
+        final_payment_request_id: null,
+        pi_id: "pi1",
+        customer_visible_pi_number: "PI-100",
+        revision_number: null,
+        effective_status: null,
+        commercial_version_id: "cv1",
+        currency: "INR",
+        final_payable_total: null,
+        verified_payment_total: 3000,
+        wallet_applied_total: 0,
+        approved_credit_total: 0,
+        credited_or_paid_total: 3000,
+        balance_due: null,
+        settled: null,
+        payment_action: null,
+        payment_instructions: null,
+        customer_safe_projection: false,
+      },
+    });
+    assert.equal(boundary.canInitiatePayment, true);
+    assert.equal(boundary.payable?.paymentPurpose, "balance");
+  });
+
   it("uses deployment allowlist independently from contract constants in explicit probes", () => {
     const deploymentOnly = ["published_products_v1"];
     assert.equal(isPaymentGatewayBound(deploymentOnly), false);

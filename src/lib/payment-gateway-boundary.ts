@@ -128,11 +128,20 @@ export function isTerminalPaymentStatus(status: string): "success" | "failure" |
   return "pending";
 }
 
+function requiresFinalPaymentProjection(facts: CustomerFinanceFacts | null): boolean {
+  if (!facts?.customer_safe_projection || facts.advance_covered !== true) return false;
+  if (facts.commercial_value === null) return false;
+  const covered = facts.covered_amount ?? facts.verified_payment_amount ?? 0;
+  return facts.commercial_value > covered;
+}
+
 export function resolvePaymentGatewayBoundary(
   facts: CustomerFinanceFacts | null,
   options: {
     isOnline?: boolean;
     finalPayment?: CustomerFinalPaymentRequest | null;
+    finalPaymentLoadError?: string | null;
+    finalPaymentResolved?: boolean;
   } = {}
 ): PaymentGatewayBoundaryState {
   const gatewayBound = isRuntimePaymentGatewayBound();
@@ -165,6 +174,26 @@ export function resolvePaymentGatewayBoundary(
       canInitiatePayment: false,
       blockedReason: "You are offline. Payment initiation is disabled until your connection returns.",
     };
+  }
+
+  if (requiresFinalPaymentProjection(facts)) {
+    if (options.finalPaymentResolved !== true) {
+      return {
+        gatewayBound,
+        payable,
+        canInitiatePayment: false,
+        blockedReason: "Final payment projection is still loading.",
+      };
+    }
+
+    if (options.finalPaymentLoadError) {
+      return {
+        gatewayBound,
+        payable,
+        canInitiatePayment: false,
+        blockedReason: options.finalPaymentLoadError,
+      };
+    }
   }
 
   if (!payable.piId || !payable.commercialVersionId) {

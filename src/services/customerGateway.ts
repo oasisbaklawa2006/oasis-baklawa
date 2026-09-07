@@ -9,9 +9,11 @@ import {
 } from "@/lib/api/quotes";
 import {
   canonicalSupportIssueType,
+  normalizeBuyerProductPrices,
   normalizeCustomerFinanceFacts,
   normalizeCustomerGeneralQuery,
   normalizeCustomerStatement,
+  normalizePublishedProducts,
 } from "@/lib/customer-projections";
 import type {
   AcceptCustomerQuotationInput,
@@ -46,8 +48,10 @@ export interface CatalogueProduct extends PublishedProduct {
 }
 
 export const customerGateway = {
-  products: () => callRpc("published_products_v1"),
-  prices: () => callRpc("buyer_product_prices_v1"),
+  products: async (): Promise<PublishedProduct[]> =>
+    normalizePublishedProducts(await callRpc("published_products_v1")),
+  prices: async (): Promise<BuyerProductPrice[]> =>
+    normalizeBuyerProductPrices(await callRpc("buyer_product_prices_v1")),
   orders: () => callRpc("customer_order_status_v1"),
   orderItems: () => callRpc("customer_order_items_v1"),
   commercialFacts: (): Promise<CustomerCommercialFacts[]> => callRpc("customer_sales_order_commercial_facts_v1"),

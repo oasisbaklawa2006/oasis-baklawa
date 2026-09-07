@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const REQUIRED_BINDINGS = [
+  "published_products_v1",
+  "buyer_product_prices_v1",
   "customer_sales_order_commercial_facts_v1",
   "customer_order_finance_facts_v1",
   "customer_proforma_invoice_facts_v1",
@@ -32,6 +34,10 @@ describe("customerGateway tranche-5 and P106 bindings", () => {
       assert.ok(boundarySource.includes(`"${rpc}"`), `verify-contract-boundary missing allowlist entry for ${rpc}`);
     }
     assert.match(gatewaySource, /if \(!input\.orderId\.trim\(\)\)/);
+    assert.match(gatewaySource, /normalizeCustomerStatement/);
+    assert.match(gatewaySource, /normalizeCustomerFinanceFacts/);
+    assert.match(gatewaySource, /normalizePublishedProducts/);
+    assert.match(gatewaySource, /normalizeBuyerProductPrices/);
     assert.match(gatewaySource, /acceptQuotation/);
     assert.match(gatewaySource, /declineQuotation/);
     assert.match(gatewaySource, /submitQuotationRequest/);

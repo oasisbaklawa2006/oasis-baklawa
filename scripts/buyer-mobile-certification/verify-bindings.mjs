@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const REQUIRED_BINDINGS = [
+  "published_products_v1",
+  "buyer_product_prices_v1",
   "customer_sales_order_commercial_facts_v1",
   "customer_order_finance_facts_v1",
   "customer_proforma_invoice_facts_v1",

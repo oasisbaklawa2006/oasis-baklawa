@@ -97,6 +97,17 @@ describe("golden journey invariants", () => {
     }
   });
 
+  it("binds product surfaces to governed publication authority only", () => {
+    const catalogueApi = readFileSync(join(ROOT, "lib/api/catalogue.ts"), "utf8");
+    assert.match(catalogueApi, /published_products_v1/);
+    assert.match(catalogueApi, /normalizePublishedProducts/);
+    assert.doesNotMatch(catalogueApi, /\.from\(\s*['"]products['"]\s*\)/);
+
+    const detailSource = readFileSync(join(ROOT, "screens/ProductDetailScreen.tsx"), "utf8");
+    assert.match(detailSource, /fetchCatalogue/);
+    assert.match(detailSource, /Product not found in the published catalogue/);
+  });
+
   it("exposes five buyer tabs in MainTabNavigator", () => {
     const navSource = readFileSync(join(ROOT, "navigation/MainTabNavigator.tsx"), "utf8");
     for (const tab of ["Catalogue", "Orders", "Dashboard", "Support", "Account"]) {

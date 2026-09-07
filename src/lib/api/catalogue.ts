@@ -1,3 +1,4 @@
+import { normalizeBuyerProductPrices, normalizePublishedProducts } from "@/lib/customer-projections";
 import { callRpc } from "@/lib/rpc";
 import type { BuyerProductPrice, PublishedProduct } from "@/types/database.types";
 
@@ -7,12 +8,12 @@ export interface CatalogueProduct extends PublishedProduct {
 
 export async function fetchPublishedProducts(): Promise<PublishedProduct[]> {
   const data = await callRpc("published_products_v1");
-  return data ?? [];
+  return normalizePublishedProducts(data);
 }
 
 export async function fetchBuyerProductPrices(): Promise<BuyerProductPrice[]> {
   const data = await callRpc("buyer_product_prices_v1");
-  return data ?? [];
+  return normalizeBuyerProductPrices(data);
 }
 
 export async function fetchCatalogue(options?: { includeBuyerPrices?: boolean }): Promise<CatalogueProduct[]> {

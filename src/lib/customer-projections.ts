@@ -1,4 +1,5 @@
 import type {
+  BuyerProductPrice,
   CustomerCommercialFacts,
   CustomerDocument,
   CustomerFinanceFacts,
@@ -6,6 +7,7 @@ import type {
   CustomerProformaInvoiceFacts,
   CustomerStatement,
   CustomerStatementEntry,
+  PublishedProduct,
 } from "@/types/database.types";
 
 export const GENERAL_QUERY_CATEGORIES = ["GENERAL", "CATALOGUE", "ACCOUNT", "DELIVERY", "OTHER"] as const;
@@ -41,6 +43,76 @@ function nullableNumber(value: unknown): number | null {
 
 function nullableBoolean(value: unknown): boolean | null {
   return typeof value === "boolean" ? value : null;
+}
+
+function nullableStringArray(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  const items = value.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0);
+  return items.length ? items : null;
+}
+
+/** Normalizes Core's published catalogue rows and drops internal operational fields. */
+export function normalizePublishedProduct(value: unknown): PublishedProduct | null {
+  if (!isRecord(value)) return null;
+  const productId = nullableString(value.product_id);
+  const sku = nullableString(value.sku);
+  const productName = nullableString(value.product_name);
+  const createdAt = nullableString(value.created_at);
+  if (!productId || !sku || !productName || !createdAt) return null;
+  return {
+    product_id: productId,
+    sku,
+    product_name: productName,
+    short_description: nullableString(value.short_description),
+    long_description: nullableString(value.long_description),
+    category: nullableString(value.category),
+    subcategory: nullableString(value.subcategory),
+    hero_image_url: nullableString(value.hero_image_url),
+    pack_size: nullableString(value.pack_size),
+    storage_type: nullableString(value.storage_type),
+    shelf_life: nullableString(value.shelf_life),
+    shelf_life_days: nullableNumber(value.shelf_life_days),
+    dietary_tags: nullableStringArray(value.dietary_tags),
+    allergen_warnings: nullableString(value.allergen_warnings),
+    primary_uom: nullableString(value.primary_uom),
+    created_at: createdAt,
+  };
+}
+
+/** Normalizes buyer-visible pricing/MOQ projections without exposing internal commercial fields. */
+export function normalizeBuyerProductPrice(value: unknown): BuyerProductPrice | null {
+  if (!isRecord(value)) return null;
+  const productId = nullableString(value.product_id);
+  const currency = nullableString(value.currency);
+  const uom = nullableString(value.uom);
+  const sellingPrice = nullableNumber(value.selling_price);
+  const gstRate = nullableNumber(value.gst_rate);
+  if (!productId || !currency || !uom || sellingPrice === null || gstRate === null) return null;
+  return {
+    product_id: productId,
+    selling_price: sellingPrice,
+    currency,
+    uom,
+    gst_rate: gstRate,
+    tax_inclusive: value.tax_inclusive === true,
+    applied_discount_percent: nullableNumber(value.applied_discount_percent),
+    minimum_order_quantity: nullableNumber(value.minimum_order_quantity),
+    minimum_order_uom: nullableString(value.minimum_order_uom),
+    order_increment: nullableNumber(value.order_increment),
+    order_increment_uom: nullableString(value.order_increment_uom),
+    valid_from: nullableString(value.valid_from),
+    valid_until: nullableString(value.valid_until),
+  };
+}
+
+export function normalizePublishedProducts(values: unknown): PublishedProduct[] {
+  if (!Array.isArray(values)) return [];
+  return values.map(normalizePublishedProduct).filter((product): product is PublishedProduct => Boolean(product));
+}
+
+export function normalizeBuyerProductPrices(values: unknown): BuyerProductPrice[] {
+  if (!Array.isArray(values)) return [];
+  return values.map(normalizeBuyerProductPrice).filter((price): price is BuyerProductPrice => Boolean(price));
 }
 
 /** Normalizes Core's customer-safe Finance JSON without exposing arbitrary backend keys. */

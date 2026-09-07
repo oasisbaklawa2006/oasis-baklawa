@@ -2,9 +2,11 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   canonicalSupportIssueType,
+  normalizeBuyerProductPrice,
   normalizeCustomerFinanceFacts,
   normalizeCustomerGeneralQuery,
   normalizeCustomerStatement,
+  normalizePublishedProduct,
   proformaAvailability,
 } from "./customer-projections";
 
@@ -120,6 +122,49 @@ describe("customer projections", () => {
         created_at: "2026-09-01T00:00:00Z",
         updated_at: "2026-09-01T00:00:00Z",
       }
+    );
+  });
+
+  it("normalizes published catalogue and buyer pricing without internal fields", () => {
+    assert.deepEqual(
+      normalizePublishedProduct({
+        product_id: "p-1",
+        sku: "SKU-1",
+        product_name: "Kaju Katli",
+        created_at: "2026-09-01T00:00:00Z",
+        internal_cost: 120,
+        publication_state: "draft",
+      }),
+      {
+        product_id: "p-1",
+        sku: "SKU-1",
+        product_name: "Kaju Katli",
+        short_description: null,
+        long_description: null,
+        category: null,
+        subcategory: null,
+        hero_image_url: null,
+        pack_size: null,
+        storage_type: null,
+        shelf_life: null,
+        shelf_life_days: null,
+        dietary_tags: null,
+        allergen_warnings: null,
+        primary_uom: null,
+        created_at: "2026-09-01T00:00:00Z",
+      }
+    );
+    assert.equal(
+      normalizeBuyerProductPrice({
+        product_id: "p-1",
+        selling_price: 500,
+        currency: "INR",
+        uom: "kg",
+        gst_rate: 5,
+        tax_inclusive: true,
+        cost_price: 300,
+      })?.product_id,
+      "p-1"
     );
   });
 

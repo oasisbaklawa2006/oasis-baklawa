@@ -18,6 +18,8 @@ export interface GenieDraftLinePendingReplacement {
   targetProductId: string;
   targetQuantity: number;
   oldDraftLineRemoved?: boolean;
+  /** Matching target draft-line IDs that existed before the replacement add. */
+  preAddDraftLineIds?: string[];
   /** Set when add succeeded remotely but durable commit mapping write failed. */
   newDraftLineId?: string;
 }
@@ -31,8 +33,14 @@ export interface GenieDraftLineWriter {
   add(productId: string, quantity: number): Promise<string>;
   update(draftLineId: string, quantity: number): Promise<void>;
   remove(draftLineId: string): Promise<void>;
+  /** List target-matching draft lines before a replacement add for safe reconciliation. */
+  listReplacementDraftLineIds?(productId: string, quantity: number): Promise<string[]>;
   /** Locate an orphaned replacement draft line after an ambiguous add failure. */
-  findReplacementDraftLineId?(productId: string, quantity: number): Promise<string | null>;
+  findReplacementDraftLineId?(
+    productId: string,
+    quantity: number,
+    excludedDraftLineIds?: readonly string[]
+  ): Promise<string | null>;
 }
 
 let storage: GenieDraftCommitStorage = AsyncStorage;
@@ -48,7 +56,12 @@ export function genieDraftCommitSignature(line: GenieResolvedCommitLine): string
 function isPendingReplacement(value: unknown): value is GenieDraftLinePendingReplacement {
   if (!value || typeof value !== "object") return false;
   const pending = value as Partial<GenieDraftLinePendingReplacement>;
-  return typeof pending.targetProductId === "string" && typeof pending.targetQuantity === "number";
+  return (
+    typeof pending.targetProductId === "string" &&
+    typeof pending.targetQuantity === "number" &&
+    (pending.preAddDraftLineIds === undefined ||
+      (Array.isArray(pending.preAddDraftLineIds) && pending.preAddDraftLineIds.every((id) => typeof id === "string")))
+  );
 }
 
 function isRecord(value: unknown): value is GenieDraftLineCommitRecord {
@@ -129,12 +142,25 @@ async function persistPendingReplacement(
   return nextRecords;
 }
 
-async function reconcileReplacementDraftLineId(
+async function listReplacementDraftLineIds(
   line: GenieResolvedCommitLine,
   draftWriter: GenieDraftLineWriter
+): Promise<string[]> {
+  if (!draftWriter.listReplacementDraftLineIds) return [];
+  return draftWriter.listReplacementDraftLineIds(line.productId, line.normalizedQuantity);
+}
+
+async function reconcileReplacementDraftLineId(
+  line: GenieResolvedCommitLine,
+  draftWriter: GenieDraftLineWriter,
+  excludedDraftLineIds: readonly string[] = []
 ): Promise<string | null> {
   if (!draftWriter.findReplacementDraftLineId) return null;
-  return draftWriter.findReplacementDraftLineId(line.productId, line.normalizedQuantity);
+  return draftWriter.findReplacementDraftLineId(
+    line.productId,
+    line.normalizedQuantity,
+    excludedDraftLineIds
+  );
 }
 
 async function reconcilePendingProductReplacement(
@@ -152,17 +178,30 @@ async function reconcilePendingProductReplacement(
   }
 
   if (pending.oldDraftLineRemoved) {
-    const reconciled = await reconcileReplacementDraftLineId(line, draftWriter);
+    const priorIds = pending.preAddDraftLineIds ?? [];
+    const reconciled = await reconcileReplacementDraftLineId(line, draftWriter, priorIds);
     if (reconciled) {
       await finalizeProductReplacement(records, line, reconciled);
       return true;
     }
 
+    const currentMatchingIds = await listReplacementDraftLineIds(line, draftWriter);
+    const nextExcludedIds = Array.from(new Set([...priorIds, ...currentMatchingIds]));
+    let currentRecords = records;
+    let currentExisting = existing;
+    if (nextExcludedIds.length !== priorIds.length) {
+      currentRecords = await persistPendingReplacement(records, existing, {
+        ...pending,
+        preAddDraftLineIds: nextExcludedIds,
+      });
+      currentExisting = findCommitRecord(currentRecords, line.lineId) ?? existing;
+    }
+
     const draftLineId = await draftWriter.add(line.productId, line.normalizedQuantity);
-    const currentRecords = await readCommitRecords();
-    const current = findCommitRecord(currentRecords, line.lineId);
-    if (current?.pendingReplacement) {
-      await persistPendingReplacement(currentRecords, current, {
+    const latestRecords = await readCommitRecords();
+    const current = findCommitRecord(latestRecords, line.lineId) ?? currentExisting;
+    if (current.pendingReplacement) {
+      await persistPendingReplacement(latestRecords, current, {
         ...current.pendingReplacement,
         newDraftLineId: draftLineId,
       });
@@ -189,16 +228,18 @@ async function commitProductReplacement(
 
   await draftWriter.remove(existing.draftLineId);
   const afterRemove = findCommitRecord(currentRecords, line.lineId) ?? existing;
+  const preAddDraftLineIds = await listReplacementDraftLineIds(line, draftWriter);
   currentRecords = await persistPendingReplacement(currentRecords, afterRemove, {
     ...pendingReplacement,
     oldDraftLineRemoved: true,
+    preAddDraftLineIds,
   });
 
   let draftLineId: string;
   try {
     draftLineId = await draftWriter.add(line.productId, line.normalizedQuantity);
   } catch (error) {
-    const reconciled = await reconcileReplacementDraftLineId(line, draftWriter);
+    const reconciled = await reconcileReplacementDraftLineId(line, draftWriter, preAddDraftLineIds);
     if (reconciled) {
       await finalizeProductReplacement(await readCommitRecords(), line, reconciled);
       return;

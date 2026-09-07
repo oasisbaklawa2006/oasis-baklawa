@@ -10,8 +10,11 @@ describe("customerGateway tranche-5 and P106 bindings", () => {
     const gatewaySource = readFileSync(join(__dirname, "../services/customerGateway.ts"), "utf8");
     const quotesSource = readFileSync(join(__dirname, "../lib/api/quotes.ts"), "utf8");
     const paymentSource = readFileSync(join(__dirname, "../lib/api/payment-gateway.ts"), "utf8");
+    const finalPaymentSource = readFileSync(join(__dirname, "../lib/api/final-payment.ts"), "utf8");
     const boundarySource = readFileSync(join(process.cwd(), "scripts/verify-contract-boundary.mjs"), "utf8");
-    const invokedRpcs = collectGovernedRpcInvocations(`${gatewaySource}\n${quotesSource}\n${paymentSource}`);
+    const invokedRpcs = collectGovernedRpcInvocations(
+      `${gatewaySource}\n${quotesSource}\n${paymentSource}\n${finalPaymentSource}`
+    );
     for (const rpc of REQUIRED_RPC_BINDINGS) {
       assert.ok(invokedRpcs.has(rpc), `governed quote/api layer missing binding for ${rpc}`);
       assert.ok(boundarySource.includes(`"${rpc}"`), `verify-contract-boundary missing allowlist entry for ${rpc}`);

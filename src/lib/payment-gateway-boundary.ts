@@ -1,11 +1,11 @@
-import type { CustomerFinanceFacts } from "@/types/database.types";
-import { BUYER_BOUND_PAYMENT_GATEWAY_RPCS } from "@/types/payment-gateway-contract";
+import type { CustomerFinanceFacts, CustomerFinalPaymentRequest } from "@/types/database.types";
+import { BUYER_BOUND_PAYMENT_GATEWAY_RPCS, type PaymentGatewayPurpose } from "@/types/payment-gateway-contract";
 import {
   isRuntimePaymentGatewayBound,
   readRuntimeDeploymentRpcAllowlist,
 } from "@/lib/runtime-payment-gateway-binding";
 
-/** Core gateway RPCs — Buyer binds these only when Mission Control adds them to verify-contract-boundary. */
+/** Core gateway RPCs certified on production Core main cd078c52 (#255). */
 export const PAYMENT_GATEWAY_RPCS = BUYER_BOUND_PAYMENT_GATEWAY_RPCS;
 
 export type PaymentGatewayPhase = "unbound" | "ready" | "pending" | "succeeded" | "failed";
@@ -22,6 +22,12 @@ export interface PayableState {
   financeStatus: string | null;
   piNumber: string | null;
   piStatus: string | null;
+  piId: string | null;
+  commercialVersionId: string | null;
+  paymentPurpose: PaymentGatewayPurpose | null;
+  payableAmount: number | null;
+  finalPaymentStatus: string | null;
+  finalPaymentInstructions: string | null;
 }
 
 export interface PaymentGatewayBoundaryState {
@@ -41,8 +47,41 @@ export function getRuntimePaymentGatewayAllowlist(): readonly string[] {
   return readRuntimeDeploymentRpcAllowlist();
 }
 
+export function resolvePaymentPurpose(
+  facts: CustomerFinanceFacts,
+  finalPayment: CustomerFinalPaymentRequest | null
+): { purpose: PaymentGatewayPurpose | null; payableAmount: number | null } {
+  if (
+    finalPayment?.available &&
+    finalPayment.settled !== true &&
+    finalPayment.balance_due !== null &&
+    finalPayment.balance_due > 0
+  ) {
+    return { purpose: "final_payment", payableAmount: finalPayment.balance_due };
+  }
+
+  if (facts.advance_covered !== true && facts.required_advance !== null && facts.required_advance > 0) {
+    const covered = facts.covered_amount ?? 0;
+    const payableAmount = Math.max(0, facts.required_advance - covered);
+    if (payableAmount > 0) return { purpose: "advance", payableAmount };
+  }
+
+  if (facts.commercial_value !== null) {
+    const covered = facts.covered_amount ?? facts.verified_payment_amount ?? 0;
+    const balanceDue = Math.max(0, facts.commercial_value - covered);
+    if (balanceDue > 0 && facts.advance_covered === true) {
+      return { purpose: "balance", payableAmount: balanceDue };
+    }
+  }
+
+  return { purpose: null, payableAmount: null };
+}
+
 /** Derives payable UI state strictly from server finance facts — no client-side amount math beyond display deltas. */
-export function derivePayableState(facts: CustomerFinanceFacts | null): PayableState | null {
+export function derivePayableState(
+  facts: CustomerFinanceFacts | null,
+  finalPayment: CustomerFinalPaymentRequest | null = null
+): PayableState | null {
   if (!facts?.customer_safe_projection) return null;
 
   const commercialValue = facts.commercial_value;
@@ -50,6 +89,7 @@ export function derivePayableState(facts: CustomerFinanceFacts | null): PayableS
   const verifiedPaymentAmount = facts.verified_payment_amount;
   const coveredAmount = facts.covered_amount;
   const advanceCovered = facts.advance_covered === true;
+  const { purpose, payableAmount } = resolvePaymentPurpose(facts, finalPayment);
 
   let balanceDue: number | null = null;
   if (commercialValue !== null && coveredAmount !== null) {
@@ -70,12 +110,18 @@ export function derivePayableState(facts: CustomerFinanceFacts | null): PayableS
     financeStatus: facts.finance_status,
     piNumber: facts.pi_number,
     piStatus: facts.pi_status,
+    piId: facts.pi_id,
+    commercialVersionId: facts.commercial_version_id,
+    paymentPurpose: purpose,
+    payableAmount,
+    finalPaymentStatus: finalPayment?.effective_status ?? null,
+    finalPaymentInstructions: finalPayment?.payment_instructions ?? null,
   };
 }
 
 export function isTerminalPaymentStatus(status: string): "success" | "failure" | "pending" {
   const normalized = status.toLowerCase();
-  const TERMINAL_SUCCESS = new Set(["succeeded", "paid", "captured"]);
+  const TERMINAL_SUCCESS = new Set(["succeeded", "success", "paid", "captured"]);
   const TERMINAL_FAILURE = new Set(["failed", "cancelled", "expired"]);
   if (TERMINAL_SUCCESS.has(normalized)) return "success";
   if (TERMINAL_FAILURE.has(normalized)) return "failure";
@@ -84,10 +130,13 @@ export function isTerminalPaymentStatus(status: string): "success" | "failure" |
 
 export function resolvePaymentGatewayBoundary(
   facts: CustomerFinanceFacts | null,
-  options: { isOnline?: boolean } = {}
+  options: {
+    isOnline?: boolean;
+    finalPayment?: CustomerFinalPaymentRequest | null;
+  } = {}
 ): PaymentGatewayBoundaryState {
   const gatewayBound = isRuntimePaymentGatewayBound();
-  const payable = derivePayableState(facts);
+  const payable = derivePayableState(facts, options.finalPayment ?? null);
   const isOnline = options.isOnline ?? true;
 
   if (!payable) {
@@ -99,22 +148,13 @@ export function resolvePaymentGatewayBoundary(
     };
   }
 
-  if (payable.advanceCovered) {
-    return {
-      gatewayBound,
-      payable,
-      canInitiatePayment: false,
-      blockedReason: "Advance is already covered according to server finance facts.",
-    };
-  }
-
   if (!gatewayBound) {
     return {
       gatewayBound,
       payable,
       canInitiatePayment: false,
       blockedReason:
-        "Payment gateway intent/status contracts are not yet bound in Buyer. Payable amounts are shown from server facts only.",
+        "Payment gateway contracts are unavailable in this Buyer build. Payable amounts are shown from server facts only.",
     };
   }
 
@@ -127,12 +167,21 @@ export function resolvePaymentGatewayBoundary(
     };
   }
 
-  if (payable.requiredAdvance === null || payable.requiredAdvance <= 0) {
+  if (!payable.piId || !payable.commercialVersionId) {
     return {
       gatewayBound,
       payable,
       canInitiatePayment: false,
-      blockedReason: "No server-authoritative advance amount is available for payment initiation.",
+      blockedReason: "Commercial version or PI binding is not yet available for governed payment initiation.",
+    };
+  }
+
+  if (!payable.paymentPurpose || payable.payableAmount === null || payable.payableAmount <= 0) {
+    return {
+      gatewayBound,
+      payable,
+      canInitiatePayment: false,
+      blockedReason: "No server-authoritative payable balance is available for payment initiation.",
     };
   }
 

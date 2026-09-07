@@ -1,5 +1,8 @@
-import { createCustomerPaymentIntent, fetchCustomerPaymentIntentStatus } from "@/lib/api/payment-gateway";
-import { openExternalUrl } from "@/lib/open-external-url";
+import {
+  createPaymentGatewayPayableIntent,
+  fetchPaymentGatewayPayableStatus,
+} from "@/lib/api/payment-gateway";
+import { createIdempotencyKey } from "@/lib/idempotency";
 import { isTerminalPaymentStatus } from "@/lib/payment-gateway-boundary";
 import {
   clearPaymentIdempotencyKey,
@@ -7,82 +10,103 @@ import {
 } from "@/lib/payment-idempotency";
 import { parseRpcError } from "@/lib/rpc-errors";
 import type { CustomerFinanceFacts } from "@/types/database.types";
-import type { CustomerPaymentIntentStatusResult } from "@/types/payment-gateway-contract";
+import {
+  DEFAULT_PAYMENT_PROVIDER_CODE,
+  type CreatePaymentGatewayIntentInput,
+  type PaymentGatewayPayableStatus,
+  type PaymentGatewayPurpose,
+} from "@/types/payment-gateway-contract";
 
 export type PaymentFlowPhase = "idle" | "creating_intent" | "awaiting_gateway" | "polling" | "succeeded" | "failed";
 
 export interface PaymentFlowState {
   phase: PaymentFlowPhase;
   paymentIntentId: string | null;
-  gatewayCheckoutUrl: string | null;
-  status: CustomerPaymentIntentStatusResult | null;
+  providerOrderId: string | null;
+  status: PaymentGatewayPayableStatus | null;
   message: string | null;
 }
 
-export async function initiateAdvancePayment(orderId: string): Promise<PaymentFlowState> {
-  const resolved = await resolvePaymentIdempotencyKey(orderId);
+export interface InitiatePaymentInput {
+  orderId: string;
+  piId: string;
+  commercialVersionId: string;
+  paymentPurpose: PaymentGatewayPurpose;
+}
+
+export async function initiateGovernedPayment(input: InitiatePaymentInput): Promise<PaymentFlowState> {
+  const resolved = await resolvePaymentIdempotencyKey(input.orderId, input.paymentPurpose);
   if (!resolved.key || !resolved.persisted) {
     return {
       phase: "failed",
       paymentIntentId: null,
-      gatewayCheckoutUrl: null,
+      providerOrderId: null,
       status: null,
       message: "Could not persist your payment attempt locally. Retry when storage is available.",
     };
   }
 
-  try {
-    const intent = await createCustomerPaymentIntent({
-      orderId,
-      idempotencyKey: resolved.key,
-    });
+  const correlationId = createIdempotencyKey();
+  const intentInput: CreatePaymentGatewayIntentInput = {
+    orderId: input.orderId,
+    piId: input.piId,
+    commercialVersionId: input.commercialVersionId,
+    paymentPurpose: input.paymentPurpose,
+    providerCode: DEFAULT_PAYMENT_PROVIDER_CODE,
+    correlationId,
+    idempotencyKey: resolved.key,
+  };
 
-    if (intent.gateway_checkout_url) {
-      await openExternalUrl(intent.gateway_checkout_url);
-    }
+  try {
+    const intent = await createPaymentGatewayPayableIntent(intentInput);
+    const status = await fetchPaymentGatewayPayableStatus(intent.intent_id).catch(() => null);
 
     return {
       phase: "awaiting_gateway",
-      paymentIntentId: intent.payment_intent_id,
-      gatewayCheckoutUrl: intent.gateway_checkout_url,
-      status: {
-        payment_intent_id: intent.payment_intent_id,
-        status: intent.status,
-        verified_amount: null,
-        failure_reason: null,
-      },
-      message: intent.gateway_checkout_url
-        ? "Complete payment in the gateway, then refresh status here."
-        : intent.already_applied
-          ? "Payment intent already applied. Refresh status to confirm advance coverage."
-          : "Payment intent created. Refresh status when the gateway session completes.",
+      paymentIntentId: intent.intent_id,
+      providerOrderId: status?.provider_order_id ?? null,
+      status,
+      message: intent.already_created
+        ? "Payment intent already exists for this attempt. Refresh status to confirm coverage."
+        : "Payment intent created with Core. Complete the gateway session, then refresh status here.",
     };
   } catch (error) {
     return {
       phase: "failed",
       paymentIntentId: null,
-      gatewayCheckoutUrl: null,
+      providerOrderId: null,
       status: null,
       message: parseRpcError(error).message,
     };
   }
 }
 
+/** @deprecated Use initiateGovernedPayment */
+export async function initiateAdvancePayment(orderId: string): Promise<PaymentFlowState> {
+  return initiateGovernedPayment({
+    orderId,
+    piId: "",
+    commercialVersionId: "",
+    paymentPurpose: "advance",
+  });
+}
+
 export async function refreshPaymentIntentStatus(
   paymentIntentId: string,
-  orderId: string
+  orderId: string,
+  paymentPurpose: PaymentGatewayPurpose = "advance"
 ): Promise<{ flow: PaymentFlowState; financeFacts: CustomerFinanceFacts | null }> {
   try {
-    const status = await fetchCustomerPaymentIntentStatus(paymentIntentId);
+    const status = await fetchPaymentGatewayPayableStatus(paymentIntentId);
     const terminal = isTerminalPaymentStatus(status.status);
 
     if (terminal === "success") {
-      await clearPaymentIdempotencyKey(orderId).catch(() => undefined);
+      await clearPaymentIdempotencyKey(orderId, paymentPurpose).catch(() => undefined);
       return {
         flow: {
           phase: "succeeded",
           paymentIntentId,
-          gatewayCheckoutUrl: null,
+          providerOrderId: status.provider_order_id,
           status,
           message: "Payment status confirmed by Core. Finance facts will refresh.",
         },
@@ -95,9 +119,9 @@ export async function refreshPaymentIntentStatus(
         flow: {
           phase: "failed",
           paymentIntentId,
-          gatewayCheckoutUrl: null,
+          providerOrderId: status.provider_order_id,
           status,
-          message: status.failure_reason ?? "Payment did not complete. You can retry when ready.",
+          message: "Payment did not complete. You can retry when ready.",
         },
         financeFacts: null,
       };
@@ -107,9 +131,11 @@ export async function refreshPaymentIntentStatus(
       flow: {
         phase: "polling",
         paymentIntentId,
-        gatewayCheckoutUrl: null,
+        providerOrderId: status.provider_order_id,
         status,
-        message: "Payment is still pending with the gateway.",
+        message: status.provider_order_id
+          ? "Gateway session is pending. Complete payment with the provider, then refresh status."
+          : "Payment is still pending with the gateway.",
       },
       financeFacts: null,
     };
@@ -118,7 +144,7 @@ export async function refreshPaymentIntentStatus(
       flow: {
         phase: "failed",
         paymentIntentId,
-        gatewayCheckoutUrl: null,
+        providerOrderId: null,
         status: null,
         message: parseRpcError(error).message,
       },

@@ -4,20 +4,26 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = join(process.cwd(), "src");
-const PAYMENT_RPCS = ["create_customer_payment_intent_v1", "customer_payment_intent_status_v1"];
+const PAYMENT_RPCS = [
+  "create_payment_gateway_payable_intent_v1",
+  "get_payment_gateway_payable_status_v1",
+  "get_sales_order_pi_final_payment_request_v1",
+];
 
 describe("revenue journey integration wiring", () => {
   it("binds payment gateway adapters through api and customerGateway", () => {
     const apiSource = readFileSync(join(ROOT, "lib/api/payment-gateway.ts"), "utf8");
+    const finalPaymentSource = readFileSync(join(ROOT, "lib/api/final-payment.ts"), "utf8");
     const gatewaySource = readFileSync(join(ROOT, "services/customerGateway.ts"), "utf8");
     const flowSource = readFileSync(join(ROOT, "lib/payment-gateway-flow.ts"), "utf8");
     for (const rpc of PAYMENT_RPCS) {
-      assert.match(apiSource, new RegExp(`"${rpc}"`));
+      assert.ok(apiSource.includes(`"${rpc}"`) || finalPaymentSource.includes(`"${rpc}"`));
     }
     assert.match(gatewaySource, /createPaymentIntent/);
     assert.match(gatewaySource, /paymentIntentStatus/);
-    assert.match(flowSource, /createCustomerPaymentIntent/);
-    assert.match(flowSource, /fetchCustomerPaymentIntentStatus/);
+    assert.match(gatewaySource, /finalPaymentRequest/);
+    assert.match(flowSource, /createPaymentGatewayPayableIntent/);
+    assert.match(flowSource, /fetchPaymentGatewayPayableStatus/);
   });
 
   it("routes Genie intake through governed edge adapter", () => {

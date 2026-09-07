@@ -7,19 +7,30 @@ import { OasisButton } from "@/components/OasisButton";
 import { Screen } from "@/components/Screen";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { useNetwork } from "@/context/NetworkContext";
+import { fetchCustomerFinalPaymentRequest } from "@/lib/api/final-payment";
 import { formatInr } from "@/lib/customer-projections";
-import {
-  initiateAdvancePayment,
-  refreshPaymentIntentStatus,
-  type PaymentFlowState,
-} from "@/lib/payment-gateway-flow";
+import { initiateGovernedPayment, refreshPaymentIntentStatus, type PaymentFlowState } from "@/lib/payment-gateway-flow";
 import { resolvePaymentGatewayBoundary } from "@/lib/payment-gateway-boundary";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { customerGateway } from "@/services/customerGateway";
-import type { CustomerFinanceFacts } from "@/types/database.types";
+import type { CustomerFinalPaymentRequest, CustomerFinanceFacts } from "@/types/database.types";
+import type { PaymentGatewayPurpose } from "@/types/payment-gateway-contract";
 import { colors, spacing, typography } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "OrderPayment">;
+
+function purposeLabel(purpose: PaymentGatewayPurpose | null | undefined): string {
+  switch (purpose) {
+    case "advance":
+      return "Advance payment";
+    case "balance":
+      return "Balance payment";
+    case "final_payment":
+      return "Final payment";
+    default:
+      return "Payment";
+  }
+}
 
 export function OrderPaymentScreen({ navigation, route }: Props) {
   const { orderId, orderNumber } = route.params;
@@ -30,10 +41,11 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [financeFacts, setFinanceFacts] = useState<CustomerFinanceFacts | null>(null);
+  const [finalPayment, setFinalPayment] = useState<CustomerFinalPaymentRequest | null>(null);
   const [flow, setFlow] = useState<PaymentFlowState>({
     phase: "idle",
     paymentIntentId: null,
-    gatewayCheckoutUrl: null,
+    providerOrderId: null,
     status: null,
     message: null,
   });
@@ -41,7 +53,12 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
   const load = useCallback(async () => {
     setError(null);
     try {
-      setFinanceFacts(await customerGateway.financeFacts(orderId));
+      const [facts, finalPaymentFacts] = await Promise.all([
+        customerGateway.financeFacts(orderId),
+        fetchCustomerFinalPaymentRequest(orderId).catch(() => null),
+      ]);
+      setFinanceFacts(facts);
+      setFinalPayment(finalPaymentFacts);
     } catch (e) {
       setError(parseRpcError(e).message);
     } finally {
@@ -55,17 +72,24 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
   }, [load]);
 
   const boundary = useMemo(
-    () => resolvePaymentGatewayBoundary(financeFacts, { isOnline }),
-    [financeFacts, isOnline]
+    () => resolvePaymentGatewayBoundary(financeFacts, { isOnline, finalPayment }),
+    [financeFacts, finalPayment, isOnline]
   );
 
   async function onInitiatePayment() {
-    if (!boundary.canInitiatePayment || submitInFlightRef.current) return;
+    if (!boundary.canInitiatePayment || !boundary.payable?.paymentPurpose || submitInFlightRef.current) return;
+    if (!boundary.payable.piId || !boundary.payable.commercialVersionId) return;
+
     submitInFlightRef.current = true;
     setSubmitting(true);
     setFlow((prev) => ({ ...prev, phase: "creating_intent", message: null }));
     try {
-      const nextFlow = await initiateAdvancePayment(orderId);
+      const nextFlow = await initiateGovernedPayment({
+        orderId,
+        piId: boundary.payable.piId,
+        commercialVersionId: boundary.payable.commercialVersionId,
+        paymentPurpose: boundary.payable.paymentPurpose,
+      });
       setFlow(nextFlow);
       if (nextFlow.phase === "succeeded" || nextFlow.phase === "awaiting_gateway") {
         await load();
@@ -83,10 +107,14 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
   }
 
   async function onRefreshPaymentStatus() {
-    if (!flow.paymentIntentId) return;
+    if (!flow.paymentIntentId || !boundary.payable?.paymentPurpose) return;
     setRefreshing(true);
     try {
-      const { flow: nextFlow } = await refreshPaymentIntentStatus(flow.paymentIntentId, orderId);
+      const { flow: nextFlow } = await refreshPaymentIntentStatus(
+        flow.paymentIntentId,
+        orderId,
+        boundary.payable.paymentPurpose
+      );
       setFlow(nextFlow);
       await load();
     } catch (e) {
@@ -99,6 +127,10 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
       setRefreshing(false);
     }
   }
+
+  const initiateLabel = boundary.payable?.paymentPurpose
+    ? `Initiate ${purposeLabel(boundary.payable.paymentPurpose).toLowerCase()}`
+    : "Initiate payment";
 
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
@@ -122,21 +154,31 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
           <View style={styles.body}>
             <View style={styles.card}>
               <Row label="Finance status" value={(boundary.payable.financeStatus ?? "pending").replace(/_/g, " ")} />
+              <Row label="Payment purpose" value={purposeLabel(boundary.payable.paymentPurpose)} />
               <Row label="Commercial value" value={formatInr(boundary.payable.commercialValue)} />
-              <Row label="Required advance" value={formatInr(boundary.payable.requiredAdvance)} emphasis />
+              <Row label="Required advance" value={formatInr(boundary.payable.requiredAdvance)} />
               <Row label="Verified payments" value={formatInr(boundary.payable.verifiedPaymentAmount)} />
               <Row label="Covered amount" value={formatInr(boundary.payable.coveredAmount)} />
               <Row label="Balance due" value={formatInr(boundary.payable.balanceDue)} />
+              <Row label="Payable now" value={formatInr(boundary.payable.payableAmount)} emphasis />
               {boundary.payable.piNumber ? <Row label="PI reference" value={boundary.payable.piNumber} /> : null}
               {boundary.payable.piStatus ? <Row label="PI status" value={boundary.payable.piStatus.replace(/_/g, " ")} /> : null}
+              {boundary.payable.finalPaymentStatus ? (
+                <Row label="Final payment status" value={boundary.payable.finalPaymentStatus.replace(/_/g, " ")} />
+              ) : null}
             </View>
+
+            {boundary.payable.finalPaymentInstructions ? (
+              <Text style={styles.note}>{boundary.payable.finalPaymentInstructions}</Text>
+            ) : null}
 
             {flow.status ? (
               <View style={styles.statusCard}>
                 <Text style={styles.statusTitle}>Gateway status</Text>
                 <Text style={styles.statusMeta}>{flow.status.status.replace(/_/g, " ")}</Text>
-                {flow.status.verified_amount !== null ? (
-                  <Text style={styles.statusMeta}>Verified amount {formatInr(flow.status.verified_amount)}</Text>
+                <Text style={styles.statusMeta}>Amount {formatInr(flow.status.canonical_amount)}</Text>
+                {flow.providerOrderId ? (
+                  <Text style={styles.statusMeta}>Provider order {flow.providerOrderId}</Text>
                 ) : null}
               </View>
             ) : null}
@@ -154,11 +196,11 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
             ) : null}
 
             <Text style={styles.note}>
-              Buyer never marks payment success locally. Intent creation and status polling consume Core gateway contracts only.
+              Buyer never marks payment success locally. Intent creation and status polling consume Core #255 gateway contracts only.
             </Text>
 
             <OasisButton
-              label={submitting ? "Creating payment intent…" : "Initiate advance payment"}
+              label={submitting ? "Creating payment intent…" : initiateLabel}
               onPress={() => void onInitiatePayment()}
               disabled={!boundary.canInitiatePayment || submitting}
               loading={submitting}

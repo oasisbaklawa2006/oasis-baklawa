@@ -12,7 +12,7 @@ import { BUYER_BOUND_PAYMENT_GATEWAY_RPCS } from "@/types/payment-gateway-contra
 
 describe("runtime payment gateway binding", () => {
   it("derives bound RPCs from deployment allowlist rather than contract aliases", () => {
-    setRuntimePaymentGatewayBoundRpcsForTests(["create_customer_payment_intent_v1"]);
+    setRuntimePaymentGatewayBoundRpcsForTests(["create_payment_gateway_payable_intent_v1"]);
     assert.equal(isRuntimePaymentGatewayBound(), false);
     setRuntimePaymentGatewayBoundRpcsForTests(null);
     assert.equal(readRuntimePaymentGatewayBoundRpcs().length, BUYER_BOUND_PAYMENT_GATEWAY_RPCS.length);

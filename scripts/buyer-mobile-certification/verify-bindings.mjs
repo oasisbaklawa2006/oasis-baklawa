@@ -10,7 +10,10 @@ const documentsSource = readFileSync(join(process.cwd(), "src/screens/DocumentsS
 const supportSource = readFileSync(join(process.cwd(), "src/screens/SupportScreen.tsx"), "utf8");
 const quotationsSource = readFileSync(join(process.cwd(), "src/screens/QuotationsScreen.tsx"), "utf8");
 const paymentSource = readFileSync(join(process.cwd(), "src/lib/api/payment-gateway.ts"), "utf8");
-const invokedRpcs = collectGovernedRpcInvocations(`${gatewaySource}\n${quotesSource}\n${paymentSource}`);
+const finalPaymentSource = readFileSync(join(process.cwd(), "src/lib/api/final-payment.ts"), "utf8");
+const invokedRpcs = collectGovernedRpcInvocations(
+  `${gatewaySource}\n${quotesSource}\n${paymentSource}\n${finalPaymentSource}`
+);
 
 const failures = [];
 

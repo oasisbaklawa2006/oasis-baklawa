@@ -1,7 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createIdempotencyKey } from "@/lib/idempotency";
+import type { PaymentGatewayPurpose } from "@/types/payment-gateway-contract";
 
-const STORAGE_KEY_PREFIX = "oasis_payment_intent_idempotency_v1:";
+const STORAGE_KEY_PREFIX = "oasis_payment_intent_idempotency_v2:";
 
 export interface PaymentIdempotencyStorage {
   getItem(key: string): Promise<string | null>;
@@ -17,8 +18,8 @@ export const asyncStoragePaymentIdempotency: PaymentIdempotencyStorage = {
 
 const inFlightResolutions = new Map<string, Promise<ResolvedPaymentIdempotency>>();
 
-function storageKeyForOrder(orderId: string): string {
-  return `${STORAGE_KEY_PREFIX}${orderId}`;
+function storageKeyForOrder(orderId: string, paymentPurpose: PaymentGatewayPurpose): string {
+  return `${STORAGE_KEY_PREFIX}${orderId}:${paymentPurpose}`;
 }
 
 export interface ResolvedPaymentIdempotency {
@@ -29,10 +30,11 @@ export interface ResolvedPaymentIdempotency {
 
 async function resolvePaymentIdempotencyKeyOnce(
   orderId: string,
+  paymentPurpose: PaymentGatewayPurpose,
   storage: PaymentIdempotencyStorage,
   createKey: () => string
 ): Promise<ResolvedPaymentIdempotency> {
-  const storageKey = storageKeyForOrder(orderId);
+  const storageKey = storageKeyForOrder(orderId, paymentPurpose);
   try {
     const existing = await storage.getItem(storageKey);
     if (existing?.trim()) {
@@ -48,23 +50,26 @@ async function resolvePaymentIdempotencyKeyOnce(
 
 export async function resolvePaymentIdempotencyKey(
   orderId: string,
+  paymentPurpose: PaymentGatewayPurpose = "advance",
   storage: PaymentIdempotencyStorage = asyncStoragePaymentIdempotency,
   createKey: () => string = createIdempotencyKey
 ): Promise<ResolvedPaymentIdempotency> {
-  const inFlight = inFlightResolutions.get(orderId);
+  const inFlightKey = `${orderId}:${paymentPurpose}`;
+  const inFlight = inFlightResolutions.get(inFlightKey);
   if (inFlight) return inFlight;
 
-  const promise = resolvePaymentIdempotencyKeyOnce(orderId, storage, createKey).finally(() => {
-    inFlightResolutions.delete(orderId);
+  const promise = resolvePaymentIdempotencyKeyOnce(orderId, paymentPurpose, storage, createKey).finally(() => {
+    inFlightResolutions.delete(inFlightKey);
   });
-  inFlightResolutions.set(orderId, promise);
+  inFlightResolutions.set(inFlightKey, promise);
   return promise;
 }
 
 export async function clearPaymentIdempotencyKey(
   orderId: string,
+  paymentPurpose: PaymentGatewayPurpose = "advance",
   storage: PaymentIdempotencyStorage = asyncStoragePaymentIdempotency
 ): Promise<void> {
-  inFlightResolutions.delete(orderId);
-  await storage.removeItem(storageKeyForOrder(orderId));
+  inFlightResolutions.delete(`${orderId}:${paymentPurpose}`);
+  await storage.removeItem(storageKeyForOrder(orderId, paymentPurpose));
 }

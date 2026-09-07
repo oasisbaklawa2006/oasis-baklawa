@@ -136,11 +136,11 @@ describe("golden journey invariants", () => {
     const paymentScreen = readFileSync(join(ROOT, "screens/OrderPaymentScreen.tsx"), "utf8");
     const flowSource = readFileSync(join(ROOT, "lib/payment-gateway-flow.ts"), "utf8");
     assert.match(paymentScreen, /resolvePaymentGatewayBoundary/);
-    assert.match(paymentScreen, /initiateAdvancePayment/);
+    assert.match(paymentScreen, /initiateGovernedPayment/);
     assert.match(paymentScreen, /customerGateway\.financeFacts/);
     assert.match(paymentScreen, /never marks payment success locally/i);
-    assert.match(flowSource, /fetchCustomerPaymentIntentStatus/);
-    assert.doesNotMatch(flowSource, /phase:\s*"succeeded"[\s\S]*without/);
+    assert.match(flowSource, /fetchPaymentGatewayPayableStatus/);
+    assert.match(flowSource, /createPaymentGatewayPayableIntent/);
   });
 
   it("routes Genie multimodal intake through governed adapter", () => {

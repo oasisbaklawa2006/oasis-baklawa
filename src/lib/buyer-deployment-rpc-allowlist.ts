@@ -1,6 +1,5 @@
-/**
- * Buyer deployment RPC allowlist — canonical source for runtime fail-closed gates.
- * Must stay in sync with `scripts/verify-contract-boundary.mjs`.
+/** Buyer deployment RPC allowlist — canonical source for runtime payment-gateway gates.
+ * Synced with production Core #255 cd078c52 gateway authority.
  */
 export const BUYER_DEPLOYMENT_RPC_ALLOWLIST = [
   "published_products_v1",
@@ -35,8 +34,9 @@ export const BUYER_DEPLOYMENT_RPC_ALLOWLIST = [
   "submit_customer_quotation_request_v1",
   "accept_customer_quotation_v1",
   "decline_customer_quotation_v1",
-  "create_customer_payment_intent_v1",
-  "customer_payment_intent_status_v1",
+  "create_payment_gateway_payable_intent_v1",
+  "get_payment_gateway_payable_status_v1",
+  "get_sales_order_pi_final_payment_request_v1",
 ] as const;
 
 export function getBuyerDeploymentRpcAllowlist(): readonly string[] {

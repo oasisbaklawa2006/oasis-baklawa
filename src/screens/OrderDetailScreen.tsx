@@ -132,18 +132,16 @@ export function OrderDetailScreen({ navigation, route }: Props) {
               {financeFacts.pi_number ? (
                 <Text style={styles.financeLine}>PI reference: {financeFacts.pi_number}</Text>
               ) : null}
-              {!financeFacts.advance_covered ? (
-                <OasisButton
-                  label="View payable state"
-                  variant="secondary"
-                  onPress={() =>
-                    navigation.navigate("OrderPayment", {
-                      orderId: order.order_id,
-                      orderNumber: order.order_number,
-                    })
-                  }
-                />
-              ) : null}
+              <OasisButton
+                label="View payable state"
+                variant="secondary"
+                onPress={() =>
+                  navigation.navigate("OrderPayment", {
+                    orderId: order.order_id,
+                    orderNumber: order.order_number,
+                  })
+                }
+              />
             </View>
           ) : null}
           <Text style={styles.section}>Line items</Text>

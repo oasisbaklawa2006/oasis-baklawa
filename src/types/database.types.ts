@@ -181,13 +181,25 @@ export type Database = {
         };
         Returns: DeclineCustomerQuotationResultRow[];
       };
-      create_customer_payment_intent_v1: {
-        Args: { p_order_id: string; p_idempotency_key: string };
-        Returns: CreateCustomerPaymentIntentResultRow[];
+      create_payment_gateway_payable_intent_v1: {
+        Args: {
+          p_order_id: string;
+          p_pi_id: string;
+          p_commercial_version_id: string;
+          p_payment_purpose: string;
+          p_provider_code: string;
+          p_correlation_id: string;
+          p_idempotency_key: string;
+        };
+        Returns: CreatePaymentGatewayIntentResultRow[];
       };
-      customer_payment_intent_status_v1: {
-        Args: { p_payment_intent_id: string };
-        Returns: CustomerPaymentIntentStatusResultRow[];
+      get_payment_gateway_payable_status_v1: {
+        Args: { p_intent_id: string };
+        Returns: Json;
+      };
+      get_sales_order_pi_final_payment_request_v1: {
+        Args: { p_order_id: string };
+        Returns: Json;
       };
     };
   };
@@ -592,18 +604,32 @@ export interface DeclineCustomerQuotationResultRow {
   already_applied: boolean;
 }
 
-export interface CreateCustomerPaymentIntentResultRow {
-  payment_intent_id: string;
-  gateway_checkout_url: string | null;
-  amount: number;
+export interface CreatePaymentGatewayIntentResultRow {
+  intent_id: string;
+  canonical_amount: number;
   currency: string;
   status: string;
-  already_applied: boolean;
+  already_created: boolean;
 }
 
-export interface CustomerPaymentIntentStatusResultRow {
-  payment_intent_id: string;
-  status: string;
-  verified_amount: number | null;
-  failure_reason: string | null;
+export interface CustomerFinalPaymentRequest {
+  order_id: string;
+  available: boolean;
+  final_payment_request_id: string | null;
+  pi_id: string | null;
+  customer_visible_pi_number: string | null;
+  revision_number: number | null;
+  effective_status: string | null;
+  commercial_version_id: string | null;
+  currency: string | null;
+  final_payable_total: number | null;
+  verified_payment_total: number | null;
+  wallet_applied_total: number | null;
+  approved_credit_total: number | null;
+  credited_or_paid_total: number | null;
+  balance_due: number | null;
+  settled: boolean | null;
+  payment_action: string | null;
+  payment_instructions: string | null;
+  customer_safe_projection: boolean;
 }

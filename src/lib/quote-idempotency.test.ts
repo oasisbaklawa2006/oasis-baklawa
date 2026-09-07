@@ -94,6 +94,7 @@ async function assertRotatesAfterAcknowledgementDespitePersistenceFailure(
   await action.clearKey();
   const nextKey = await action.getKey();
   assert.notEqual(nextKey, acknowledged);
+  assert.equal(await action.getKey(), nextKey);
 }
 
 describe("quote idempotency", () => {

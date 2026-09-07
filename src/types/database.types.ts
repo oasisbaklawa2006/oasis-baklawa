@@ -144,6 +144,43 @@ export type Database = {
         };
         Returns: SubmitCustomerGeneralQueryResult[];
       };
+      customer_quotations_v1: {
+        Args: Record<string, never>;
+        Returns: CustomerQuotationSummaryRow[];
+      };
+      customer_quotation_detail_v1: {
+        Args: { p_quotation_id: string };
+        Returns: CustomerQuotationDetailRow[];
+      };
+      customer_quotation_lines_v1: {
+        Args: { p_quotation_id: string };
+        Returns: CustomerQuotationLineRow[];
+      };
+      submit_customer_quotation_request_v1: {
+        Args: {
+          p_idempotency_key: string;
+          p_lines: Json;
+          p_notes?: string | null;
+        };
+        Returns: SubmitCustomerQuotationRequestResultRow[];
+      };
+      accept_customer_quotation_v1: {
+        Args: {
+          p_quotation_id: string;
+          p_version_number: number;
+          p_idempotency_key: string;
+        };
+        Returns: AcceptCustomerQuotationResultRow[];
+      };
+      decline_customer_quotation_v1: {
+        Args: {
+          p_quotation_id: string;
+          p_version_number: number;
+          p_idempotency_key: string;
+          p_reason?: string | null;
+        };
+        Returns: DeclineCustomerQuotationResultRow[];
+      };
     };
   };
 };
@@ -161,6 +198,7 @@ export interface PublishedProduct {
   storage_type: string | null;
   shelf_life: string | null;
   shelf_life_days: number | null;
+  lead_time_days: number | null;
   dietary_tags: string[] | null;
   allergen_warnings: string | null;
   primary_uom: string | null;
@@ -470,4 +508,78 @@ export interface SubmitCustomerGeneralQueryResult {
   query_id: string;
   status: string;
   is_duplicate_submission: boolean;
+}
+
+export interface CustomerQuotationSummaryRow {
+  quotation_id: string;
+  quotation_number: string;
+  status: string;
+  current_version: number;
+  quotation_value: number;
+  advance_required: number;
+  expires_at: string;
+  is_actionable: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CustomerQuotationDetailRow {
+  quotation_id: string;
+  quotation_number: string;
+  status: string;
+  current_version: number;
+  version_id: string;
+  quotation_value: number;
+  advance_required: number;
+  expires_at: string;
+  is_actionable: boolean;
+  request_notes: string | null;
+  terms_snapshot: Json;
+  commercial_snapshot: Json;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CustomerQuotationLineRow {
+  line_id: string;
+  product_id: string;
+  sku: string | null;
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  line_total: number;
+  currency: string;
+  uom: string | null;
+  gst_rate: number | null;
+  tax_inclusive: boolean;
+  minimum_order_quantity: number | null;
+  order_increment: number | null;
+  min_carton_qty: number | null;
+  version_number: number;
+}
+
+export interface SubmitCustomerQuotationRequestResultRow {
+  quotation_id: string;
+  quotation_number: string;
+  version_number: number;
+  quotation_value: number;
+  advance_required: number;
+  status: string;
+  expires_at: string;
+  already_applied: boolean;
+}
+
+export interface AcceptCustomerQuotationResultRow {
+  quotation_id: string;
+  handoff_id: string;
+  version_number: number;
+  handoff_status: string;
+  already_applied: boolean;
+}
+
+export interface DeclineCustomerQuotationResultRow {
+  quotation_id: string;
+  status: string;
+  version_number: number;
+  already_applied: boolean;
 }

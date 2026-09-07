@@ -35,6 +35,8 @@ export type RootStackParamList = {
   Cart: undefined;
   Checkout: undefined;
   Documents: undefined;
+  Quotations: undefined;
+  QuotationDetail: { quotationId: string; quotationNumber: string };
 };
 
 declare global {

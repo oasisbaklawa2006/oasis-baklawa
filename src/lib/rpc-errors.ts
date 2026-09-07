@@ -7,6 +7,14 @@ export type RpcErrorCode =
   | "DRAFT_NOT_FOUND"
   | "DRAFT_NOT_READY"
   | "DRAFT_NOT_ACTIVE"
+  | "QUOTATION_NOT_FOUND"
+  | "QUOTATION_NOT_ACTIONABLE"
+  | "QUOTATION_EXPIRED"
+  | "QUOTATION_ALREADY_ACCEPTED"
+  | "QUOTATION_VERSION_STALE"
+  | "QUOTATION_LINES_REQUIRED"
+  | "QUOTATION_LINE_INVALID"
+  | "IDEMPOTENCY_KEY_REQUIRED"
   | "VALIDATION_FAILED"
   | "DUPLICATE_APPLICATION"
   | "MOBILE_NUMBER_ALREADY_REGISTERED"
@@ -22,6 +30,14 @@ export const KNOWN_RPC_ERROR_CODES: ReadonlySet<RpcErrorCode> = new Set([
   "DRAFT_NOT_FOUND",
   "DRAFT_NOT_READY",
   "DRAFT_NOT_ACTIVE",
+  "QUOTATION_NOT_FOUND",
+  "QUOTATION_NOT_ACTIONABLE",
+  "QUOTATION_EXPIRED",
+  "QUOTATION_ALREADY_ACCEPTED",
+  "QUOTATION_VERSION_STALE",
+  "QUOTATION_LINES_REQUIRED",
+  "QUOTATION_LINE_INVALID",
+  "IDEMPOTENCY_KEY_REQUIRED",
   "VALIDATION_FAILED",
   "DUPLICATE_APPLICATION",
   "MOBILE_NUMBER_ALREADY_REGISTERED",
@@ -80,6 +96,14 @@ function inferCode(raw: string, sqlState: string | null): RpcErrorCode {
   if (raw.includes("DRAFT_NOT_FOUND") || sqlState === "P0002") return "DRAFT_NOT_FOUND";
   if (raw.includes("DRAFT_NOT_READY")) return "DRAFT_NOT_READY";
   if (raw.includes("DRAFT_NOT_ACTIVE")) return "DRAFT_NOT_ACTIVE";
+  if (raw.includes("QUOTATION_NOT_FOUND")) return "QUOTATION_NOT_FOUND";
+  if (raw.includes("QUOTATION_NOT_ACTIONABLE")) return "QUOTATION_NOT_ACTIONABLE";
+  if (raw.includes("QUOTATION_EXPIRED")) return "QUOTATION_EXPIRED";
+  if (raw.includes("QUOTATION_ALREADY_ACCEPTED")) return "QUOTATION_ALREADY_ACCEPTED";
+  if (raw.includes("QUOTATION_VERSION_STALE")) return "QUOTATION_VERSION_STALE";
+  if (raw.includes("QUOTATION_LINES_REQUIRED")) return "QUOTATION_LINES_REQUIRED";
+  if (raw.includes("QUOTATION_LINE_INVALID")) return "QUOTATION_LINE_INVALID";
+  if (raw.includes("IDEMPOTENCY_KEY_REQUIRED")) return "IDEMPOTENCY_KEY_REQUIRED";
   if (raw.includes("VALIDATION_FAILED")) return "VALIDATION_FAILED";
   if (raw.includes("DUPLICATE_APPLICATION") || (sqlState === "23505" && raw.includes("APPLICATION"))) {
     return "DUPLICATE_APPLICATION";
@@ -128,6 +152,22 @@ function customerMessage(code: RpcErrorCode, raw: string): string {
       return "Your cart is not ready for checkout. Review quantity rules below.";
     case "DRAFT_NOT_ACTIVE":
       return "This order draft can no longer be changed.";
+    case "QUOTATION_NOT_FOUND":
+      return "This quotation could not be found for your account.";
+    case "QUOTATION_NOT_ACTIONABLE":
+      return "This quotation is not available for review or response right now.";
+    case "QUOTATION_EXPIRED":
+      return "This quotation has expired. Request a fresh quotation.";
+    case "QUOTATION_ALREADY_ACCEPTED":
+      return "This quotation has already been accepted.";
+    case "QUOTATION_VERSION_STALE":
+      return "This quotation was updated. Refresh and review the latest version.";
+    case "QUOTATION_LINES_REQUIRED":
+      return "Add at least one product line before requesting a quotation.";
+    case "QUOTATION_LINE_INVALID":
+      return "One or more quotation lines are invalid. Check quantities and try again.";
+    case "IDEMPOTENCY_KEY_REQUIRED":
+      return "Your request could not be submitted safely. Please try again.";
     case "VALIDATION_FAILED":
       return raw.replace(GOVERNED_PREFIX_PATTERN, "").trim() || "Please check your input and try again.";
     case "DUPLICATE_APPLICATION":

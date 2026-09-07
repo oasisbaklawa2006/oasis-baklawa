@@ -18,6 +18,8 @@ import { AiOrderScreen } from "@/screens/AiOrderScreen";
 import { CartScreen } from "@/screens/CartScreen";
 import { CheckoutScreen } from "@/screens/CheckoutScreen";
 import { DocumentsScreen } from "@/screens/DocumentsScreen";
+import { QuotationsScreen } from "@/screens/QuotationsScreen";
+import { QuotationDetailScreen } from "@/screens/QuotationDetailScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -41,6 +43,8 @@ export function RootNavigator() {
         <Stack.Screen name="Cart" component={CartScreen} />
         <Stack.Screen name="Checkout" component={CheckoutScreen} />
         <Stack.Screen name="Documents" component={DocumentsScreen} />
+        <Stack.Screen name="Quotations" component={QuotationsScreen} />
+        <Stack.Screen name="QuotationDetail" component={QuotationDetailScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

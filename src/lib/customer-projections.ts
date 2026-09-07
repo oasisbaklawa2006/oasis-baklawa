@@ -72,6 +72,7 @@ export function normalizePublishedProduct(value: unknown): PublishedProduct | nu
     storage_type: nullableString(value.storage_type),
     shelf_life: nullableString(value.shelf_life),
     shelf_life_days: nullableNumber(value.shelf_life_days),
+    lead_time_days: nullableNumber(value.lead_time_days),
     dietary_tags: nullableStringArray(value.dietary_tags),
     allergen_warnings: nullableString(value.allergen_warnings),
     primary_uom: nullableString(value.primary_uom),

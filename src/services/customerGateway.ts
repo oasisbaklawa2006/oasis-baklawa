@@ -1,5 +1,13 @@
 import { callRpc } from "@/lib/rpc";
 import {
+  acceptCustomerQuotation,
+  declineCustomerQuotation,
+  fetchCustomerQuotationDetail,
+  fetchCustomerQuotationLines,
+  fetchCustomerQuotations,
+  submitCustomerQuotationRequest,
+} from "@/lib/api/quotes";
+import {
   canonicalSupportIssueType,
   normalizeBuyerProductPrices,
   normalizeCustomerFinanceFacts,
@@ -7,6 +15,17 @@ import {
   normalizeCustomerStatement,
   normalizePublishedProducts,
 } from "@/lib/customer-projections";
+import type {
+  AcceptCustomerQuotationInput,
+  AcceptCustomerQuotationResult,
+  CustomerQuotationDetail,
+  CustomerQuotationLine,
+  CustomerQuotationSummary,
+  DeclineCustomerQuotationInput,
+  DeclineCustomerQuotationResult,
+  SubmitCustomerQuotationRequestInput,
+  SubmitCustomerQuotationRequestResult,
+} from "@/types/quote-contract";
 import type {
   BuyerProductPrice,
   CustomerCommercialFacts,
@@ -46,6 +65,16 @@ export const customerGateway = {
   setFavourite: (productId: string, isFavourite: boolean) =>
     callRpc("set_customer_product_favourite_v1", { p_product_id: productId, p_is_favourite: isFavourite }),
   tickets: () => callRpc("customer_support_tickets_v1"),
+  quotations: (): Promise<CustomerQuotationSummary[]> => fetchCustomerQuotations(),
+  quotationDetail: (quotationId: string): Promise<CustomerQuotationDetail | null> =>
+    fetchCustomerQuotationDetail(quotationId),
+  quotationLines: (quotationId: string): Promise<CustomerQuotationLine[]> => fetchCustomerQuotationLines(quotationId),
+  submitQuotationRequest: (input: SubmitCustomerQuotationRequestInput): Promise<SubmitCustomerQuotationRequestResult> =>
+    submitCustomerQuotationRequest(input),
+  acceptQuotation: (input: AcceptCustomerQuotationInput): Promise<AcceptCustomerQuotationResult> =>
+    acceptCustomerQuotation(input),
+  declineQuotation: (input: DeclineCustomerQuotationInput): Promise<DeclineCustomerQuotationResult> =>
+    declineCustomerQuotation(input),
   generalQueries: async (): Promise<CustomerGeneralQuery[]> => {
     const rows = await callRpc("customer_general_queries_v1");
     return (rows ?? [])
@@ -91,6 +120,9 @@ export type {
   CustomerGeneralQuery,
   CustomerOrderStatus,
   CustomerProformaInvoiceFacts,
+  CustomerQuotationDetail,
+  CustomerQuotationLine,
+  CustomerQuotationSummary,
   CustomerStatement,
   CustomerSupportTicket,
 };

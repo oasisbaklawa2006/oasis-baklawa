@@ -22,6 +22,8 @@ const STACK_ROUTES = [
   "Cart",
   "Checkout",
   "Documents",
+  "Quotations",
+  "QuotationDetail",
   "SessionRecovery",
 ] as const;
 
@@ -72,6 +74,20 @@ describe("golden journey invariants", () => {
     assert.match(source, /submitGeneralQuery/);
     assert.match(source, /getGeneralQueryIdempotencyKey/);
     assert.doesNotMatch(source, /orderId:\s*""/);
+  });
+
+  it("loads governed quotations through customerGateway", () => {
+    const source = readFileSync(join(ROOT, "screens/QuotationsScreen.tsx"), "utf8");
+    assert.match(source, /customerGateway\.quotations\(\)/);
+    assert.doesNotMatch(source, /isQuoteBackendAvailable/);
+  });
+
+  it("accepts quotations via governed handoff without checkout navigation", () => {
+    const source = readFileSync(join(ROOT, "screens/QuotationDetailScreen.tsx"), "utf8");
+    assert.match(source, /acceptQuotation/);
+    assert.match(source, /getQuoteAcceptIdempotencyKey/);
+    assert.doesNotMatch(source, /navigate\("Checkout"\)/);
+    assert.doesNotMatch(source, /submit_customer_order_v1/);
   });
 
   it("registers all stack routes in RootNavigator", () => {

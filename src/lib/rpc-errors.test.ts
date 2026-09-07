@@ -27,4 +27,14 @@ describe("parseRpcError", () => {
     const parsed = parseRpcError({ message: "Failed to fetch" });
     assert.equal(parsed.code, "NETWORK");
   });
+
+  it("maps quotation expiry from governed message", () => {
+    const parsed = parseRpcError({ message: "QUOTATION_EXPIRED" });
+    assert.equal(parsed.code, "QUOTATION_EXPIRED");
+  });
+
+  it("maps stale version to customer refresh guidance", () => {
+    const parsed = parseRpcError({ message: "QUOTATION_VERSION_STALE: current version is 2" });
+    assert.equal(parsed.code, "QUOTATION_VERSION_STALE");
+  });
 });

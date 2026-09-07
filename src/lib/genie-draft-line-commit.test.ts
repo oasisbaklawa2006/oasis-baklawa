@@ -45,6 +45,11 @@ function createMockDraftWriter(): {
   let failOnAddAfter: number | undefined;
   let failAddAfterCreate = false;
 
+  const matchingIds = (productId: string, quantity: number) =>
+    lines
+      .filter((line) => line.productId === productId && line.quantity === quantity)
+      .map((line) => line.draftLineId);
+
   const writer: GenieDraftLineWriter = {
     add: async (productId, quantity) => {
       addCount += 1;
@@ -77,9 +82,11 @@ function createMockDraftWriter(): {
       if (index >= 0) lines.splice(index, 1);
       calls.push({ op: "remove", draftLineId });
     },
-    findReplacementDraftLineId: async (productId, quantity) => {
-      const matches = lines.filter((line) => line.productId === productId && line.quantity === quantity);
-      return matches.length === 1 ? matches[0].draftLineId : null;
+    listReplacementDraftLineIds: async (productId, quantity) => matchingIds(productId, quantity),
+    findReplacementDraftLineId: async (productId, quantity, excludedDraftLineIds = []) => {
+      const excluded = new Set(excludedDraftLineIds);
+      const matches = matchingIds(productId, quantity).filter((id) => !excluded.has(id));
+      return matches.length === 1 ? matches[0] : null;
     },
   };
 
@@ -221,6 +228,31 @@ describe("genie draft line commit", () => {
         { op: "add", productId: "p2", quantity: 12, draftLineId: "draft-2" },
       ]
     );
+  });
+
+  it("ambiguous replacement recovery excludes a pre-existing matching target line", async () => {
+    resetGenieDraftLineCommitForTests();
+    setGenieDraftCommitStorageForTests(createMemoryStorage());
+    const mock = createMockDraftWriter();
+
+    const original: GenieResolvedCommitLine = { lineId: "line-1", productId: "p1", normalizedQuantity: 10 };
+    await commitGenieResolvedLineToDraft(original, mock.writer);
+    mock.lines.push({ draftLineId: "pre-existing-target", productId: "p2", quantity: 12 });
+
+    const edited: GenieResolvedCommitLine = { lineId: "line-1", productId: "p2", normalizedQuantity: 12 };
+    mock.failOnAddAfter = 1;
+    mock.failAddAfterCreate = true;
+    await commitGenieResolvedLineToDraft(edited, mock.writer);
+
+    assert.equal(mock.lines.length, 2);
+    assert.deepEqual(mock.lines.find((line) => line.draftLineId === "pre-existing-target"), {
+      draftLineId: "pre-existing-target",
+      productId: "p2",
+      quantity: 12,
+    });
+    const replacement = mock.lines.find((line) => line.draftLineId !== "pre-existing-target");
+    assert.deepEqual(replacement, { draftLineId: "draft-2", productId: "p2", quantity: 12 });
+    assert.equal(await isGenieDraftLineCommitted(edited), true);
   });
 
   it("product replacement retries without duplicating when commit record write fails after add", async () => {

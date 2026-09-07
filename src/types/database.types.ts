@@ -542,7 +542,7 @@ export interface CustomerQuotationDetailRow {
 export interface CustomerQuotationLineRow {
   line_id: string;
   product_id: string;
-  sku: string;
+  sku: string | null;
   product_name: string;
   quantity: number;
   unit_price: number;

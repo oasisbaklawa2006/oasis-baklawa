@@ -79,6 +79,26 @@ describe("quote projections", () => {
       version_number: 2,
     });
     assert.equal(line?.line_total, 5000);
+
+    const lineWithoutSku = normalizeCustomerQuotationLine({
+      line_id: "line-2",
+      product_id: "product-2",
+      sku: null,
+      product_name: "Unlabelled item",
+      quantity: 5,
+      unit_price: 100,
+      line_total: 500,
+      currency: "INR",
+      uom: null,
+      gst_rate: null,
+      tax_inclusive: false,
+      minimum_order_quantity: null,
+      order_increment: null,
+      min_carton_qty: null,
+      version_number: 1,
+    });
+    assert.equal(lineWithoutSku?.sku, null);
+    assert.equal(lineWithoutSku?.line_total, 500);
   });
 
   it("formats status and expiry labels", () => {

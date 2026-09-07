@@ -10,14 +10,16 @@ const acceptFallbackKeys = new Map<string, string>();
 const declineFallbackKeys = new Map<string, string>();
 
 async function readOrCreateKey(storageKey: string, fallback: string | null, setFallback: (value: string) => string): Promise<string> {
+  if (fallback) return fallback;
   try {
     const existing = await AsyncStorage.getItem(storageKey);
-    if (existing && existing.trim().length > 0) return existing;
+    if (existing && existing.trim().length > 0) {
+      return setFallback(existing);
+    }
     const generated = createIdempotencyKey();
     await AsyncStorage.setItem(storageKey, generated);
-    return generated;
+    return setFallback(generated);
   } catch {
-    if (fallback) return fallback;
     return setFallback(createIdempotencyKey());
   }
 }

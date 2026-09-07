@@ -125,7 +125,6 @@ export function normalizeCustomerQuotationLine(value: unknown): CustomerQuotatio
   if (
     !lineId ||
     !productId ||
-    !sku ||
     !productName ||
     quantity === null ||
     unitPrice === null ||

@@ -5,19 +5,32 @@ const REQUEST_STORAGE_KEY = "oasis_buyer_quote_request_idempotency_v1";
 const ACCEPT_STORAGE_KEY = "oasis_buyer_quote_accept_idempotency_v1";
 const DECLINE_STORAGE_KEY = "oasis_buyer_quote_decline_idempotency_v1";
 
+export type QuoteIdempotencyStorage = {
+  getItem: (key: string) => Promise<string | null>;
+  setItem: (key: string, value: string) => Promise<void>;
+  removeItem: (key: string) => Promise<void>;
+};
+
+let storage: QuoteIdempotencyStorage = AsyncStorage;
+
 let requestFallbackKey: string | null = null;
 const acceptFallbackKeys = new Map<string, string>();
 const declineFallbackKeys = new Map<string, string>();
 
+/** Test-only: inject in-memory storage to simulate AsyncStorage failures. */
+export function setQuoteIdempotencyStorageForTests(next: QuoteIdempotencyStorage | null): void {
+  storage = next ?? AsyncStorage;
+}
+
 async function readOrCreateKey(storageKey: string, fallback: string | null, setFallback: (value: string) => string): Promise<string> {
   if (fallback) return fallback;
   try {
-    const existing = await AsyncStorage.getItem(storageKey);
+    const existing = await storage.getItem(storageKey);
     if (existing && existing.trim().length > 0) {
       return setFallback(existing);
     }
     const generated = createIdempotencyKey();
-    await AsyncStorage.setItem(storageKey, generated);
+    await storage.setItem(storageKey, generated);
     return setFallback(generated);
   } catch {
     return setFallback(createIdempotencyKey());
@@ -36,7 +49,7 @@ export async function getQuoteRequestIdempotencyKey(): Promise<string> {
 export async function clearQuoteRequestIdempotencyKey(): Promise<void> {
   requestFallbackKey = null;
   try {
-    await AsyncStorage.removeItem(REQUEST_STORAGE_KEY);
+    await storage.removeItem(REQUEST_STORAGE_KEY);
   } catch {
     // Best-effort cleanup.
   }
@@ -56,7 +69,7 @@ export async function getQuoteAcceptIdempotencyKey(quotationId: string): Promise
 export async function clearQuoteAcceptIdempotencyKey(quotationId: string): Promise<void> {
   acceptFallbackKeys.delete(quotationId);
   try {
-    await AsyncStorage.removeItem(`${ACCEPT_STORAGE_KEY}:${quotationId}`);
+    await storage.removeItem(`${ACCEPT_STORAGE_KEY}:${quotationId}`);
   } catch {
     // Best-effort cleanup.
   }
@@ -76,7 +89,7 @@ export async function getQuoteDeclineIdempotencyKey(quotationId: string): Promis
 export async function clearQuoteDeclineIdempotencyKey(quotationId: string): Promise<void> {
   declineFallbackKeys.delete(quotationId);
   try {
-    await AsyncStorage.removeItem(`${DECLINE_STORAGE_KEY}:${quotationId}`);
+    await storage.removeItem(`${DECLINE_STORAGE_KEY}:${quotationId}`);
   } catch {
     // Best-effort cleanup.
   }
@@ -87,4 +100,5 @@ export function resetQuoteIdempotencyForTests(): void {
   requestFallbackKey = null;
   acceptFallbackKeys.clear();
   declineFallbackKeys.clear();
+  storage = AsyncStorage;
 }

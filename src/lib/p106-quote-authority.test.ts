@@ -40,4 +40,24 @@ describe("P106 quotation authority invariants", () => {
     const accountSource = readFileSync(join(ROOT, "screens/AccountScreen.tsx"), "utf8");
     assert.match(accountSource, /navigate\("Quotations"\)/);
   });
+
+  it("keeps rpc wrapper tests on the quality path", () => {
+    const packageJson = JSON.parse(readFileSync(join(ROOT, "..", "package.json"), "utf8")) as {
+      scripts: { test: string };
+    };
+    assert.match(packageJson.scripts.test, /src\/lib\/rpc\.test\.ts/);
+  });
+
+  it("clears quotation request idempotency after every acknowledged submission", () => {
+    const source = readFileSync(join(ROOT, "screens/ProductDetailScreen.tsx"), "utf8");
+    assert.doesNotMatch(source, /if\s*\(\s*!result\.already_applied\s*\)/);
+    assert.match(source, /await clearQuoteRequestIdempotencyKey\(\)/);
+  });
+
+  it("treats origin/main as optional in the P106 census", () => {
+    const censusSource = readFileSync(join(ROOT, "..", "scripts/p106-quote-authority-census.mjs"), "utf8");
+    assert.match(censusSource, /git rev-parse origin\/main/);
+    assert.match(censusSource, /onBuyerMain\s*=\s*null/);
+    assert.match(censusSource, /missingExecutableRpcs/);
+  });
 });

@@ -8,11 +8,27 @@ import {
   getQuoteDeclineIdempotencyKey,
   getQuoteRequestIdempotencyKey,
   resetQuoteIdempotencyForTests,
+  setQuoteIdempotencyStorageForTests,
+  type QuoteIdempotencyStorage,
 } from "./quote-idempotency";
+
+function createMemoryStorage(seed?: Map<string, string>): QuoteIdempotencyStorage {
+  const map = new Map(seed ?? []);
+  return {
+    getItem: async (key) => map.get(key) ?? null,
+    setItem: async (key, value) => {
+      map.set(key, value);
+    },
+    removeItem: async (key) => {
+      map.delete(key);
+    },
+  };
+}
 
 describe("quote idempotency", () => {
   beforeEach(() => {
     resetQuoteIdempotencyForTests();
+    setQuoteIdempotencyStorageForTests(null);
   });
 
   it("reuses the quotation-request key until Core acknowledges submission", async () => {
@@ -22,6 +38,31 @@ describe("quote idempotency", () => {
     await clearQuoteRequestIdempotencyKey();
     const second = await getQuoteRequestIdempotencyKey();
     assert.notEqual(second, first);
+  });
+
+  it("rotates the request key after acknowledgement so already_applied cannot block the next request", async () => {
+    const acknowledged = await getQuoteRequestIdempotencyKey();
+    await clearQuoteRequestIdempotencyKey();
+    const nextRequest = await getQuoteRequestIdempotencyKey();
+    assert.notEqual(nextRequest, acknowledged);
+  });
+
+  it("reuses in-memory fallback when storage fails after a key was cached", async () => {
+    const memory = createMemoryStorage();
+    setQuoteIdempotencyStorageForTests(memory);
+    const first = await getQuoteRequestIdempotencyKey();
+    setQuoteIdempotencyStorageForTests({
+      getItem: async () => {
+        throw new Error("storage unavailable");
+      },
+      setItem: async () => {
+        throw new Error("storage unavailable");
+      },
+      removeItem: async () => {
+        throw new Error("storage unavailable");
+      },
+    });
+    assert.equal(await getQuoteRequestIdempotencyKey(), first);
   });
 
   it("scopes accept and decline idempotency per quotation", async () => {

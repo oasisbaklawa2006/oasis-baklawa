@@ -6,21 +6,20 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { execSync } from "node:child_process";
+import {
+  collectGovernedRpcInvocations,
+  missingExecutableQuoteRpcs,
+  readCoreQuoteRpcPrerequisites,
+} from "../src/lib/quote-rpc-binding-check";
+import { CORE_QUOTE_RPC_PREREQUISITES } from "../src/types/quote-contract";
 
 const ROOT = process.cwd();
 const ALLOWLIST_PATH = join(ROOT, "scripts/verify-contract-boundary.mjs");
+const QUOTE_CONTRACT_PATH = join(ROOT, "src/types/quote-contract.ts");
+const QUOTES_API_PATH = join(ROOT, "src/lib/api/quotes.ts");
 const QUOTE_TERMS = ["quote", "quotation", "rfq", "request_for_quote"];
 
-const CORE_QUOTE_RPC_PREREQUISITES = [
-  "customer_quotations_v1",
-  "customer_quotation_detail_v1",
-  "customer_quotation_lines_v1",
-  "submit_customer_quotation_request_v1",
-  "accept_customer_quotation_v1",
-  "decline_customer_quotation_v1",
-];
-
-function walk(path, files = []) {
+function walk(path: string, files: string[] = []): string[] {
   for (const entry of readdirSync(path)) {
     const absolute = join(path, entry);
     if (statSync(absolute).isDirectory()) walk(absolute, files);
@@ -29,19 +28,21 @@ function walk(path, files = []) {
   return files;
 }
 
-function readAllowlist() {
+function readAllowlist(): Set<string> {
   const source = readFileSync(ALLOWLIST_PATH, "utf8");
   const rpcs = [...source.matchAll(/"([a-z0-9_]+_v1)"/g)].map((match) => match[1]);
   return new Set(rpcs);
 }
 
-function hasCallRpcInvocation(source, rpc) {
-  return source.includes(`callRpc("${rpc}"`) || source.includes(`callRpc('${rpc}'`);
-}
+const quoteContractSource = readFileSync(QUOTE_CONTRACT_PATH, "utf8");
+const canonicalPrerequisites = readCoreQuoteRpcPrerequisites(quoteContractSource);
+const prerequisiteMismatch =
+  canonicalPrerequisites.length !== CORE_QUOTE_RPC_PREREQUISITES.length ||
+  canonicalPrerequisites.some((rpc, index) => rpc !== CORE_QUOTE_RPC_PREREQUISITES[index]);
 
 const buyerMainSha = execSync("git rev-parse HEAD", { encoding: "utf8" }).trim();
-let originMainSha = null;
-let onBuyerMain = null;
+let originMainSha: string | null = null;
+let onBuyerMain: boolean | null = null;
 try {
   originMainSha = execSync("git rev-parse origin/main", { encoding: "utf8" }).trim();
   onBuyerMain = buyerMainSha === originMainSha;
@@ -49,15 +50,15 @@ try {
   // Shallow or fork checkouts may not have origin/main.
 }
 
-const quotesApiSource = readFileSync(join(ROOT, "src/lib/api/quotes.ts"), "utf8");
+const quotesApiSource = readFileSync(QUOTES_API_PATH, "utf8");
 const allowlist = readAllowlist();
 const boundQuoteRpcs = CORE_QUOTE_RPC_PREREQUISITES.filter((rpc) => allowlist.has(rpc));
 const missingQuoteRpcs = CORE_QUOTE_RPC_PREREQUISITES.filter((rpc) => !allowlist.has(rpc));
-const missingExecutableRpcs = CORE_QUOTE_RPC_PREREQUISITES.filter((rpc) => !hasCallRpcInvocation(quotesApiSource, rpc));
+const missingExecutableRpcs = missingExecutableQuoteRpcs(quoteContractSource, quotesApiSource);
 
-const commerceSurfaces = [];
-const quoteMentions = [];
-const shadowFindings = [];
+const commerceSurfaces: string[] = [];
+const quoteMentions: { file: string; term: string }[] = [];
+const shadowFindings: string[] = [];
 
 for (const file of walk(join(ROOT, "src"))) {
   const rel = relative(ROOT, file);
@@ -75,12 +76,9 @@ for (const file of walk(join(ROOT, "src"))) {
   }
 
   if (!isTestFile && !rel.endsWith("src/types/quote-contract.ts") && !rel.endsWith("src/types/database.types.ts")) {
-    for (const rpc of CORE_QUOTE_RPC_PREREQUISITES) {
-      const invokesRpc =
-        hasCallRpcInvocation(source, rpc) ||
-        source.includes(`.rpc("${rpc}"`) ||
-        source.includes(`.rpc('${rpc}'`);
-      if (invokesRpc && !allowlist.has(rpc)) {
+    const invoked = collectGovernedRpcInvocations(source, rel);
+    for (const rpc of invoked) {
+      if (CORE_QUOTE_RPC_PREREQUISITES.includes(rpc as (typeof CORE_QUOTE_RPC_PREREQUISITES)[number]) && !allowlist.has(rpc)) {
         shadowFindings.push(`${rel} invokes unbound RPC ${rpc}`);
       }
     }
@@ -100,12 +98,17 @@ const report = {
     quoteMentionFiles: [...new Set(quoteMentions.map((row) => row.file))].sort(),
     commerceSurfaceCount: commerceSurfaces.length,
     orderDraftCheckoutOnly: true,
+    canonicalPrerequisiteCount: CORE_QUOTE_RPC_PREREQUISITES.length,
+    prerequisiteSourceSynced: !prerequisiteMismatch,
   },
   coreAuthority: {
     boundQuoteRpcs,
     missingQuoteRpcs,
     missingExecutableRpcs,
-    buyerQuoteBackendAvailable: missingQuoteRpcs.length === 0 && missingExecutableRpcs.length === 0,
+    buyerQuoteBackendAvailable:
+      !prerequisiteMismatch &&
+      missingQuoteRpcs.length === 0 &&
+      missingExecutableRpcs.length === 0,
   },
   risks: {
     shadowFindings,
@@ -123,6 +126,13 @@ const report = {
 };
 
 console.log(JSON.stringify(report, null, 2));
+
+if (prerequisiteMismatch) {
+  console.error(
+    "P106 census failed: census prerequisite list is out of sync with CORE_QUOTE_RPC_PREREQUISITES in quote-contract.ts."
+  );
+  process.exit(1);
+}
 
 if (shadowFindings.length) {
   console.error("P106 census failed: shadow quote authority detected.");

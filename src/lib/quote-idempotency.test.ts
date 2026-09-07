@@ -127,6 +127,44 @@ describe("quote idempotency", () => {
     it(`rotates ${action.label} key after acknowledgement even when persistence delete/write fails`, async () => {
       await assertRotatesAfterAcknowledgementDespitePersistenceFailure(action);
     });
+
+    it(`coalesces concurrent ${action.label} key resolution to one storage read and one key`, async () => {
+      const map = new Map<string, string>();
+      let releaseGetItem: () => void = () => undefined;
+      const getItemGate = new Promise<void>((resolve) => {
+        releaseGetItem = resolve;
+      });
+
+      let getItemCalls = 0;
+      let setItemCalls = 0;
+
+      setQuoteIdempotencyStorageForTests({
+        getItem: async (key) => {
+          getItemCalls += 1;
+          await getItemGate;
+          return map.get(key) ?? null;
+        },
+        setItem: async (key, value) => {
+          setItemCalls += 1;
+          map.set(key, value);
+        },
+        removeItem: async (key) => {
+          map.delete(key);
+        },
+      });
+
+      const first = action.getKey();
+      const second = action.getKey();
+
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      releaseGetItem();
+
+      const [keyA, keyB] = await Promise.all([first, second]);
+      assert.equal(keyA, keyB);
+      assert.match(keyA, /^[0-9a-f-]{36}$/i);
+      assert.equal(getItemCalls, 1);
+      assert.equal(setItemCalls, 1);
+    });
   }
 
   it("scopes accept and decline idempotency per quotation", async () => {

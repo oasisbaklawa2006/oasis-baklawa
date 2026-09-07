@@ -50,6 +50,8 @@ const allowedRpcs = new Set([
   "submit_customer_quotation_request_v1",
   "accept_customer_quotation_v1",
   "decline_customer_quotation_v1",
+  "create_customer_payment_intent_v1",
+  "customer_payment_intent_status_v1",
 ]);
 const violations = [];
 

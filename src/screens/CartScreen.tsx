@@ -5,7 +5,7 @@ import type { RootStackParamList } from "@/navigation/types";
 import { BuyerGate } from "@/components/BuyerGate";
 import { OasisButton } from "@/components/OasisButton";
 import { Screen } from "@/components/Screen";
-import { EmptyState, LoadingState } from "@/components/StateViews";
+import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { useNetwork } from "@/context/NetworkContext";
 import { fetchBuyerProductPrices } from "@/lib/api/catalogue";
 import {
@@ -30,8 +30,12 @@ export function CartScreen({ navigation }: Props) {
   const [busyLineId, setBusyLineId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const loadDraft = useCallback(async () => {
-    setLoading(true);
+  async function onRefresh() {
+    await loadDraft({ showLoader: false });
+  }
+
+  const loadDraft = useCallback(async ({ showLoader = true }: { showLoader?: boolean } = {}) => {
+    if (showLoader) setLoading(true);
     setError(null);
     try {
       const [draftData, prices] = await Promise.all([getCustomerOrderDraft(), fetchBuyerProductPrices()]);
@@ -115,11 +119,7 @@ export function CartScreen({ navigation }: Props) {
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
       <Screen title="Cart" subtitle="Server draft · MOQ · Carton readiness" safeAreaEdges={["top", "bottom"]}>
-        {error ? (
-          <Text style={styles.error} accessibilityRole="alert">
-            {error}
-          </Text>
-        ) : null}
+        {error && !loading ? <ErrorState message={error} onRetry={onRefresh} /> : null}
         {loading ? (
           <LoadingState message="Loading cart…" />
         ) : !draft || draft.lines.length === 0 ? (

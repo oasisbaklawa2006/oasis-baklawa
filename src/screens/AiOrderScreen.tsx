@@ -9,6 +9,7 @@ import { Screen } from "@/components/Screen";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
 import { addCustomerOrderDraftLine } from "@/lib/api/draft";
+import { parseGenieIntake } from "@/lib/genie-intake";
 import {
   applyGenieCandidateSelection,
   resolveGenieLines,
@@ -18,7 +19,6 @@ import {
   type GenieUnresolvedLine,
 } from "@/lib/genie-product-resolution";
 import { parseRpcError } from "@/lib/rpc-errors";
-import { supabase } from "@/lib/supabase";
 import { colors, spacing, typography, touchTarget } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "AiOrder">;
@@ -69,23 +69,26 @@ export function AiOrderScreen({ navigation }: Props) {
   );
 
   async function parseOrder() {
+    if (mode === "audio") {
+      setError(
+        "Voice ordering requires a verified ai-order-parse audio contract. Hindi, English, and Hinglish are supported once Core certifies the edge function."
+      );
+      return;
+    }
+    if (mode === "text" && !text.trim()) {
+      setError("Enter an order in Hindi, English, or Hinglish before parsing.");
+      return;
+    }
+
     setParsing(true);
     setError(null);
     setNotice(null);
     try {
-      const { data, error: rpcError } = await supabase.functions.invoke("ai-order-parse", {
-        body: { mode: mode === "document" ? "text" : mode, text, locale: "en-IN" },
-      });
-      if (rpcError) throw rpcError;
-      const lines: ParsedLine[] = data?.lines ?? [];
-      if (lines.length === 0) {
-        setError("No order lines were parsed. Try clearer Hindi/English product names and quantities.");
-        return;
-      }
+      const lines = await parseGenieIntake(mode, { text });
       setReviewLines(lines);
       applyResolution(lines);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not parse order");
+      setError(parseRpcError(e).message);
     } finally {
       setParsing(false);
     }
@@ -150,13 +153,19 @@ export function AiOrderScreen({ navigation }: Props) {
     }
   }
 
-  const modeUnavailableCopy: Record<Exclude<InputMode, "text">, string> = {
+  const modeUnavailableCopy: Partial<Record<InputMode, string>> = {
     audio:
       "Voice ordering requires a verified ai-order-parse audio contract. Hindi, English, and Hinglish are supported once Core certifies the edge function.",
-    image: "PO photo OCR requires a verified ai-order-parse image contract. Buyer will not invent SKU or quantity from uncertified OCR.",
-    document:
-      "PDF, Excel, and WhatsApp PO imports require a verified document-intake contract. Paste text manually or use catalogue search until Core certifies document intake.",
   };
+
+  const parseLabel =
+    mode === "text"
+      ? "Parse with Oasis Genie"
+      : mode === "image"
+        ? "Choose PO photo"
+        : mode === "document"
+          ? "Choose PDF/Excel/PO file"
+          : "Voice unavailable";
 
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
@@ -188,16 +197,24 @@ export function AiOrderScreen({ navigation }: Props) {
               value={text}
               onChangeText={setText}
             />
+          ) : mode === "audio" ? (
+            <View style={styles.unavailable}>
+              <Text style={styles.unavailableText}>{modeUnavailableCopy.audio}</Text>
+            </View>
           ) : (
             <View style={styles.unavailable}>
-              <Text style={styles.unavailableText}>{modeUnavailableCopy[mode]}</Text>
+              <Text style={styles.unavailableText}>
+                {mode === "image"
+                  ? "Select a PO photo. Oasis Genie sends the image to the governed ai-order-parse edge function and resolves products against the published catalogue."
+                  : "Select a PDF, Excel, CSV, or text PO file. Parsing fails closed when the edge contract rejects the document."}
+              </Text>
             </View>
           )}
 
           <OasisButton
-            label={parsing ? "Parsing…" : mode === "text" ? "Parse with Oasis Genie" : "Text mode only"}
+            label={parsing ? "Parsing…" : parseLabel}
             onPress={() => void parseOrder()}
-            disabled={parsing || mode !== "text" || catalogueLoading || Boolean(catalogueError)}
+            disabled={parsing || mode === "audio" || catalogueLoading || Boolean(catalogueError)}
             loading={parsing}
           />
 

@@ -6,6 +6,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { MainTabParamList, RootStackParamList } from "@/navigation/types";
 import { BuyerGate } from "@/components/BuyerGate";
 import { ProductImage } from "@/components/ProductImage";
+import { ErrorState, LoadingState } from "@/components/StateViews";
 import { Screen } from "@/components/Screen";
 import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { fetchPublishedProducts } from "@/lib/api/catalogue";
@@ -31,9 +32,11 @@ export function DashboardScreen({ navigation }: Props) {
   const [products, setProducts] = useState<PublishedProduct[]>([]);
   const [orders, setOrders] = useState<CustomerOrderStatus[]>([]);
   const [statement, setStatement] = useState<CustomerStatement | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setLoading(true);
     setError(null);
     try {
       const isApprovedBuyer = snapshot?.state === "approved_buyer";
@@ -47,6 +50,8 @@ export function DashboardScreen({ navigation }: Props) {
       setStatement(statementRow);
     } catch (e) {
       setError(parseRpcError(e).message);
+    } finally {
+      setLoading(false);
     }
   }, [snapshot?.state]);
 
@@ -77,7 +82,8 @@ export function DashboardScreen({ navigation }: Props) {
             <Text style={styles.bannerText}>{snapshot.message}</Text>
           </View>
         ) : null}
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {loading ? <LoadingState message="Loading your trade desk…" /> : null}
+        {error && !loading ? <ErrorState message={error} onRetry={load} /> : null}
 
         <View style={styles.quickActions}>
           <ActionChip label="Oasis Genie" onPress={() => navigation.navigate("AiOrder")} />

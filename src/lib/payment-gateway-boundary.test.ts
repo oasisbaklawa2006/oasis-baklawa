@@ -5,10 +5,11 @@ import { join } from "node:path";
 import {
   derivePayableState,
   isPaymentGatewayBound,
-  PAYMENT_GATEWAY_RPCS,
+  isTerminalPaymentStatus,
   resolvePaymentGatewayBoundary,
 } from "./payment-gateway-boundary";
 import type { CustomerFinanceFacts } from "@/types/database.types";
+import { BUYER_BOUND_PAYMENT_GATEWAY_RPCS } from "@/types/payment-gateway-contract";
 
 const ROOT = join(__dirname, "..");
 
@@ -33,11 +34,12 @@ const financeFacts: CustomerFinanceFacts = {
 };
 
 describe("payment gateway boundary", () => {
-  it("does not treat gateway as bound until both RPCs are allowlisted", () => {
+  it("treats gateway as bound when Core RPCs are allowlisted", () => {
     const boundarySource = readFileSync(join(ROOT, "../scripts/verify-contract-boundary.mjs"), "utf8");
-    const allowed = [...boundarySource.matchAll(/"([a-z0-9_]+)"/g)].map((match) => match[1]);
-    assert.equal(isPaymentGatewayBound(allowed), false);
-    assert.equal(PAYMENT_GATEWAY_RPCS.length, 2);
+    assert.equal(isPaymentGatewayBound(BUYER_BOUND_PAYMENT_GATEWAY_RPCS), true);
+    for (const rpc of BUYER_BOUND_PAYMENT_GATEWAY_RPCS) {
+      assert.match(boundarySource, new RegExp(`"${rpc}"`));
+    }
   });
 
   it("derives payable state only from customer-safe finance facts", () => {
@@ -48,22 +50,30 @@ describe("payment gateway boundary", () => {
     assert.equal(payable?.advanceCovered, false);
   });
 
-  it("blocks payment initiation when gateway RPCs are unbound", () => {
-    const boundary = resolvePaymentGatewayBoundary(financeFacts, ["calculate_customer_advance_v1"]);
-    assert.equal(boundary.canInitiatePayment, false);
-    assert.match(boundary.blockedReason ?? "", /not yet bound/i);
+  it("enables initiation when gateway RPCs are bound and advance is due", () => {
+    const boundary = resolvePaymentGatewayBoundary(financeFacts, BUYER_BOUND_PAYMENT_GATEWAY_RPCS);
+    assert.equal(boundary.canInitiatePayment, true);
+    assert.equal(boundary.blockedReason, null);
   });
 
   it("blocks initiation when advance is already covered", () => {
     const coveredFacts = { ...financeFacts, advance_covered: true, covered_amount: 3000 };
-    const boundary = resolvePaymentGatewayBoundary(coveredFacts, [...PAYMENT_GATEWAY_RPCS]);
+    const boundary = resolvePaymentGatewayBoundary(coveredFacts, BUYER_BOUND_PAYMENT_GATEWAY_RPCS);
     assert.equal(boundary.canInitiatePayment, false);
     assert.match(boundary.blockedReason ?? "", /already covered/i);
   });
 
   it("never enables initiation offline even when gateway RPCs are bound", () => {
-    const boundary = resolvePaymentGatewayBoundary(financeFacts, [...PAYMENT_GATEWAY_RPCS], { isOnline: false });
+    const boundary = resolvePaymentGatewayBoundary(financeFacts, BUYER_BOUND_PAYMENT_GATEWAY_RPCS, { isOnline: false });
     assert.equal(boundary.canInitiatePayment, false);
     assert.match(boundary.blockedReason ?? "", /offline/i);
+  });
+});
+
+describe("payment gateway flow", () => {
+  it("classifies terminal gateway statuses without inventing success", () => {
+    assert.equal(isTerminalPaymentStatus("succeeded"), "success");
+    assert.equal(isTerminalPaymentStatus("failed"), "failure");
+    assert.equal(isTerminalPaymentStatus("pending"), "pending");
   });
 });

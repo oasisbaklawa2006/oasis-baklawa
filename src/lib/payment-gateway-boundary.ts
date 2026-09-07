@@ -1,10 +1,8 @@
 import type { CustomerFinanceFacts } from "@/types/database.types";
+import { BUYER_BOUND_PAYMENT_GATEWAY_RPCS } from "@/types/payment-gateway-contract";
 
 /** Core gateway RPCs — Buyer binds these only when Mission Control adds them to verify-contract-boundary. */
-export const PAYMENT_GATEWAY_RPCS = [
-  "create_customer_payment_intent_v1",
-  "customer_payment_intent_status_v1",
-] as const;
+export const PAYMENT_GATEWAY_RPCS = BUYER_BOUND_PAYMENT_GATEWAY_RPCS;
 
 export type PaymentGatewayPhase = "unbound" | "ready" | "pending" | "succeeded" | "failed";
 
@@ -63,6 +61,15 @@ export function derivePayableState(facts: CustomerFinanceFacts | null): PayableS
     piNumber: facts.pi_number,
     piStatus: facts.pi_status,
   };
+}
+
+export function isTerminalPaymentStatus(status: string): "success" | "failure" | "pending" {
+  const normalized = status.toLowerCase();
+  const TERMINAL_SUCCESS = new Set(["succeeded", "paid", "captured"]);
+  const TERMINAL_FAILURE = new Set(["failed", "cancelled", "expired"]);
+  if (TERMINAL_SUCCESS.has(normalized)) return "success";
+  if (TERMINAL_FAILURE.has(normalized)) return "failure";
+  return "pending";
 }
 
 export function resolvePaymentGatewayBoundary(

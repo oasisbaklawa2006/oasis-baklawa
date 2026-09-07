@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-nati
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import { BuyerGate } from "@/components/BuyerGate";
+import { OasisButton } from "@/components/OasisButton";
 import { Screen } from "@/components/Screen";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { useNetwork } from "@/context/NetworkContext";
@@ -31,7 +32,7 @@ import { colors, spacing, typography } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "QuotationDetail">;
 
-export function QuotationDetailScreen({ route }: Props) {
+export function QuotationDetailScreen({ navigation, route }: Props) {
   const { quotationId, quotationNumber } = route.params;
   const { isOnline } = useNetwork();
   const [detail, setDetail] = useState<CustomerQuotationDetail | null>(null);
@@ -190,8 +191,11 @@ export function QuotationDetailScreen({ route }: Props) {
 
             {handoffId ? (
               <View style={styles.handoffCard}>
-                <Text style={styles.handoffTitle}>Acceptance handoff pending</Text>
-                <Text style={styles.handoffMeta}>Reference recorded by Core. No Sales Order was created in the app.</Text>
+                <Text style={styles.handoffTitle}>Acceptance handoff recorded</Text>
+                <Text style={styles.handoffMeta}>
+                  Core recorded handoff {handoffId}. Track fulfilment in Orders; advance payment opens when finance facts are available.
+                </Text>
+                <OasisButton label="View orders" variant="secondary" onPress={() => navigation.navigate("MainTabs", { screen: "Orders" })} />
               </View>
             ) : null}
 

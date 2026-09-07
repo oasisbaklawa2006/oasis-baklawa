@@ -7,7 +7,7 @@ import type { MainTabParamList, RootStackParamList } from "@/navigation/types";
 import { BuyerGate } from "@/components/BuyerGate";
 import { ProductImage } from "@/components/ProductImage";
 import { Screen } from "@/components/Screen";
-import { LoadingState } from "@/components/StateViews";
+import { ErrorState, LoadingState } from "@/components/StateViews";
 import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
 import { addCustomerOrderDraftLine } from "@/lib/api/draft";
@@ -129,7 +129,7 @@ export function CatalogueScreen({ navigation }: Props) {
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")} requireApprovedBuyer={false}>
       <Screen title="Catalogue" subtitle="Categories · Tiered pricing · MOQ" scroll={false}>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error && !loading ? <ErrorState message={error} onRetry={loadCatalogue} /> : null}
         {successMessage ? <Text style={styles.success}>{successMessage}</Text> : null}
         <TextInput
           style={styles.search}

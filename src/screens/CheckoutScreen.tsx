@@ -5,7 +5,7 @@ import type { RootStackParamList } from "@/navigation/types";
 import { BuyerGate } from "@/components/BuyerGate";
 import { OasisButton } from "@/components/OasisButton";
 import { Screen } from "@/components/Screen";
-import { ErrorState, LoadingState } from "@/components/StateViews";
+import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { useNetwork } from "@/context/NetworkContext";
 import { calculateCustomerAdvance, submitCustomerOrder } from "@/lib/api/checkout";
 import { getCustomerOrderDraft } from "@/lib/api/draft";
@@ -156,6 +156,13 @@ export function CheckoutScreen({ navigation }: Props) {
           <LoadingState message="Preparing checkout…" />
         ) : error && !draft ? (
           <ErrorState message={error} onRetry={loadCheckout} />
+        ) : !draft?.draft_id || (draft.lines.length === 0 && orderValue === 0) ? (
+          <EmptyState
+            title="Nothing to checkout"
+            message="Your server draft is empty. Add products from the catalogue or Oasis Genie first."
+            actionLabel="Open cart"
+            onAction={() => navigation.navigate("Cart")}
+          />
         ) : (
           <>
             {!isOnline ? (

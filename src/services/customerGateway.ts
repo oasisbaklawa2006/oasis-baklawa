@@ -1,5 +1,9 @@
 import { callRpc } from "@/lib/rpc";
 import {
+  createCustomerPaymentIntent,
+  fetchCustomerPaymentIntentStatus,
+} from "@/lib/api/payment-gateway";
+import {
   acceptCustomerQuotation,
   declineCustomerQuotation,
   fetchCustomerQuotationDetail,
@@ -42,6 +46,11 @@ import type {
   SubmitCustomerGeneralQueryResult,
   SubmitSupportTicketInput,
 } from "@/types/database.types";
+import type {
+  CreateCustomerPaymentIntentInput,
+  CreateCustomerPaymentIntentResult,
+  CustomerPaymentIntentStatusResult,
+} from "@/types/payment-gateway-contract";
 
 export interface CatalogueProduct extends PublishedProduct {
   price?: BuyerProductPrice;
@@ -75,6 +84,10 @@ export const customerGateway = {
     acceptCustomerQuotation(input),
   declineQuotation: (input: DeclineCustomerQuotationInput): Promise<DeclineCustomerQuotationResult> =>
     declineCustomerQuotation(input),
+  createPaymentIntent: (input: CreateCustomerPaymentIntentInput): Promise<CreateCustomerPaymentIntentResult> =>
+    createCustomerPaymentIntent(input),
+  paymentIntentStatus: (paymentIntentId: string): Promise<CustomerPaymentIntentStatusResult> =>
+    fetchCustomerPaymentIntentStatus(paymentIntentId),
   generalQueries: async (): Promise<CustomerGeneralQuery[]> => {
     const rows = await callRpc("customer_general_queries_v1");
     return (rows ?? [])

@@ -131,12 +131,23 @@ describe("golden journey invariants", () => {
     assert.match(source, /Clarify:/);
   });
 
-  it("consumes server finance facts in payment boundary without dummy success", () => {
+  it("consumes server finance facts in payment boundary without simulated success", () => {
     const paymentScreen = readFileSync(join(ROOT, "screens/OrderPaymentScreen.tsx"), "utf8");
+    const flowSource = readFileSync(join(ROOT, "lib/payment-gateway-flow.ts"), "utf8");
     assert.match(paymentScreen, /resolvePaymentGatewayBoundary/);
+    assert.match(paymentScreen, /initiateAdvancePayment/);
     assert.match(paymentScreen, /customerGateway\.financeFacts/);
-    assert.match(paymentScreen, /no simulated success path/i);
-    assert.match(paymentScreen, /disabled=\{!boundary\.canInitiatePayment\}/);
+    assert.match(paymentScreen, /never marks payment success locally/i);
+    assert.match(flowSource, /fetchCustomerPaymentIntentStatus/);
+    assert.doesNotMatch(flowSource, /phase:\s*"succeeded"[\s\S]*without/);
+  });
+
+  it("routes Genie multimodal intake through governed adapter", () => {
+    const source = readFileSync(join(ROOT, "lib/genie-intake.ts"), "utf8");
+    assert.match(source, /parseGenieIntake/);
+    assert.match(source, /DocumentPicker/);
+    assert.match(source, /ImagePicker/);
+    assert.match(readFileSync(join(ROOT, "screens/AiOrderScreen.tsx"), "utf8"), /parseGenieIntake/);
   });
 
   it("surfaces payable navigation from order detail and dashboard alerts", () => {

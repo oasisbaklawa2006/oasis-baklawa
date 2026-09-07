@@ -21,6 +21,7 @@ export function QuickOrderScreen({ navigation }: Props) {
   const [rows, setRows] = useState<QuickRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -63,6 +64,8 @@ export function QuickOrderScreen({ navigation }: Props) {
     setBusyId(product.product_id);
     try {
       await addCustomerOrderDraftLine(product.product_id, moq);
+      setNotice(`${product.product_name} added to draft cart.`);
+      setError(null);
     } catch (e) {
       setError(parseRpcError(e).message);
     } finally {
@@ -84,6 +87,7 @@ export function QuickOrderScreen({ navigation }: Props) {
         >
           <Text style={styles.aiLinkText}>Paste a text order (AI parser)</Text>
         </TouchableOpacity>
+        {notice ? <Text style={styles.notice}>{notice}</Text> : null}
         <TextInput
           style={styles.search}
           placeholder="Search SKU or product name"
@@ -137,6 +141,7 @@ const styles = StyleSheet.create({
   back: { fontFamily: typography.fontFamilySansMedium, color: colors.action, marginTop: spacing.sm },
   aiLink: { marginTop: spacing.md, minHeight: 44, justifyContent: "center" },
   aiLinkText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.action, textDecorationLine: "underline" },
+  notice: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.success, marginTop: spacing.sm },
   search: {
     marginTop: spacing.md,
     borderWidth: 1,

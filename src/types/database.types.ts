@@ -181,6 +181,14 @@ export type Database = {
         };
         Returns: DeclineCustomerQuotationResultRow[];
       };
+      create_customer_payment_intent_v1: {
+        Args: { p_order_id: string; p_idempotency_key: string };
+        Returns: CreateCustomerPaymentIntentResultRow[];
+      };
+      customer_payment_intent_status_v1: {
+        Args: { p_payment_intent_id: string };
+        Returns: CustomerPaymentIntentStatusResultRow[];
+      };
     };
   };
 };
@@ -582,4 +590,20 @@ export interface DeclineCustomerQuotationResultRow {
   status: string;
   version_number: number;
   already_applied: boolean;
+}
+
+export interface CreateCustomerPaymentIntentResultRow {
+  payment_intent_id: string;
+  gateway_checkout_url: string | null;
+  amount: number;
+  currency: string;
+  status: string;
+  already_applied: boolean;
+}
+
+export interface CustomerPaymentIntentStatusResultRow {
+  payment_intent_id: string;
+  status: string;
+  verified_amount: number | null;
+  failure_reason: string | null;
 }

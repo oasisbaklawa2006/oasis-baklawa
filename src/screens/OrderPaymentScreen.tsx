@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
@@ -8,29 +8,36 @@ import { Screen } from "@/components/Screen";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { useNetwork } from "@/context/NetworkContext";
 import { formatInr } from "@/lib/customer-projections";
+import {
+  initiateAdvancePayment,
+  refreshPaymentIntentStatus,
+  type PaymentFlowState,
+} from "@/lib/payment-gateway-flow";
 import { resolvePaymentGatewayBoundary } from "@/lib/payment-gateway-boundary";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { customerGateway } from "@/services/customerGateway";
 import type { CustomerFinanceFacts } from "@/types/database.types";
+import { BUYER_BOUND_PAYMENT_GATEWAY_RPCS } from "@/types/payment-gateway-contract";
 import { colors, spacing, typography } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "OrderPayment">;
 
-/** Allowed governed RPCs mirrored from verify-contract-boundary for fail-closed gateway checks. */
-const BOUNDARY_ALLOWLIST = [
-  "calculate_customer_advance_v1",
-  "customer_order_finance_facts_v1",
-  "create_customer_payment_intent_v1",
-  "customer_payment_intent_status_v1",
-];
-
 export function OrderPaymentScreen({ navigation, route }: Props) {
   const { orderId, orderNumber } = route.params;
   const { isOnline } = useNetwork();
+  const submitInFlightRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [financeFacts, setFinanceFacts] = useState<CustomerFinanceFacts | null>(null);
+  const [flow, setFlow] = useState<PaymentFlowState>({
+    phase: "idle",
+    paymentIntentId: null,
+    gatewayCheckoutUrl: null,
+    status: null,
+    message: null,
+  });
 
   const load = useCallback(async () => {
     setError(null);
@@ -49,9 +56,38 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
   }, [load]);
 
   const boundary = useMemo(
-    () => resolvePaymentGatewayBoundary(financeFacts, BOUNDARY_ALLOWLIST, { isOnline }),
+    () => resolvePaymentGatewayBoundary(financeFacts, BUYER_BOUND_PAYMENT_GATEWAY_RPCS, { isOnline }),
     [financeFacts, isOnline]
   );
+
+  async function onInitiatePayment() {
+    if (!boundary.canInitiatePayment || submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
+    setSubmitting(true);
+    setFlow((prev) => ({ ...prev, phase: "creating_intent", message: null }));
+    try {
+      const nextFlow = await initiateAdvancePayment(orderId);
+      setFlow(nextFlow);
+      if (nextFlow.phase === "succeeded" || nextFlow.phase === "awaiting_gateway") {
+        await load();
+      }
+    } finally {
+      submitInFlightRef.current = false;
+      setSubmitting(false);
+    }
+  }
+
+  async function onRefreshPaymentStatus() {
+    if (!flow.paymentIntentId) return;
+    setRefreshing(true);
+    try {
+      const { flow: nextFlow } = await refreshPaymentIntentStatus(flow.paymentIntentId, orderId);
+      setFlow(nextFlow);
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
@@ -63,7 +99,7 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
             setRefreshing(true);
             void load();
           }}
-          loading={refreshing}
+          loading={refreshing && !flow.paymentIntentId}
         />
         {loading ? (
           <LoadingState message="Loading server-authoritative payable state…" />
@@ -84,22 +120,47 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
               {boundary.payable.piStatus ? <Row label="PI status" value={boundary.payable.piStatus.replace(/_/g, " ")} /> : null}
             </View>
 
+            {flow.status ? (
+              <View style={styles.statusCard}>
+                <Text style={styles.statusTitle}>Gateway status</Text>
+                <Text style={styles.statusMeta}>{flow.status.status.replace(/_/g, " ")}</Text>
+                {flow.status.verified_amount !== null ? (
+                  <Text style={styles.statusMeta}>Verified amount {formatInr(flow.status.verified_amount)}</Text>
+                ) : null}
+              </View>
+            ) : null}
+
             {boundary.blockedReason ? (
               <Text style={styles.note} accessibilityRole="alert">
                 {boundary.blockedReason}
               </Text>
             ) : null}
 
+            {flow.message ? (
+              <Text style={styles.note} accessibilityRole="alert">
+                {flow.message}
+              </Text>
+            ) : null}
+
             <Text style={styles.note}>
-              Buyer never creates payment success locally. Gateway intent/status will be consumed from Core once bound; there is no simulated success path.
+              Buyer never marks payment success locally. Intent creation and status polling consume Core gateway contracts only.
             </Text>
 
             <OasisButton
-              label={boundary.canInitiatePayment ? "Initiate advance payment" : "Payment initiation unavailable"}
-              onPress={() => undefined}
-              disabled={!boundary.canInitiatePayment}
-              accessibilityHint="Disabled until Core payment gateway contracts are bound and online"
+              label={submitting ? "Creating payment intent…" : "Initiate advance payment"}
+              onPress={() => void onInitiatePayment()}
+              disabled={!boundary.canInitiatePayment || submitting}
+              loading={submitting}
             />
+
+            {flow.paymentIntentId ? (
+              <OasisButton
+                label="Refresh gateway status"
+                variant="secondary"
+                onPress={() => void onRefreshPaymentStatus()}
+                loading={refreshing}
+              />
+            ) : null}
 
             <OasisButton label="View documents" variant="secondary" onPress={() => navigation.navigate("Documents")} />
           </View>
@@ -121,6 +182,9 @@ function Row({ label, value, emphasis }: { label: string; value: string; emphasi
 const styles = StyleSheet.create({
   body: { marginTop: spacing.md, gap: spacing.md },
   card: { backgroundColor: colors.surfacePremium, borderRadius: 12, padding: spacing.md, gap: spacing.sm },
+  statusCard: { backgroundColor: colors.surfaceUtility, borderRadius: 12, padding: spacing.md, gap: 4 },
+  statusTitle: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.textPrimary },
+  statusMeta: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textSecondary },
   row: { flexDirection: "row", justifyContent: "space-between", gap: spacing.sm },
   rowLabel: { flex: 1, fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textSecondary },
   rowValue: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.textPrimary },

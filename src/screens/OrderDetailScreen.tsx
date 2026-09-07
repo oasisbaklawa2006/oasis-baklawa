@@ -21,6 +21,7 @@ export function OrderDetailScreen({ navigation, route }: Props) {
   const [order, setOrder] = useState<CustomerOrderStatus | null>(initialOrder ?? null);
   const [items, setItems] = useState<CustomerOrderItem[]>([]);
   const [financeFacts, setFinanceFacts] = useState<CustomerFinanceFacts | null>(null);
+  const [financeError, setFinanceError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,8 +39,10 @@ export function OrderDetailScreen({ navigation, route }: Props) {
       }
       try {
         setFinanceFacts(await customerGateway.financeFacts(orderId));
-      } catch {
+        setFinanceError(null);
+      } catch (e) {
         setFinanceFacts(null);
+        setFinanceError(parseRpcError(e).message);
       }
     } catch (e) {
       setError(parseRpcError(e).message);
@@ -90,6 +93,11 @@ export function OrderDetailScreen({ navigation, route }: Props) {
           {order.tracking_number ? (
             <Text style={styles.tracking}>
               {order.courier_name ?? "Courier"} · AWB {order.tracking_number}
+            </Text>
+          ) : null}
+          {financeError ? (
+            <Text style={styles.financeLine} accessibilityRole="alert">
+              Finance facts unavailable: {financeError}
             </Text>
           ) : null}
           {financeFacts?.customer_safe_projection ? (

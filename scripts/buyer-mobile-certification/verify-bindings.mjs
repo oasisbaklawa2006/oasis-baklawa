@@ -19,6 +19,8 @@ const REQUIRED_BINDINGS = [
   "submit_customer_quotation_request_v1",
   "accept_customer_quotation_v1",
   "decline_customer_quotation_v1",
+  "create_customer_payment_intent_v1",
+  "customer_payment_intent_status_v1",
 ];
 
 const gatewaySource = readFileSync(join(process.cwd(), "src/services/customerGateway.ts"), "utf8");
@@ -27,7 +29,8 @@ const boundarySource = readFileSync(join(process.cwd(), "scripts/verify-contract
 const documentsSource = readFileSync(join(process.cwd(), "src/screens/DocumentsScreen.tsx"), "utf8");
 const supportSource = readFileSync(join(process.cwd(), "src/screens/SupportScreen.tsx"), "utf8");
 const quotationsSource = readFileSync(join(process.cwd(), "src/screens/QuotationsScreen.tsx"), "utf8");
-const rpcSources = `${gatewaySource}\n${quotesSource}`;
+const paymentSource = readFileSync(join(process.cwd(), "src/lib/api/payment-gateway.ts"), "utf8");
+const rpcSources = `${gatewaySource}\n${quotesSource}\n${paymentSource}`;
 
 const failures = [];
 

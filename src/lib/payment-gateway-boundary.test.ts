@@ -1,14 +1,18 @@
-import { describe, it } from "node:test";
+import { beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   derivePayableState,
-  getRuntimePaymentGatewayAllowlist,
   isPaymentGatewayBound,
   isTerminalPaymentStatus,
   resolvePaymentGatewayBoundary,
 } from "./payment-gateway-boundary";
+import {
+  isRuntimePaymentGatewayBound,
+  readRuntimePaymentGatewayBoundRpcs,
+  setRuntimePaymentGatewayBoundRpcsForTests,
+} from "./runtime-payment-gateway-binding";
 import type { CustomerFinanceFacts } from "@/types/database.types";
 import { BUYER_BOUND_PAYMENT_GATEWAY_RPCS } from "@/types/payment-gateway-contract";
 
@@ -35,11 +39,15 @@ const financeFacts: CustomerFinanceFacts = {
 };
 
 describe("payment gateway boundary", () => {
-  it("treats gateway as bound when Core RPCs are allowlisted", () => {
+  beforeEach(() => {
+    setRuntimePaymentGatewayBoundRpcsForTests(null);
+  });
+
+  it("treats gateway as bound when runtime deployment includes Core RPCs", () => {
     const boundarySource = readFileSync(join(ROOT, "../scripts/verify-contract-boundary.mjs"), "utf8");
-    assert.equal(isPaymentGatewayBound(BUYER_BOUND_PAYMENT_GATEWAY_RPCS), true);
+    assert.equal(isRuntimePaymentGatewayBound(), true);
     for (const rpc of BUYER_BOUND_PAYMENT_GATEWAY_RPCS) {
-      assert.match(boundarySource, new RegExp(`"${rpc}"`));
+      assert.ok(boundarySource.includes(`"${rpc}"`));
     }
   });
 
@@ -51,33 +59,39 @@ describe("payment gateway boundary", () => {
     assert.equal(payable?.advanceCovered, false);
   });
 
-  it("blocks initiation when deployment allowlist omits a required gateway RPC", () => {
-    const deploymentAllowlist = getRuntimePaymentGatewayAllowlist().filter(
-      (rpc) => rpc !== "create_customer_payment_intent_v1"
+  it("blocks initiation when runtime binding omits a required gateway RPC", () => {
+    setRuntimePaymentGatewayBoundRpcsForTests(
+      readRuntimePaymentGatewayBoundRpcs().filter((rpc) => rpc !== "create_customer_payment_intent_v1")
     );
-    const boundary = resolvePaymentGatewayBoundary(financeFacts, deploymentAllowlist);
+    const boundary = resolvePaymentGatewayBoundary(financeFacts);
     assert.equal(boundary.gatewayBound, false);
     assert.equal(boundary.canInitiatePayment, false);
     assert.match(boundary.blockedReason ?? "", /not yet bound/i);
   });
 
-  it("enables initiation when gateway RPCs are bound and advance is due", () => {
-    const boundary = resolvePaymentGatewayBoundary(financeFacts, getRuntimePaymentGatewayAllowlist());
+  it("enables initiation when runtime binding includes required gateway RPCs", () => {
+    const boundary = resolvePaymentGatewayBoundary(financeFacts);
     assert.equal(boundary.canInitiatePayment, true);
     assert.equal(boundary.blockedReason, null);
   });
 
   it("blocks initiation when advance is already covered", () => {
     const coveredFacts = { ...financeFacts, advance_covered: true, covered_amount: 3000 };
-    const boundary = resolvePaymentGatewayBoundary(coveredFacts, getRuntimePaymentGatewayAllowlist());
+    const boundary = resolvePaymentGatewayBoundary(coveredFacts);
     assert.equal(boundary.canInitiatePayment, false);
     assert.match(boundary.blockedReason ?? "", /already covered/i);
   });
 
   it("never enables initiation offline even when gateway RPCs are bound", () => {
-    const boundary = resolvePaymentGatewayBoundary(financeFacts, getRuntimePaymentGatewayAllowlist(), { isOnline: false });
+    const boundary = resolvePaymentGatewayBoundary(financeFacts, { isOnline: false });
     assert.equal(boundary.canInitiatePayment, false);
     assert.match(boundary.blockedReason ?? "", /offline/i);
+  });
+
+  it("uses deployment allowlist independently from contract constants in explicit probes", () => {
+    const deploymentOnly = ["published_products_v1"];
+    assert.equal(isPaymentGatewayBound(deploymentOnly), false);
+    assert.equal(isPaymentGatewayBound([...BUYER_BOUND_PAYMENT_GATEWAY_RPCS]), true);
   });
 });
 

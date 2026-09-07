@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
@@ -9,7 +9,14 @@ import { Screen } from "@/components/Screen";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
 import { addCustomerOrderDraftLine } from "@/lib/api/draft";
+import {
+  clearGenieDraftLineCommit,
+  clearGenieDraftLineCommits,
+  isGenieDraftLineCommitted,
+  markGenieDraftLineCommitted,
+} from "@/lib/genie-draft-line-commit";
 import { parseGenieIntake } from "@/lib/genie-intake";
+import { createIdempotencyKey } from "@/lib/idempotency";
 import {
   applyGenieCandidateSelection,
   resolveGenieLines,
@@ -44,7 +51,7 @@ export function AiOrderScreen({ navigation }: Props) {
   const [unresolvedLines, setUnresolvedLines] = useState<GenieUnresolvedLine[]>([]);
   const [clarifyingLine, setClarifyingLine] = useState<GenieAmbiguousLine | null>(null);
   const [committing, setCommitting] = useState(false);
-  const [committedLineIds, setCommittedLineIds] = useState<string[]>([]);
+  const lineIdsRef = useRef<Map<number, string>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -86,6 +93,8 @@ export function AiOrderScreen({ navigation }: Props) {
     setNotice(null);
     try {
       const lines = await parseGenieIntake(mode, { text });
+      resetLineIds();
+      void clearGenieDraftLineCommits();
       setReviewLines(lines);
       applyResolution(lines);
     } catch (e) {
@@ -95,9 +104,21 @@ export function AiOrderScreen({ navigation }: Props) {
     }
   }
 
+  function getStableLineId(index: number): string {
+    const existing = lineIdsRef.current.get(index);
+    if (existing) return existing;
+    const created = createIdempotencyKey();
+    lineIdsRef.current.set(index, created);
+    return created;
+  }
+
+  function resetLineIds() {
+    lineIdsRef.current.clear();
+  }
+
   function applyResolution(lines: ParsedLine[]) {
     const parsed: GenieParsedLine[] = lines.map((line, index) => ({
-      lineId: `line-${index}`,
+      lineId: getStableLineId(index),
       rawName: line.productName,
       quantity: line.quantity,
       uom: line.uom,
@@ -109,6 +130,7 @@ export function AiOrderScreen({ navigation }: Props) {
   }
 
   function updateLine(index: number, patch: Partial<ParsedLine>) {
+    void clearGenieDraftLineCommit(getStableLineId(index));
     setReviewLines((prev) => {
       if (!prev) return prev;
       const next = prev.map((line, i) => (i === index ? { ...line, ...patch } : line));
@@ -130,12 +152,13 @@ export function AiOrderScreen({ navigation }: Props) {
   }
 
   function resetReview() {
+    resetLineIds();
+    void clearGenieDraftLineCommits();
     setReviewLines(null);
     setResolvedLines([]);
     setAmbiguousLines([]);
     setUnresolvedLines([]);
     setClarifyingLine(null);
-    setCommittedLineIds([]);
   }
 
   async function confirmOrder() {
@@ -144,12 +167,15 @@ export function AiOrderScreen({ navigation }: Props) {
     setError(null);
     setNotice(null);
     try {
-      const committed = new Set(committedLineIds);
       for (const line of resolvedLines) {
-        if (committed.has(line.lineId)) continue;
+        const commitLine = {
+          lineId: line.lineId,
+          productId: line.product.product_id,
+          normalizedQuantity: line.normalizedQuantity,
+        };
+        if (await isGenieDraftLineCommitted(commitLine)) continue;
         await addCustomerOrderDraftLine(line.product.product_id, line.normalizedQuantity);
-        committed.add(line.lineId);
-        setCommittedLineIds([...committed]);
+        await markGenieDraftLineCommitted(commitLine);
       }
       resetReview();
       navigation.navigate("Cart");

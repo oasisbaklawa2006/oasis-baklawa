@@ -13,7 +13,7 @@ import {
   refreshPaymentIntentStatus,
   type PaymentFlowState,
 } from "@/lib/payment-gateway-flow";
-import { resolvePaymentGatewayBoundary, getRuntimePaymentGatewayAllowlist } from "@/lib/payment-gateway-boundary";
+import { resolvePaymentGatewayBoundary } from "@/lib/payment-gateway-boundary";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { customerGateway } from "@/services/customerGateway";
 import type { CustomerFinanceFacts } from "@/types/database.types";
@@ -55,7 +55,7 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
   }, [load]);
 
   const boundary = useMemo(
-    () => resolvePaymentGatewayBoundary(financeFacts, getRuntimePaymentGatewayAllowlist(), { isOnline }),
+    () => resolvePaymentGatewayBoundary(financeFacts, { isOnline }),
     [financeFacts, isOnline]
   );
 
@@ -70,6 +70,12 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
       if (nextFlow.phase === "succeeded" || nextFlow.phase === "awaiting_gateway") {
         await load();
       }
+    } catch (e) {
+      setFlow((prev) => ({
+        ...prev,
+        phase: "failed",
+        message: parseRpcError(e).message,
+      }));
     } finally {
       submitInFlightRef.current = false;
       setSubmitting(false);
@@ -83,6 +89,12 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
       const { flow: nextFlow } = await refreshPaymentIntentStatus(flow.paymentIntentId, orderId);
       setFlow(nextFlow);
       await load();
+    } catch (e) {
+      setFlow((prev) => ({
+        ...prev,
+        phase: "failed",
+        message: parseRpcError(e).message,
+      }));
     } finally {
       setRefreshing(false);
     }

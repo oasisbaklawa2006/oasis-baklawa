@@ -54,6 +54,7 @@ const catalogue = [
   product("p1", "Kaju Katli", "KK-01"),
   product("p2", "Almond Baklawa", "AB-02"),
   product("p3", "Pista Roll", "PR-03"),
+  product("p4", "Premium KK 01 Selection", "PK-04"),
 ];
 
 describe("genie product resolution", () => {
@@ -72,6 +73,7 @@ describe("genie product resolution", () => {
     const result = resolveGenieLines(lines, catalogue);
     assert.equal(result.resolved.length, 1);
     assert.equal(result.resolved[0].product.sku, "KK-01");
+    assert.equal(result.resolved[0].product.product_id, "p1");
     assert.deepEqual(result.ambiguous, []);
   });
 

@@ -1,6 +1,9 @@
 import type { CustomerFinanceFacts } from "@/types/database.types";
-import { getBuyerDeploymentRpcAllowlist } from "@/lib/buyer-deployment-rpc-allowlist";
 import { BUYER_BOUND_PAYMENT_GATEWAY_RPCS } from "@/types/payment-gateway-contract";
+import {
+  isRuntimePaymentGatewayBound,
+  readRuntimeDeploymentRpcAllowlist,
+} from "@/lib/runtime-payment-gateway-binding";
 
 /** Core gateway RPCs — Buyer binds these only when Mission Control adds them to verify-contract-boundary. */
 export const PAYMENT_GATEWAY_RPCS = BUYER_BOUND_PAYMENT_GATEWAY_RPCS;
@@ -28,13 +31,14 @@ export interface PaymentGatewayBoundaryState {
   blockedReason: string | null;
 }
 
-export function isPaymentGatewayBound(allowedRpcs: readonly string[]): boolean {
-  return PAYMENT_GATEWAY_RPCS.every((rpc) => allowedRpcs.includes(rpc));
+export function isPaymentGatewayBound(allowedRpcs: readonly string[] = readRuntimeDeploymentRpcAllowlist()): boolean {
+  const deployment = new Set(allowedRpcs);
+  return PAYMENT_GATEWAY_RPCS.every((rpc) => deployment.has(rpc));
 }
 
-/** Runtime deployment allowlist — independent from contract-required RPC names. */
+/** @deprecated Prefer isRuntimePaymentGatewayBound() — kept for explicit allowlist probes in tests. */
 export function getRuntimePaymentGatewayAllowlist(): readonly string[] {
-  return getBuyerDeploymentRpcAllowlist();
+  return readRuntimeDeploymentRpcAllowlist();
 }
 
 /** Derives payable UI state strictly from server finance facts — no client-side amount math beyond display deltas. */
@@ -80,10 +84,9 @@ export function isTerminalPaymentStatus(status: string): "success" | "failure" |
 
 export function resolvePaymentGatewayBoundary(
   facts: CustomerFinanceFacts | null,
-  allowedRpcs: readonly string[],
   options: { isOnline?: boolean } = {}
 ): PaymentGatewayBoundaryState {
-  const gatewayBound = isPaymentGatewayBound(allowedRpcs);
+  const gatewayBound = isRuntimePaymentGatewayBound();
   const payable = derivePayableState(facts);
   const isOnline = options.isOnline ?? true;
 

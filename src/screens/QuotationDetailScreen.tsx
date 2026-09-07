@@ -80,6 +80,7 @@ export function QuotationDetailScreen({ navigation, route }: Props) {
   }, [quotationId]);
 
   const actionTarget = quotationDetailForAccept(detail);
+  const actionInFlight = accepting || declining;
   const acceptEnabled = actionTarget
     ? isQuoteAcceptEnabled({
         quotation: actionTarget,
@@ -88,7 +89,7 @@ export function QuotationDetailScreen({ navigation, route }: Props) {
         idempotencyKey: acceptKey?.key ?? null,
         keyPersisted: acceptKey?.persisted ?? false,
         isOnline,
-      })
+      }) && !actionInFlight
     : false;
   const declineEnabled = actionTarget
     ? isQuoteDeclineEnabled({
@@ -98,11 +99,11 @@ export function QuotationDetailScreen({ navigation, route }: Props) {
         idempotencyKey: declineKey?.key ?? null,
         keyPersisted: declineKey?.persisted ?? false,
         isOnline,
-      })
+      }) && !actionInFlight
     : false;
 
   async function onAccept() {
-    if (!detail || !acceptKey?.key || !acceptKey.persisted) return;
+    if (!detail || !acceptKey?.key || !acceptKey.persisted || actionInFlight) return;
     setAccepting(true);
     setNotice(null);
     try {
@@ -134,7 +135,7 @@ export function QuotationDetailScreen({ navigation, route }: Props) {
   }
 
   async function onDecline() {
-    if (!detail || !declineKey?.key || !declineKey.persisted) return;
+    if (!detail || !declineKey?.key || !declineKey.persisted || actionInFlight) return;
     setDeclining(true);
     setNotice(null);
     try {

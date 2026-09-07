@@ -66,7 +66,7 @@ const ALLOWLIST_MANIFESTS = new Set([
 ]);
 
 for (const file of walk(join(ROOT, "src"))) {
-  const rel = relative(ROOT, file);
+  const rel = relative(ROOT, file).replaceAll("\\", "/");
   const source = readFileSync(file, "utf8");
   const sourceLower = source.toLowerCase();
   const basename = file.toLowerCase();

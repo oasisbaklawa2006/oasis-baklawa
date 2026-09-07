@@ -8,7 +8,7 @@ describe("buyer deployment rpc allowlist", () => {
   it("stays in sync with verify-contract-boundary.mjs", () => {
     const boundarySource = readFileSync(join(process.cwd(), "scripts/verify-contract-boundary.mjs"), "utf8");
     for (const rpc of BUYER_DEPLOYMENT_RPC_ALLOWLIST) {
-      assert.match(boundarySource, new RegExp(`"${rpc}"`));
+      assert.ok(boundarySource.includes(`"${rpc}"`));
     }
   });
 });

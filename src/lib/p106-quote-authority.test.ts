@@ -17,8 +17,12 @@ describe("P106 quotation authority invariants", () => {
     const quotesSource = readFileSync(join(ROOT, "lib/api/quotes.ts"), "utf8");
     assert.match(gatewaySource, /quotations:\s*\(\)/);
     assert.match(gatewaySource, /acceptQuotation/);
+    const callRpcPrefix = "callRpc";
     for (const rpc of CORE_QUOTE_RPC_PREREQUISITES) {
-      assert.match(quotesSource, new RegExp(`"${rpc}"`));
+      assert.ok(
+        quotesSource.includes(callRpcPrefix + '("' + rpc + '"'),
+        `governed api layer missing executable callRpc for ${rpc}`
+      );
     }
   });
 

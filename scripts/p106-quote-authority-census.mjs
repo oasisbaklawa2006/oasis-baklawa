@@ -35,11 +35,25 @@ function readAllowlist() {
   return new Set(rpcs);
 }
 
+function hasCallRpcInvocation(source, rpc) {
+  return source.includes(`callRpc("${rpc}"`) || source.includes(`callRpc('${rpc}'`);
+}
+
 const buyerMainSha = execSync("git rev-parse HEAD", { encoding: "utf8" }).trim();
-const originMainSha = execSync("git rev-parse origin/main", { encoding: "utf8" }).trim();
+let originMainSha = null;
+let onBuyerMain = null;
+try {
+  originMainSha = execSync("git rev-parse origin/main", { encoding: "utf8" }).trim();
+  onBuyerMain = buyerMainSha === originMainSha;
+} catch {
+  // Shallow or fork checkouts may not have origin/main.
+}
+
+const quotesApiSource = readFileSync(join(ROOT, "src/lib/api/quotes.ts"), "utf8");
 const allowlist = readAllowlist();
 const boundQuoteRpcs = CORE_QUOTE_RPC_PREREQUISITES.filter((rpc) => allowlist.has(rpc));
 const missingQuoteRpcs = CORE_QUOTE_RPC_PREREQUISITES.filter((rpc) => !allowlist.has(rpc));
+const missingExecutableRpcs = CORE_QUOTE_RPC_PREREQUISITES.filter((rpc) => !hasCallRpcInvocation(quotesApiSource, rpc));
 
 const commerceSurfaces = [];
 const quoteMentions = [];
@@ -62,8 +76,11 @@ for (const file of walk(join(ROOT, "src"))) {
 
   if (!isTestFile && !rel.endsWith("src/types/quote-contract.ts") && !rel.endsWith("src/types/database.types.ts")) {
     for (const rpc of CORE_QUOTE_RPC_PREREQUISITES) {
-      const invocation = new RegExp(`(?:\\.rpc|callRpc)\\(\\s*['"]${rpc}['"]`);
-      if (invocation.test(source) && !allowlist.has(rpc)) {
+      const invokesRpc =
+        hasCallRpcInvocation(source, rpc) ||
+        source.includes(`.rpc("${rpc}"`) ||
+        source.includes(`.rpc('${rpc}'`);
+      if (invokesRpc && !allowlist.has(rpc)) {
         shadowFindings.push(`${rel} invokes unbound RPC ${rpc}`);
       }
     }
@@ -77,7 +94,7 @@ for (const file of walk(join(ROOT, "src"))) {
 const report = {
   buyerMainSha,
   originMainSha,
-  onBuyerMain: buyerMainSha === originMainSha,
+  onBuyerMain,
   census: {
     quoteMentionCount: quoteMentions.length,
     quoteMentionFiles: [...new Set(quoteMentions.map((row) => row.file))].sort(),
@@ -87,7 +104,8 @@ const report = {
   coreAuthority: {
     boundQuoteRpcs,
     missingQuoteRpcs,
-    buyerQuoteBackendAvailable: missingQuoteRpcs.length === 0,
+    missingExecutableRpcs,
+    buyerQuoteBackendAvailable: missingQuoteRpcs.length === 0 && missingExecutableRpcs.length === 0,
   },
   risks: {
     shadowFindings,
@@ -116,6 +134,13 @@ if (missingQuoteRpcs.length) {
     `BLOCKED — Core prerequisite missing (${missingQuoteRpcs.length} RPCs). Buyer quotation flow remains fail-closed.`
   );
   process.exit(2);
+}
+
+if (missingExecutableRpcs.length) {
+  console.error(
+    `P106 census failed: ${missingExecutableRpcs.length} quotation RPC(s) are allowlisted but not invoked via callRpc in src/lib/api/quotes.ts.`
+  );
+  process.exit(1);
 }
 
 console.log("P106 census passed: quote RPCs are bound and no shadow authority was detected.");

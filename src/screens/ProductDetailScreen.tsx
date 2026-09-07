@@ -87,10 +87,8 @@ export function ProductDetailScreen({ navigation, route }: Props) {
         idempotencyKey: requestKey,
         lines: [{ product_id: product.product_id, quantity }],
       });
-      if (!result.already_applied) {
-        await clearQuoteRequestIdempotencyKey();
-        setRequestKey(await getQuoteRequestIdempotencyKey());
-      }
+      await clearQuoteRequestIdempotencyKey();
+      setRequestKey(await getQuoteRequestIdempotencyKey());
       navigation.navigate("QuotationDetail", {
         quotationId: result.quotation_id,
         quotationNumber: result.quotation_number,

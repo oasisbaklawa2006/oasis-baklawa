@@ -106,11 +106,9 @@ export function QuotationDetailScreen({ route }: Props) {
         versionNumber: detail.current_version,
         idempotencyKey: acceptKey,
       });
-      if (!result.already_applied) {
-        await clearQuoteAcceptIdempotencyKey(quotationId);
-        const nextKey = await getQuoteAcceptIdempotencyKey(quotationId);
-        setAcceptKey(nextKey);
-      }
+      await clearQuoteAcceptIdempotencyKey(quotationId);
+      const nextAcceptKey = await getQuoteAcceptIdempotencyKey(quotationId);
+      setAcceptKey(nextAcceptKey);
       setHandoffId(result.handoff_id);
       setNotice(
         result.handoff_status === "pending"
@@ -136,16 +134,14 @@ export function QuotationDetailScreen({ route }: Props) {
     setDeclining(true);
     setNotice(null);
     try {
-      const result = await customerGateway.declineQuotation({
+      await customerGateway.declineQuotation({
         quotationId: detail.quotation_id,
         versionNumber: detail.current_version,
         idempotencyKey: declineKey,
       });
-      if (!result.already_applied) {
-        await clearQuoteDeclineIdempotencyKey(quotationId);
-        const nextKey = await getQuoteDeclineIdempotencyKey(quotationId);
-        setDeclineKey(nextKey);
-      }
+      await clearQuoteDeclineIdempotencyKey(quotationId);
+      const nextDeclineKey = await getQuoteDeclineIdempotencyKey(quotationId);
+      setDeclineKey(nextDeclineKey);
       setNotice("Quotation declined.");
       await load();
     } catch (e) {

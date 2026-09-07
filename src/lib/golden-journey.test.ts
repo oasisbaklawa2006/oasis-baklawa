@@ -126,7 +126,8 @@ describe("golden journey invariants", () => {
   it("routes Oasis Genie parsed lines through governed draft handoff", () => {
     const source = readFileSync(join(ROOT, "screens/AiOrderScreen.tsx"), "utf8");
     assert.match(source, /resolveGenieLines/);
-    assert.match(source, /addCustomerOrderDraftLine/);
+    assert.match(source, /commitGenieResolvedLineToDraft/);
+    assert.match(source, /genieDraftLineWriter/);
     assert.match(source, /navigation\.navigate\("Cart"\)/);
     assert.match(source, /Clarify:/);
   });

@@ -8,13 +8,8 @@ import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { Screen } from "@/components/Screen";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
-import { addCustomerOrderDraftLine } from "@/lib/api/draft";
-import {
-  clearGenieDraftLineCommit,
-  clearGenieDraftLineCommits,
-  isGenieDraftLineCommitted,
-  markGenieDraftLineCommitted,
-} from "@/lib/genie-draft-line-commit";
+import { commitGenieResolvedLineToDraft, clearGenieDraftLineCommits } from "@/lib/genie-draft-line-commit";
+import { genieDraftLineWriter } from "@/lib/genie-draft-line-writer";
 import { parseGenieIntake } from "@/lib/genie-intake";
 import { createIdempotencyKey } from "@/lib/idempotency";
 import {
@@ -130,7 +125,6 @@ export function AiOrderScreen({ navigation }: Props) {
   }
 
   function updateLine(index: number, patch: Partial<ParsedLine>) {
-    void clearGenieDraftLineCommit(getStableLineId(index));
     setReviewLines((prev) => {
       if (!prev) return prev;
       const next = prev.map((line, i) => (i === index ? { ...line, ...patch } : line));
@@ -168,14 +162,14 @@ export function AiOrderScreen({ navigation }: Props) {
     setNotice(null);
     try {
       for (const line of resolvedLines) {
-        const commitLine = {
-          lineId: line.lineId,
-          productId: line.product.product_id,
-          normalizedQuantity: line.normalizedQuantity,
-        };
-        if (await isGenieDraftLineCommitted(commitLine)) continue;
-        await addCustomerOrderDraftLine(line.product.product_id, line.normalizedQuantity);
-        await markGenieDraftLineCommitted(commitLine);
+        await commitGenieResolvedLineToDraft(
+          {
+            lineId: line.lineId,
+            productId: line.product.product_id,
+            normalizedQuantity: line.normalizedQuantity,
+          },
+          genieDraftLineWriter
+        );
       }
       resetReview();
       navigation.navigate("Cart");

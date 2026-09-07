@@ -9,10 +9,12 @@ import { ErrorState, LoadingState } from "@/components/StateViews";
 import { useNetwork } from "@/context/NetworkContext";
 import { calculateCustomerAdvance, submitCustomerOrder } from "@/lib/api/checkout";
 import { getCustomerOrderDraft } from "@/lib/api/draft";
+import { fetchBuyerProductPrices } from "@/lib/api/catalogue";
+import { validateDraftLinesAgainstPrices } from "@/lib/buyer-commercial-validation";
 import { clearCheckoutIdempotencyKey, resolveCheckoutIdempotencyKey } from "@/lib/checkout-idempotency";
 import { formatAdvanceDisplay, isCheckoutSubmitEnabled, type AdvanceLoadState } from "@/lib/checkout-submit-guards";
 import { parseRpcError } from "@/lib/rpc-errors";
-import type { CustomerOrderDraft } from "@/types/database.types";
+import type { BuyerProductPrice, CustomerOrderDraft } from "@/types/database.types";
 import { colors, spacing, typography } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Checkout">;
@@ -21,6 +23,7 @@ export function CheckoutScreen({ navigation }: Props) {
   const { isOnline } = useNetwork();
   const submitInFlightRef = useRef(false);
   const [draft, setDraft] = useState<CustomerOrderDraft | null>(null);
+  const [pricesByProduct, setPricesByProduct] = useState<Record<string, BuyerProductPrice>>({});
   const [advanceState, setAdvanceState] = useState<AdvanceLoadState>({ status: "loading" });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -38,8 +41,9 @@ export function CheckoutScreen({ navigation }: Props) {
     setAdvanceState({ status: "loading" });
 
     try {
-      const draftData = await getCustomerOrderDraft();
+      const [draftData, prices] = await Promise.all([getCustomerOrderDraft(), fetchBuyerProductPrices()]);
       setDraft(draftData);
+      setPricesByProduct(Object.fromEntries(prices.map((price) => [price.product_id, price])));
 
       if (!draftData?.draft_id) {
         setIdempotencyKey(null);
@@ -87,6 +91,13 @@ export function CheckoutScreen({ navigation }: Props) {
   const resolvedAdvance = advanceState.status === "resolved" ? advanceState.amount : 0;
   const balance = useMemo(() => Math.max(0, orderValue - resolvedAdvance), [orderValue, resolvedAdvance]);
 
+  const commercialValidation = useMemo(() => {
+    if (!draft?.lines.length) {
+      return { orderable: false, message: "Cart is empty." };
+    }
+    return validateDraftLinesAgainstPrices(draft.lines, pricesByProduct);
+  }, [draft, pricesByProduct]);
+
   const canSubmit = isCheckoutSubmitEnabled({
     checkoutReady: draft?.is_checkout_ready ?? false,
     orderValue,
@@ -95,6 +106,7 @@ export function CheckoutScreen({ navigation }: Props) {
     idempotencyKey,
     keyPersisted,
     advanceState,
+    commercialValidationPassed: commercialValidation.orderable,
     isOnline,
   });
 
@@ -161,6 +173,13 @@ export function CheckoutScreen({ navigation }: Props) {
             {!draft?.is_checkout_ready ? (
               <Text style={styles.warning} accessibilityRole="alert">
                 Your cart is not checkout-ready. Return to the cart and fix MOQ/carton issues.
+              </Text>
+            ) : null}
+
+            {!commercialValidation.orderable ? (
+              <Text style={styles.warning} accessibilityRole="alert">
+                {commercialValidation.message ??
+                  "Current pricing rules are unavailable. Return to the cart and refresh before checkout."}
               </Text>
             ) : null}
 

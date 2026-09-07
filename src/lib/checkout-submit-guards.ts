@@ -11,9 +11,13 @@ export function isCheckoutSubmitEnabled(params: {
   idempotencyKey: string | null;
   keyPersisted: boolean;
   advanceState: AdvanceLoadState;
+  commercialValidationPassed?: boolean;
   isOnline?: boolean;
 }): boolean {
   if (params.isOnline === false) {
+    return false;
+  }
+  if (params.commercialValidationPassed === false) {
     return false;
   }
   if (!params.checkoutReady || params.orderValue <= 0 || params.submitting || !params.keyReady) {

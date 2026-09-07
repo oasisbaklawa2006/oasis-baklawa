@@ -108,6 +108,13 @@ describe("golden journey invariants", () => {
     assert.match(detailSource, /Product not found in the published catalogue/);
   });
 
+  it("binds order surfaces to governed commercial validation contract", () => {
+    for (const file of ["screens/CatalogueScreen.tsx", "screens/CartScreen.tsx", "screens/CheckoutScreen.tsx"]) {
+      const source = readFileSync(join(ROOT, file), "utf8");
+      assert.match(source, /buyer-commercial-validation/);
+    }
+  });
+
   it("exposes five buyer tabs in MainTabNavigator", () => {
     const navSource = readFileSync(join(ROOT, "navigation/MainTabNavigator.tsx"), "utf8");
     for (const tab of ["Catalogue", "Orders", "Dashboard", "Support", "Account"]) {

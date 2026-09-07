@@ -22,6 +22,9 @@ const STACK_ROUTES = [
   "Cart",
   "Checkout",
   "Documents",
+  "Quotations",
+  "QuotationDetail",
+  "OrderPayment",
   "SessionRecovery",
 ] as const;
 
@@ -74,6 +77,20 @@ describe("golden journey invariants", () => {
     assert.doesNotMatch(source, /orderId:\s*""/);
   });
 
+  it("loads governed quotations through customerGateway", () => {
+    const source = readFileSync(join(ROOT, "screens/QuotationsScreen.tsx"), "utf8");
+    assert.match(source, /customerGateway\.quotations\(\)/);
+    assert.doesNotMatch(source, /isQuoteBackendAvailable/);
+  });
+
+  it("accepts quotations via governed handoff without checkout navigation", () => {
+    const source = readFileSync(join(ROOT, "screens/QuotationDetailScreen.tsx"), "utf8");
+    assert.match(source, /acceptQuotation/);
+    assert.match(source, /getQuoteAcceptIdempotencyKey/);
+    assert.doesNotMatch(source, /navigate\("Checkout"\)/);
+    assert.doesNotMatch(source, /submit_customer_order_v1/);
+  });
+
   it("registers all stack routes in RootNavigator", () => {
     const navSource = readFileSync(join(ROOT, "navigation/RootNavigator.tsx"), "utf8");
     for (const route of STACK_ROUTES) {
@@ -92,11 +109,55 @@ describe("golden journey invariants", () => {
     assert.match(detailSource, /Product not found in the published catalogue/);
   });
 
+  it("binds order surfaces to governed commercial validation contract", () => {
+    for (const file of ["screens/CatalogueScreen.tsx", "screens/CartScreen.tsx", "screens/CheckoutScreen.tsx"]) {
+      const source = readFileSync(join(ROOT, file), "utf8");
+      assert.match(source, /buyer-commercial-validation/);
+    }
+  });
+
   it("exposes five buyer tabs in MainTabNavigator", () => {
     const navSource = readFileSync(join(ROOT, "navigation/MainTabNavigator.tsx"), "utf8");
     for (const tab of ["Catalogue", "Orders", "Dashboard", "Support", "Account"]) {
       assert.match(navSource, new RegExp(`name="${tab}"`));
     }
+  });
+
+  it("routes Oasis Genie parsed lines through governed draft handoff", () => {
+    const source = readFileSync(join(ROOT, "screens/AiOrderScreen.tsx"), "utf8");
+    assert.match(source, /resolveGenieLines/);
+    assert.match(source, /commitGenieResolvedLineToDraft/);
+    assert.match(source, /genieDraftLineWriter/);
+    assert.match(source, /navigation\.navigate\("Cart"\)/);
+    assert.match(source, /Clarify:/);
+  });
+
+  it("consumes server finance facts in payment boundary without simulated success", () => {
+    const paymentScreen = readFileSync(join(ROOT, "screens/OrderPaymentScreen.tsx"), "utf8");
+    const flowSource = readFileSync(join(ROOT, "lib/payment-gateway-flow.ts"), "utf8");
+    assert.match(paymentScreen, /resolvePaymentGatewayBoundary/);
+    assert.match(paymentScreen, /initiateGovernedPayment/);
+    assert.match(paymentScreen, /customerGateway\.financeFacts/);
+    assert.match(paymentScreen, /never marks payment success locally/i);
+    assert.match(flowSource, /fetchPaymentGatewayPayableStatus/);
+    assert.match(flowSource, /createPaymentGatewayPayableIntent/);
+  });
+
+  it("routes Genie multimodal intake through governed adapter", () => {
+    const source = readFileSync(join(ROOT, "lib/genie-intake.ts"), "utf8");
+    assert.match(source, /parseGenieIntake/);
+    assert.match(source, /DocumentPicker/);
+    assert.match(source, /ImagePicker/);
+    assert.match(readFileSync(join(ROOT, "screens/AiOrderScreen.tsx"), "utf8"), /parseGenieIntake/);
+  });
+
+  it("surfaces payable navigation from order detail and dashboard alerts", () => {
+    const orderDetail = readFileSync(join(ROOT, "screens/OrderDetailScreen.tsx"), "utf8");
+    const dashboard = readFileSync(join(ROOT, "screens/DashboardScreen.tsx"), "utf8");
+    assert.match(orderDetail, /navigate\("OrderPayment"/);
+    assert.match(orderDetail, /verified_payment_amount/);
+    assert.match(dashboard, /navigate\("AiOrder"\)/);
+    assert.match(dashboard, /navigate\("OrderPayment"/);
   });
 });
 

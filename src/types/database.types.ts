@@ -144,6 +144,63 @@ export type Database = {
         };
         Returns: SubmitCustomerGeneralQueryResult[];
       };
+      customer_quotations_v1: {
+        Args: Record<string, never>;
+        Returns: CustomerQuotationSummaryRow[];
+      };
+      customer_quotation_detail_v1: {
+        Args: { p_quotation_id: string };
+        Returns: CustomerQuotationDetailRow[];
+      };
+      customer_quotation_lines_v1: {
+        Args: { p_quotation_id: string };
+        Returns: CustomerQuotationLineRow[];
+      };
+      submit_customer_quotation_request_v1: {
+        Args: {
+          p_idempotency_key: string;
+          p_lines: Json;
+          p_notes?: string | null;
+        };
+        Returns: SubmitCustomerQuotationRequestResultRow[];
+      };
+      accept_customer_quotation_v1: {
+        Args: {
+          p_quotation_id: string;
+          p_version_number: number;
+          p_idempotency_key: string;
+        };
+        Returns: AcceptCustomerQuotationResultRow[];
+      };
+      decline_customer_quotation_v1: {
+        Args: {
+          p_quotation_id: string;
+          p_version_number: number;
+          p_idempotency_key: string;
+          p_reason?: string | null;
+        };
+        Returns: DeclineCustomerQuotationResultRow[];
+      };
+      create_payment_gateway_payable_intent_v1: {
+        Args: {
+          p_order_id: string;
+          p_pi_id: string;
+          p_commercial_version_id: string;
+          p_payment_purpose: string;
+          p_provider_code: string;
+          p_correlation_id: string;
+          p_idempotency_key: string;
+        };
+        Returns: CreatePaymentGatewayIntentResultRow[];
+      };
+      get_payment_gateway_payable_status_v1: {
+        Args: { p_intent_id: string };
+        Returns: Json;
+      };
+      get_sales_order_pi_final_payment_request_v1: {
+        Args: { p_order_id: string };
+        Returns: Json;
+      };
     };
   };
 };
@@ -161,6 +218,7 @@ export interface PublishedProduct {
   storage_type: string | null;
   shelf_life: string | null;
   shelf_life_days: number | null;
+  lead_time_days: number | null;
   dietary_tags: string[] | null;
   allergen_warnings: string | null;
   primary_uom: string | null;
@@ -470,4 +528,108 @@ export interface SubmitCustomerGeneralQueryResult {
   query_id: string;
   status: string;
   is_duplicate_submission: boolean;
+}
+
+export interface CustomerQuotationSummaryRow {
+  quotation_id: string;
+  quotation_number: string;
+  status: string;
+  current_version: number;
+  quotation_value: number;
+  advance_required: number;
+  expires_at: string;
+  is_actionable: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CustomerQuotationDetailRow {
+  quotation_id: string;
+  quotation_number: string;
+  status: string;
+  current_version: number;
+  version_id: string;
+  quotation_value: number;
+  advance_required: number;
+  expires_at: string;
+  is_actionable: boolean;
+  request_notes: string | null;
+  terms_snapshot: Json;
+  commercial_snapshot: Json;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CustomerQuotationLineRow {
+  line_id: string;
+  product_id: string;
+  sku: string | null;
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  line_total: number;
+  currency: string;
+  uom: string | null;
+  gst_rate: number | null;
+  tax_inclusive: boolean;
+  minimum_order_quantity: number | null;
+  order_increment: number | null;
+  min_carton_qty: number | null;
+  version_number: number;
+}
+
+export interface SubmitCustomerQuotationRequestResultRow {
+  quotation_id: string;
+  quotation_number: string;
+  version_number: number;
+  quotation_value: number;
+  advance_required: number;
+  status: string;
+  expires_at: string;
+  already_applied: boolean;
+}
+
+export interface AcceptCustomerQuotationResultRow {
+  quotation_id: string;
+  handoff_id: string;
+  version_number: number;
+  handoff_status: string;
+  already_applied: boolean;
+}
+
+export interface DeclineCustomerQuotationResultRow {
+  quotation_id: string;
+  status: string;
+  version_number: number;
+  already_applied: boolean;
+}
+
+export interface CreatePaymentGatewayIntentResultRow {
+  intent_id: string;
+  canonical_amount: number;
+  currency: string;
+  status: string;
+  already_created: boolean;
+}
+
+export interface CustomerFinalPaymentRequest {
+  order_id: string;
+  available: boolean;
+  final_payment_request_id: string | null;
+  pi_id: string | null;
+  customer_visible_pi_number: string | null;
+  revision_number: number | null;
+  effective_status: string | null;
+  commercial_version_id: string | null;
+  currency: string | null;
+  final_payable_total: number | null;
+  verified_payment_total: number | null;
+  wallet_applied_total: number | null;
+  approved_credit_total: number | null;
+  credited_or_paid_total: number | null;
+  balance_due: number | null;
+  settled: boolean | null;
+  payment_action: string | null;
+  payment_instructions: string | null;
+  customer_safe_projection: boolean;
 }

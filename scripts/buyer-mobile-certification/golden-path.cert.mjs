@@ -19,6 +19,19 @@ import {
   PUBLISHED_PRODUCT_FIELDS,
 } from "./product-publication-allowlist.mjs";
 
+const QUOTATION_SUMMARY_FIELDS = new Set([
+  "quotation_id",
+  "quotation_number",
+  "status",
+  "current_version",
+  "quotation_value",
+  "advance_required",
+  "expires_at",
+  "is_actionable",
+  "created_at",
+  "updated_at",
+]);
+
 const READ_RPCS = [
   "published_products_v1",
   "buyer_product_prices_v1",
@@ -30,6 +43,7 @@ const READ_RPCS = [
   "customer_general_queries_v1",
   "customer_support_tickets_v1",
   "customer_order_status_v1",
+  "customer_quotations_v1",
 ];
 
 const sessionFile = process.env.BUYER_CERT_SESSION_FILE;
@@ -218,6 +232,18 @@ try {
       });
       if (!customerSafeKeysOnly) {
         results.push({ rpc: "buyer_product_prices_v1_projection", ok: false, detail: "unsafe buyer-price projection keys detected" });
+      }
+    }
+
+    if (rpc === "customer_quotations_v1" && Array.isArray(data)) {
+      const customerSafeKeysOnly = allRowsHaveCustomerSafeKeysOnly(data, QUOTATION_SUMMARY_FIELDS);
+      evidence.projectionChecks.push({
+        surface: "customer_quotations",
+        rowCount: data.length,
+        customerSafeKeysOnly,
+      });
+      if (!customerSafeKeysOnly) {
+        results.push({ rpc: "customer_quotations_v1_projection", ok: false, detail: "unsafe quotation projection keys detected" });
       }
     }
   }

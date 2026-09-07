@@ -49,6 +49,24 @@ describe("golden-path projection checks", () => {
     assert.equal(allRowsHaveCustomerSafeKeysOnly(["not-an-object"], PRODUCT_FIELDS), false);
   });
 
+  it("accepts lead_time_days on published catalogue rows", () => {
+    assert.equal(
+      allRowsHaveCustomerSafeKeysOnly(
+        [
+          {
+            product_id: "p-1",
+            sku: "SKU-1",
+            product_name: "Katli",
+            created_at: "2026-09-01T00:00:00Z",
+            lead_time_days: 7,
+          },
+        ],
+        PUBLISHED_PRODUCT_FIELDS
+      ),
+      true
+    );
+  });
+
   it("rejects publication_state and is_published on buyer-price rows", () => {
     const safePrice = {
       product_id: "p-1",

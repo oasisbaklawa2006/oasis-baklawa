@@ -95,6 +95,11 @@ export function AccountScreen({ navigation }: Props) {
         <Text style={styles.chevron}>›</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity style={styles.linkRow} onPress={() => navigation.navigate("Quotations")} accessibilityRole="button">
+        <Text style={styles.linkText}>Quotations</Text>
+        <Text style={styles.chevron}>›</Text>
+      </TouchableOpacity>
+
       <Text style={styles.section}>Team access</Text>
       <FlatList
         data={team}

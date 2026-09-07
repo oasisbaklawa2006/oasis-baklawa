@@ -145,6 +145,23 @@ export function OrdersScreen({ navigation, route }: Props) {
                     </Text>
                   ) : null}
 
+                  {item.payment_stage.toLowerCase().includes("advance") ||
+                  item.payment_stage.toLowerCase().includes("pending") ? (
+                    <TouchableOpacity
+                      style={styles.payLink}
+                      onPress={() =>
+                        navigation.navigate("OrderPayment", {
+                          orderId: item.order_id,
+                          orderNumber: item.order_number,
+                        })
+                      }
+                      accessibilityRole="button"
+                      accessibilityLabel={`View payable state for order ${item.order_number}`}
+                    >
+                      <Text style={styles.payLinkText}>View payable state</Text>
+                    </TouchableOpacity>
+                  ) : null}
+
                   {orderItems.length > 0 ? (
                     <TouchableOpacity onPress={() => setExpandedOrderId(expanded ? null : item.order_id)}>
                       <Text style={styles.itemsToggle}>{expanded ? "Hide line items" : "Show line items"}</Text>
@@ -190,6 +207,8 @@ const styles = StyleSheet.create({
   timelineLabelActive: { fontFamily: typography.fontFamilySansSemiBold, color: colors.textPrimary },
   dispatchDate: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textSecondary, marginTop: 10 },
   tracking: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted, marginTop: spacing.md },
+  payLink: { marginTop: spacing.sm, minHeight: 44, justifyContent: "center" },
+  payLinkText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.action },
   itemsToggle: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.action, marginTop: spacing.md },
   itemLine: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textSecondary, marginTop: 4 },
   successCard: { backgroundColor: colors.successSurface, borderRadius: 12, padding: 14, marginBottom: spacing.md },

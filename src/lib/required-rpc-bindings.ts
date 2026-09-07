@@ -1,0 +1,23 @@
+/** Governed RPC bindings required in buyer gateway/api layers and contract boundary. */
+export const REQUIRED_RPC_BINDINGS = [
+  "published_products_v1",
+  "buyer_product_prices_v1",
+  "customer_sales_order_commercial_facts_v1",
+  "customer_order_finance_facts_v1",
+  "customer_proforma_invoice_facts_v1",
+  "customer_documents_v1",
+  "customer_statement_v1",
+  "customer_product_favourites_v1",
+  "set_customer_product_favourite_v1",
+  "customer_general_queries_v1",
+  "submit_customer_general_query_v1",
+  "customer_quotations_v1",
+  "customer_quotation_detail_v1",
+  "customer_quotation_lines_v1",
+  "submit_customer_quotation_request_v1",
+  "accept_customer_quotation_v1",
+  "decline_customer_quotation_v1",
+  "create_payment_gateway_payable_intent_v1",
+  "get_payment_gateway_payable_status_v1",
+  "get_sales_order_pi_final_payment_request_v1",
+] as const;

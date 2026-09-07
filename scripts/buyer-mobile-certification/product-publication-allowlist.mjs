@@ -11,6 +11,7 @@ export const PUBLISHED_PRODUCT_FIELDS = new Set([
   "storage_type",
   "shelf_life",
   "shelf_life_days",
+  "lead_time_days",
   "dietary_tags",
   "allergen_warnings",
   "primary_uom",

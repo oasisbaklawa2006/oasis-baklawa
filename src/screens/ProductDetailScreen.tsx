@@ -9,8 +9,13 @@ import { Screen } from "@/components/Screen";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
 import { addCustomerOrderDraftLine } from "@/lib/api/draft";
+import { defaultOrderQuantity, resolveCommercialRules, validateOrderQuantity } from "@/lib/buyer-commercial-validation";
 import { nextValidQuantity } from "@/lib/draft-utils";
+import { clearQuoteRequestIdempotencyKey, getQuoteRequestIdempotencyKey, type ResolvedQuoteIdempotency } from "@/lib/quote-idempotency";
+import { isQuoteRequestEnabled } from "@/lib/quote-guards";
 import { parseRpcError } from "@/lib/rpc-errors";
+import { customerGateway } from "@/services/customerGateway";
+import { useNetwork } from "@/context/NetworkContext";
 import { useCustomerFavourites } from "@/hooks/useCustomerFavourites";
 import { colors, spacing, typography } from "@/theme";
 
@@ -27,12 +32,15 @@ function formatMoney(value: number, currency: string) {
 export function ProductDetailScreen({ navigation, route }: Props) {
   const { productId } = route.params;
   const { isApprovedBuyer } = useBuyerSession();
+  const { isOnline } = useNetwork();
   const { isFavourite, toggleFavourite } = useCustomerFavourites();
   const [product, setProduct] = useState<CatalogueProduct | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [adding, setAdding] = useState(false);
+  const [requestingQuote, setRequestingQuote] = useState(false);
+  const [requestKey, setRequestKey] = useState<ResolvedQuoteIdempotency | null>(null);
   const [favouriteBusy, setFavouriteBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -44,7 +52,10 @@ export function ProductDetailScreen({ navigation, route }: Props) {
       const match = catalogue.find((p) => p.product_id === productId) ?? null;
       setProduct(match);
       if (match) {
-        setQuantity(match.price?.minimum_order_quantity ?? 1);
+        const moq = defaultOrderQuantity(match.price);
+        if (moq !== null) {
+          setQuantity(moq);
+        }
       }
       if (!match) setError("Product not found in the published catalogue.");
     } catch (e) {
@@ -58,16 +69,65 @@ export function ProductDetailScreen({ navigation, route }: Props) {
     load();
   }, [load]);
 
-  const moq = product?.price?.minimum_order_quantity ?? 1;
-  const increment = product?.price?.order_increment ?? 1;
+  useEffect(() => {
+    if (!isApprovedBuyer) return;
+    void getQuoteRequestIdempotencyKey().then(setRequestKey);
+  }, [isApprovedBuyer]);
+
+  const commercial = resolveCommercialRules(product?.price);
+  const moq = commercial.rules?.moq ?? 0;
+  const increment = commercial.rules?.increment ?? 0;
+  const canOrder = commercial.orderable && moq > 0 && increment > 0;
 
   const priceLabel = useMemo(() => {
     if (!product?.price) return null;
     return formatMoney(product.price.selling_price, product.price.currency);
   }, [product]);
 
+  async function requestQuotation() {
+    if (!product?.price || !requestKey?.key || !requestKey.persisted || !canOrder) return;
+    const quantityCheck = validateOrderQuantity(product.price, quantity);
+    if (!quantityCheck.orderable) {
+      setNotice(quantityCheck.message ?? "Quantity does not satisfy MOQ or carton rules.");
+      return;
+    }
+    setRequestingQuote(true);
+    setNotice(null);
+    try {
+      const result = await customerGateway.submitQuotationRequest({
+        idempotencyKey: requestKey.key,
+        lines: [{ product_id: product.product_id, quantity }],
+      });
+      await clearQuoteRequestIdempotencyKey();
+      setRequestKey(await getQuoteRequestIdempotencyKey());
+      navigation.navigate("QuotationDetail", {
+        quotationId: result.quotation_id,
+        quotationNumber: result.quotation_number,
+      });
+    } catch (e) {
+      setNotice(parseRpcError(e).message);
+    } finally {
+      setRequestingQuote(false);
+    }
+  }
+
+  const quantityCheck = validateOrderQuantity(product?.price, quantity);
+  const quoteRequestEnabled = isQuoteRequestEnabled({
+    lineCount: canOrder && quantityCheck.orderable ? 1 : 0,
+    submitting: requestingQuote,
+    keyReady: Boolean(requestKey?.key),
+    idempotencyKey: requestKey?.key ?? null,
+    keyPersisted: requestKey?.persisted ?? false,
+    isOnline,
+  });
+
   async function addToCart() {
-    if (!product?.price) return;
+    if (!product?.price || !canOrder) return;
+    const quantityCheck = validateOrderQuantity(product.price, quantity);
+    if (!quantityCheck.orderable) {
+      setNotice(quantityCheck.message ?? "Quantity does not satisfy MOQ or carton rules.");
+      return;
+    }
     setAdding(true);
     setNotice(null);
     try {
@@ -122,7 +182,7 @@ export function ProductDetailScreen({ navigation, route }: Props) {
                 {priceLabel} / {product.price?.uom}
               </Text>
             ) : (
-              <Text style={styles.unavailable}>Buyer pricing unavailable</Text>
+              <Text style={styles.unavailable}>{commercial.message ?? "Buyer pricing unavailable"}</Text>
             )}
             {product.short_description ? <Text style={styles.description}>{product.short_description}</Text> : null}
             {product.long_description ? <Text style={styles.description}>{product.long_description}</Text> : null}
@@ -132,6 +192,7 @@ export function ProductDetailScreen({ navigation, route }: Props) {
               <Text style={styles.fact}>Tags: {product.dietary_tags.join(", ")}</Text>
             ) : null}
 
+            {canOrder ? (
             <View style={styles.stepper}>
               <TouchableOpacity
                 style={styles.stepBtn}
@@ -152,14 +213,23 @@ export function ProductDetailScreen({ navigation, route }: Props) {
               </TouchableOpacity>
               <Text style={styles.moq}>MOQ {moq}</Text>
             </View>
+            ) : null}
 
             <TouchableOpacity
-              style={[styles.button, (!product.price || adding) && styles.buttonDisabled]}
-              disabled={!product.price || adding}
+              style={[styles.button, (!canOrder || adding) && styles.buttonDisabled]}
+              disabled={!canOrder || adding}
               onPress={addToCart}
               accessibilityRole="button"
             >
               <Text style={styles.buttonText}>{adding ? "Adding…" : "Add to cart"}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.secondaryButton, !quoteRequestEnabled && styles.buttonDisabled]}
+              disabled={!quoteRequestEnabled}
+              onPress={() => void requestQuotation()}
+              accessibilityRole="button"
+            >
+              <Text style={styles.secondaryButtonText}>{requestingQuote ? "Requesting…" : "Request quotation"}</Text>
             </TouchableOpacity>
             {notice ? <Text style={styles.notice}>{notice}</Text> : null}
             <TouchableOpacity style={styles.secondary} onPress={() => navigation.navigate("Cart")}>
@@ -207,6 +277,16 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.5 },
   buttonText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.white },
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: colors.action,
+    paddingVertical: spacing.md,
+    borderRadius: 10,
+    alignItems: "center",
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  secondaryButtonText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.action },
   notice: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textSecondary, textAlign: "center" },
   secondary: { paddingVertical: spacing.md, alignItems: "center" },
   secondaryText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.action },

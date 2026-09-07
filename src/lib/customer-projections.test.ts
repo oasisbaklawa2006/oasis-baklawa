@@ -148,6 +148,7 @@ describe("customer projections", () => {
         storage_type: null,
         shelf_life: null,
         shelf_life_days: null,
+        lead_time_days: null,
         dietary_tags: null,
         allergen_warnings: null,
         primary_uom: null,

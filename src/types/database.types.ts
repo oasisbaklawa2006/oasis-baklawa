@@ -198,6 +198,7 @@ export interface PublishedProduct {
   storage_type: string | null;
   shelf_life: string | null;
   shelf_life_days: number | null;
+  lead_time_days: number | null;
   dietary_tags: string[] | null;
   allergen_warnings: string | null;
   primary_uom: string | null;

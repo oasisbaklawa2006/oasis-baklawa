@@ -2,8 +2,10 @@ import { beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   clearQuoteAcceptIdempotencyKey,
+  clearQuoteDeclineIdempotencyKey,
   clearQuoteRequestIdempotencyKey,
   getQuoteAcceptIdempotencyKey,
+  getQuoteDeclineIdempotencyKey,
   getQuoteRequestIdempotencyKey,
   resetQuoteIdempotencyForTests,
 } from "./quote-idempotency";
@@ -22,13 +24,15 @@ describe("quote idempotency", () => {
     assert.notEqual(second, first);
   });
 
-  it("scopes accept idempotency per quotation", async () => {
-    const first = await getQuoteAcceptIdempotencyKey("quote-1");
-    const second = await getQuoteAcceptIdempotencyKey("quote-2");
-    assert.notEqual(first, second);
-    assert.equal(await getQuoteAcceptIdempotencyKey("quote-1"), first);
+  it("scopes accept and decline idempotency per quotation", async () => {
+    const acceptA = await getQuoteAcceptIdempotencyKey("quote-1");
+    const acceptB = await getQuoteAcceptIdempotencyKey("quote-2");
+    assert.notEqual(acceptA, acceptB);
     await clearQuoteAcceptIdempotencyKey("quote-1");
-    const third = await getQuoteAcceptIdempotencyKey("quote-1");
-    assert.notEqual(third, first);
+    assert.notEqual(await getQuoteAcceptIdempotencyKey("quote-1"), acceptA);
+
+    const declineA = await getQuoteDeclineIdempotencyKey("quote-1");
+    await clearQuoteDeclineIdempotencyKey("quote-1");
+    assert.notEqual(await getQuoteDeclineIdempotencyKey("quote-1"), declineA);
   });
 });

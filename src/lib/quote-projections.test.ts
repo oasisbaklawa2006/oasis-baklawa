@@ -2,89 +2,87 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   customerQuotationStatusLabel,
-  normalizeCustomerQuotation,
   normalizeCustomerQuotationDetail,
+  normalizeCustomerQuotationLine,
+  normalizeCustomerQuotationSummary,
   quotationExpiryLabel,
+  termsSnapshotLabel,
 } from "./quote-projections";
 
 describe("quote projections", () => {
-  it("normalizes only the customer-safe quotation projection", () => {
+  it("normalizes governed quotation list rows", () => {
     assert.deepEqual(
-      normalizeCustomerQuotation({
+      normalizeCustomerQuotationSummary({
         quotation_id: "quote-1",
         quotation_number: "QT2026/09-0001",
-        company_id: "company-1",
-        status: "ISSUED",
-        commercial_version_id: "version-1",
-        commercial_version_number: 2,
-        frozen_customer_total: 12500,
-        currency: "INR",
+        status: "issued",
+        current_version: 1,
+        quotation_value: 12500,
+        advance_required: 4000,
         expires_at: "2026-09-30T00:00:00Z",
-        issued_at: "2026-09-01T00:00:00Z",
+        is_actionable: true,
         created_at: "2026-09-01T00:00:00Z",
         updated_at: "2026-09-02T00:00:00Z",
-        customer_safe_projection: true,
-        internal_revision_token: "must-not-escape",
+        internal_field: "must-not-escape",
       }),
       {
         quotation_id: "quote-1",
         quotation_number: "QT2026/09-0001",
-        company_id: "company-1",
-        status: "ISSUED",
-        commercial_version_id: "version-1",
-        commercial_version_number: 2,
-        frozen_customer_total: 12500,
-        currency: "INR",
+        status: "issued",
+        current_version: 1,
+        quotation_value: 12500,
+        advance_required: 4000,
         expires_at: "2026-09-30T00:00:00Z",
-        issued_at: "2026-09-01T00:00:00Z",
+        is_actionable: true,
         created_at: "2026-09-01T00:00:00Z",
         updated_at: "2026-09-02T00:00:00Z",
-        customer_safe_projection: true,
       }
     );
-    assert.equal(normalizeCustomerQuotation({ quotation_id: "quote-1" }), null);
+    assert.equal(normalizeCustomerQuotationSummary({ quotation_id: "quote-1" }), null);
   });
 
-  it("bounds quotation detail lines to governed fields", () => {
+  it("normalizes detail and line facts from Core projections", () => {
     const detail = normalizeCustomerQuotationDetail({
       quotation_id: "quote-1",
       quotation_number: "QT2026/09-0001",
-      company_id: "company-1",
-      status: "ISSUED",
-      commercial_version_id: null,
-      commercial_version_number: null,
-      frozen_customer_total: 5000,
-      currency: "INR",
-      expires_at: null,
-      issued_at: "2026-09-01T00:00:00Z",
+      status: "expired",
+      current_version: 2,
+      version_id: "version-2",
+      quotation_value: 5000,
+      advance_required: 1000,
+      expires_at: "2026-09-01T00:00:00Z",
+      is_actionable: false,
+      request_notes: "Trial order",
+      terms_snapshot: { validity_days: 30, currency: "INR" },
+      commercial_snapshot: [],
       created_at: "2026-09-01T00:00:00Z",
       updated_at: "2026-09-01T00:00:00Z",
-      customer_safe_projection: true,
-      terms_summary: "Payment terms as per account",
-      lead_time_summary: "7-10 business days",
-      lines: [
-        {
-          quotation_id: "quote-1",
-          line_id: "line-1",
-          product_id: "product-1",
-          sku: "SKU-1",
-          product_name: "Baklawa Assorted",
-          quantity: 10,
-          unit_price: 500,
-          line_total: 5000,
-          uom: "BOX",
-          negotiated_margin: "must-not-escape",
-        },
-      ],
     });
-    assert.equal(detail?.lines.length, 1);
-    assert.equal(detail?.lines[0]?.line_total, 5000);
-    assert.equal(detail?.terms_summary, "Payment terms as per account");
+    assert.equal(detail?.status, "expired");
+    assert.equal(termsSnapshotLabel(detail?.terms_snapshot ?? null), "30-day validity · INR");
+
+    const line = normalizeCustomerQuotationLine({
+      line_id: "line-1",
+      product_id: "product-1",
+      sku: "SKU-1",
+      product_name: "Baklawa Assorted",
+      quantity: 10,
+      unit_price: 500,
+      line_total: 5000,
+      currency: "INR",
+      uom: "BOX",
+      gst_rate: 0,
+      tax_inclusive: true,
+      minimum_order_quantity: 10,
+      order_increment: 1,
+      min_carton_qty: null,
+      version_number: 2,
+    });
+    assert.equal(line?.line_total, 5000);
   });
 
-  it("formats status and expiry labels from governed fields only", () => {
-    assert.equal(customerQuotationStatusLabel("PENDING_REVIEW"), "PENDING REVIEW");
-    assert.equal(quotationExpiryLabel(null), "Validity pending review");
+  it("formats status and expiry labels", () => {
+    assert.equal(customerQuotationStatusLabel("superseded"), "superseded");
     assert.match(quotationExpiryLabel("2026-09-30T00:00:00Z"), /Valid until/);
   });
 });

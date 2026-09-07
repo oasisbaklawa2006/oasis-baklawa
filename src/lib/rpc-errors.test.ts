@@ -28,8 +28,13 @@ describe("parseRpcError", () => {
     assert.equal(parsed.code, "NETWORK");
   });
 
-  it("maps quote expiry from governed message", () => {
-    const parsed = parseRpcError({ message: "QUOTE_EXPIRED: quotation validity has ended" });
-    assert.equal(parsed.code, "QUOTE_EXPIRED");
+  it("maps quotation expiry from governed message", () => {
+    const parsed = parseRpcError({ message: "QUOTATION_EXPIRED" });
+    assert.equal(parsed.code, "QUOTATION_EXPIRED");
+  });
+
+  it("maps stale version to customer refresh guidance", () => {
+    const parsed = parseRpcError({ message: "QUOTATION_VERSION_STALE: current version is 2" });
+    assert.equal(parsed.code, "QUOTATION_VERSION_STALE");
   });
 });

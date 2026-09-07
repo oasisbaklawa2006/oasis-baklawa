@@ -23,6 +23,7 @@ const READ_RPCS = [
   "customer_general_queries_v1",
   "customer_support_tickets_v1",
   "customer_order_status_v1",
+  "customer_quotations_v1",
 ];
 
 const sessionFile = process.env.BUYER_CERT_SESSION_FILE;

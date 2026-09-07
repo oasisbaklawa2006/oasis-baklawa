@@ -11,6 +11,11 @@ const forbiddenTables = [
   "support_tickets",
   "tickets",
   "product_pricing_rules",
+  "customer_quotations",
+  "customer_quotation_versions",
+  "customer_quotation_lines",
+  "customer_quotation_acceptance_handoffs",
+  "customer_quotation_events",
 ];
 const allowedRpcs = new Set([
   "published_products_v1",
@@ -39,6 +44,12 @@ const allowedRpcs = new Set([
   "set_customer_product_favourite_v1",
   "customer_general_queries_v1",
   "submit_customer_general_query_v1",
+  "customer_quotations_v1",
+  "customer_quotation_detail_v1",
+  "customer_quotation_lines_v1",
+  "submit_customer_quotation_request_v1",
+  "accept_customer_quotation_v1",
+  "decline_customer_quotation_v1",
 ]);
 const violations = [];
 

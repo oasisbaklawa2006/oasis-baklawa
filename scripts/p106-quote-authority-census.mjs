@@ -60,10 +60,12 @@ for (const file of walk(join(ROOT, "src"))) {
     if (sourceLower.includes(term)) quoteMentions.push({ file: rel, term });
   }
 
-  if (!isTestFile && !rel.endsWith("src/types/quote-contract.ts")) {
+  if (!isTestFile && !rel.endsWith("src/types/quote-contract.ts") && !rel.endsWith("src/types/database.types.ts")) {
     for (const rpc of CORE_QUOTE_RPC_PREREQUISITES) {
       const invocation = new RegExp(`(?:\\.rpc|callRpc)\\(\\s*['"]${rpc}['"]`);
-      if (invocation.test(source)) shadowFindings.push(`${rel} invokes unbound RPC ${rpc}`);
+      if (invocation.test(source) && !allowlist.has(rpc)) {
+        shadowFindings.push(`${rel} invokes unbound RPC ${rpc}`);
+      }
     }
 
     if (/submit_customer_order_v1/.test(source) && /(?:accept|decline).{0,40}quotation|quotation.{0,40}accept/i.test(source)) {

@@ -1,5 +1,10 @@
 import { callRpc } from "@/lib/rpc";
 import {
+  createPaymentGatewayPayableIntent,
+  fetchPaymentGatewayPayableStatus,
+} from "@/lib/api/payment-gateway";
+import { fetchCustomerFinalPaymentRequest } from "@/lib/api/final-payment";
+import {
   acceptCustomerQuotation,
   declineCustomerQuotation,
   fetchCustomerQuotationDetail,
@@ -42,6 +47,11 @@ import type {
   SubmitCustomerGeneralQueryResult,
   SubmitSupportTicketInput,
 } from "@/types/database.types";
+import type {
+  CreatePaymentGatewayIntentInput,
+  CreatePaymentGatewayIntentResult,
+  PaymentGatewayPayableStatus,
+} from "@/types/payment-gateway-contract";
 
 export interface CatalogueProduct extends PublishedProduct {
   price?: BuyerProductPrice;
@@ -57,6 +67,7 @@ export const customerGateway = {
   commercialFacts: (): Promise<CustomerCommercialFacts[]> => callRpc("customer_sales_order_commercial_facts_v1"),
   financeFacts: async (orderId: string): Promise<CustomerFinanceFacts | null> =>
     normalizeCustomerFinanceFacts(await callRpc("customer_order_finance_facts_v1", { p_order_id: orderId })),
+  finalPaymentRequest: (orderId: string) => fetchCustomerFinalPaymentRequest(orderId),
   proformaInvoices: (): Promise<CustomerProformaInvoiceFacts[]> => callRpc("customer_proforma_invoice_facts_v1"),
   documents: (): Promise<CustomerDocument[]> => callRpc("customer_documents_v1"),
   statement: async (): Promise<CustomerStatement | null> =>
@@ -75,6 +86,10 @@ export const customerGateway = {
     acceptCustomerQuotation(input),
   declineQuotation: (input: DeclineCustomerQuotationInput): Promise<DeclineCustomerQuotationResult> =>
     declineCustomerQuotation(input),
+  createPaymentIntent: (input: CreatePaymentGatewayIntentInput): Promise<CreatePaymentGatewayIntentResult> =>
+    createPaymentGatewayPayableIntent(input),
+  paymentIntentStatus: (paymentIntentId: string): Promise<PaymentGatewayPayableStatus> =>
+    fetchPaymentGatewayPayableStatus(paymentIntentId),
   generalQueries: async (): Promise<CustomerGeneralQuery[]> => {
     const rows = await callRpc("customer_general_queries_v1");
     return (rows ?? [])

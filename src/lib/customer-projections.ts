@@ -3,6 +3,7 @@ import type {
   CustomerCommercialFacts,
   CustomerDocument,
   CustomerFinanceFacts,
+  CustomerFinalPaymentRequest,
   CustomerGeneralQuery,
   CustomerProformaInvoiceFacts,
   CustomerStatement,
@@ -140,6 +141,34 @@ export function normalizeCustomerFinanceFacts(value: unknown): CustomerFinanceFa
     finance_status: nullableString(value.finance_status),
     facts_as_of: nullableString(value.facts_as_of),
     customer_safe_projection: value.customer_safe_projection === true,
+  };
+}
+
+/** Normalizes buyer-safe final-payment PI revision facts from Core #255 authority. */
+export function normalizeCustomerFinalPaymentRequest(value: unknown): CustomerFinalPaymentRequest | null {
+  if (!isRecord(value)) return null;
+  const orderId = nullableString(value.order_id);
+  if (!orderId) return null;
+  return {
+    order_id: orderId,
+    available: value.available === true,
+    final_payment_request_id: nullableString(value.final_payment_request_id),
+    pi_id: nullableString(value.pi_id),
+    customer_visible_pi_number: nullableString(value.customer_visible_pi_number),
+    revision_number: nullableNumber(value.revision_number),
+    effective_status: nullableString(value.effective_status),
+    commercial_version_id: nullableString(value.commercial_version_id),
+    currency: nullableString(value.currency),
+    final_payable_total: nullableNumber(value.final_payable_total),
+    verified_payment_total: nullableNumber(value.verified_payment_total),
+    wallet_applied_total: nullableNumber(value.wallet_applied_total),
+    approved_credit_total: nullableNumber(value.approved_credit_total),
+    credited_or_paid_total: nullableNumber(value.credited_or_paid_total),
+    balance_due: nullableNumber(value.balance_due),
+    settled: nullableBoolean(value.settled),
+    payment_action: nullableString(value.payment_action),
+    payment_instructions: nullableString(value.payment_instructions),
+    customer_safe_projection: value.available === true || value.final_payment_request_id != null,
   };
 }
 

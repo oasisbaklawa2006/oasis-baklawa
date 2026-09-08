@@ -26,9 +26,10 @@ function requiredNumber(value: unknown): number | null {
   return n === null ? null : n;
 }
 
-function normalizeQuotationStatus(value: unknown): string {
+function normalizeQuotationStatus(value: unknown): string | null {
   const status = typeof value === "string" ? value.trim().toLowerCase() : "";
-  return QUOTATION_STATUSES.includes(status as (typeof QUOTATION_STATUSES)[number]) ? status : status || "issued";
+  if (!status) return null;
+  return QUOTATION_STATUSES.includes(status as (typeof QUOTATION_STATUSES)[number]) ? status : status;
 }
 
 export function normalizeCustomerQuotationSummary(value: unknown): CustomerQuotationSummary | null {
@@ -53,10 +54,12 @@ export function normalizeCustomerQuotationSummary(value: unknown): CustomerQuota
   ) {
     return null;
   }
+  const status = normalizeQuotationStatus(value.status);
+  if (!status) return null;
   return {
     quotation_id: quotationId,
     quotation_number: quotationNumber,
-    status: normalizeQuotationStatus(value.status),
+    status,
     current_version: currentVersion,
     quotation_value: quotationValue,
     advance_required: advanceRequired,
@@ -91,12 +94,14 @@ export function normalizeCustomerQuotationDetail(value: unknown): CustomerQuotat
   ) {
     return null;
   }
+  const status = normalizeQuotationStatus(value.status);
+  if (!status) return null;
   const termsSnapshot = isRecord(value.terms_snapshot) ? value.terms_snapshot : null;
   const commercialSnapshot = Array.isArray(value.commercial_snapshot) ? value.commercial_snapshot : null;
   return {
     quotation_id: quotationId,
     quotation_number: quotationNumber,
-    status: normalizeQuotationStatus(value.status),
+    status,
     current_version: currentVersion,
     version_id: versionId,
     quotation_value: quotationValue,

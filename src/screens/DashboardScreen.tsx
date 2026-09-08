@@ -6,13 +6,15 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { MainTabParamList, RootStackParamList } from "@/navigation/types";
 import { BuyerGate } from "@/components/BuyerGate";
 import { ProductImage } from "@/components/ProductImage";
+import { ErrorState, LoadingState } from "@/components/StateViews";
 import { Screen } from "@/components/Screen";
 import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { fetchPublishedProducts } from "@/lib/api/catalogue";
 import { fetchCustomerOrderStatus } from "@/lib/api/orders";
 import { isOpenFulfilmentStage } from "@/lib/order-stages";
 import { parseRpcError } from "@/lib/rpc-errors";
-import type { CustomerOrderStatus, PublishedProduct } from "@/types/database.types";
+import { customerGateway } from "@/services/customerGateway";
+import type { CustomerOrderStatus, CustomerStatement, PublishedProduct } from "@/types/database.types";
 import { colors, spacing, typography } from "@/theme";
 
 type Props = CompositeScreenProps<
@@ -29,20 +31,29 @@ export function DashboardScreen({ navigation }: Props) {
   const { snapshot } = useBuyerSession();
   const [products, setProducts] = useState<PublishedProduct[]>([]);
   const [orders, setOrders] = useState<CustomerOrderStatus[]>([]);
+  const [statement, setStatement] = useState<CustomerStatement | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setLoading(true);
     setError(null);
     try {
       const isApprovedBuyer = snapshot?.state === "approved_buyer";
-      const [productRows, orderRows] = await Promise.all([
+      const [productRows, orderRows, statementRow] = await Promise.all([
         fetchPublishedProducts(),
         isApprovedBuyer ? fetchCustomerOrderStatus() : Promise.resolve([]),
+        isApprovedBuyer
+          ? customerGateway.statement().catch(() => null)
+          : Promise.resolve(null),
       ]);
       setProducts(productRows);
       setOrders(orderRows);
+      setStatement(statementRow);
     } catch (e) {
       setError(parseRpcError(e).message);
+    } finally {
+      setLoading(false);
     }
   }, [snapshot?.state]);
 
@@ -73,11 +84,14 @@ export function DashboardScreen({ navigation }: Props) {
             <Text style={styles.bannerText}>{snapshot.message}</Text>
           </View>
         ) : null}
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {loading ? <LoadingState message="Loading your trade desk…" /> : null}
+        {error && !loading ? <ErrorState message={error} onRetry={load} /> : null}
 
         <View style={styles.quickActions}>
+          <ActionChip label="Oasis Genie" onPress={() => navigation.navigate("AiOrder")} />
           <ActionChip label="New Order" onPress={() => navigation.navigate("Catalogue")} />
           <ActionChip label="Quick Order" onPress={() => navigation.navigate("QuickOrder")} />
+          <ActionChip label="Quotations" onPress={() => navigation.navigate("Quotations")} />
           <ActionChip label="Track Order" onPress={() => navigation.navigate("Orders")} />
           <ActionChip label="Raise Ticket" onPress={() => navigation.navigate("Support")} />
         </View>
@@ -87,20 +101,38 @@ export function DashboardScreen({ navigation }: Props) {
           <StatCard label="Open orders" value={String(openOrders.length)} />
         </View>
 
-        <View style={styles.unavailableCard}>
-          <Text style={styles.unavailableTitle}>Wallet & credit</Text>
-          <Text style={styles.unavailableMessage}>
-            Credit pool and wallet balances are not yet exposed by a governed buyer contract. This section will populate when the backend contract is available.
-          </Text>
-        </View>
+        {statement?.statement_facts_only && statement.wallet_balance !== null ? (
+          <View style={styles.statCardWide}>
+            <Text style={styles.statLabel}>Wallet balance (statement facts)</Text>
+            <Text style={styles.statValue}>₹{statement.wallet_balance.toLocaleString("en-IN")}</Text>
+          </View>
+        ) : (
+          <View style={styles.unavailableCard}>
+            <Text style={styles.unavailableTitle}>Wallet & credit</Text>
+            <Text style={styles.unavailableMessage}>
+              Wallet balance appears here when customer_statement_v1 exposes governed wallet facts.
+            </Text>
+          </View>
+        )}
 
         {ordersNeedingAdvance.length > 0 ? (
           <View style={styles.alertCard}>
             <Text style={styles.alertTitle}>Sales orders requiring advance</Text>
             {ordersNeedingAdvance.slice(0, 3).map((o) => (
-              <Text key={o.order_id} style={styles.alertLine}>
-                #{o.order_number} · ₹{o.order_value.toLocaleString("en-IN")} · {o.payment_stage.replace(/_/g, " ")}
-              </Text>
+              <TouchableOpacity
+                key={o.order_id}
+                onPress={() =>
+                  navigation.navigate("OrderPayment", {
+                    orderId: o.order_id,
+                    orderNumber: o.order_number,
+                  })
+                }
+                accessibilityRole="button"
+              >
+                <Text style={styles.alertLine}>
+                  #{o.order_number} · ₹{o.order_value.toLocaleString("en-IN")} · {o.payment_stage.replace(/_/g, " ")}
+                </Text>
+              </TouchableOpacity>
             ))}
           </View>
         ) : null}
@@ -178,6 +210,7 @@ const styles = StyleSheet.create({
   chipText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.white },
   statsRow: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
   statCard: { flex: 1, backgroundColor: colors.surfacePremium, borderRadius: 12, padding: spacing.md },
+  statCardWide: { backgroundColor: colors.surfacePremium, borderRadius: 12, padding: spacing.md, marginTop: spacing.md },
   statLabel: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted },
   statValue: { fontFamily: typography.fontFamilySerifBold, fontSize: typography.sizeLg, color: colors.textPrimary, marginTop: 4 },
   alertCard: { backgroundColor: colors.successSurface, borderRadius: 12, padding: spacing.md, marginTop: spacing.md },

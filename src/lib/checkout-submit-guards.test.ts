@@ -37,6 +37,11 @@ describe("checkout submit guards", () => {
     );
   });
 
+  it("blocks submit when commercial validation fails", () => {
+    assert.equal(isCheckoutSubmitEnabled({ ...base, commercialValidationPassed: false }), false);
+    assert.equal(isCheckoutSubmitEnabled({ ...base, commercialValidationPassed: true }), true);
+  });
+
   it("allows submit for resolved zero advance", () => {
     assert.equal(
       isCheckoutSubmitEnabled({

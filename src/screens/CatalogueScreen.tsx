@@ -7,10 +7,11 @@ import type { MainTabParamList, RootStackParamList } from "@/navigation/types";
 import { BuyerGate } from "@/components/BuyerGate";
 import { ProductImage } from "@/components/ProductImage";
 import { Screen } from "@/components/Screen";
-import { LoadingState } from "@/components/StateViews";
+import { ErrorState, LoadingState } from "@/components/StateViews";
 import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
 import { addCustomerOrderDraftLine } from "@/lib/api/draft";
+import { defaultOrderQuantity, resolveCommercialRules, validateOrderQuantity } from "@/lib/buyer-commercial-validation";
 import { nextValidQuantity } from "@/lib/draft-utils";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { useCustomerFavourites } from "@/hooks/useCustomerFavourites";
@@ -42,8 +43,10 @@ export function CatalogueScreen({ navigation }: Props) {
       setProducts(rows);
       const initialQuantities: Record<string, number> = {};
       rows.forEach((product) => {
-        const moq = product.price?.minimum_order_quantity ?? 1;
-        initialQuantities[product.product_id] = moq;
+        const moq = defaultOrderQuantity(product.price);
+        if (moq !== null) {
+          initialQuantities[product.product_id] = moq;
+        }
       });
       setQuantities(initialQuantities);
     } catch (e) {
@@ -86,8 +89,17 @@ export function CatalogueScreen({ navigation }: Props) {
   }
 
   async function addToCart(product: CatalogueProduct) {
-    const moq = product.price?.minimum_order_quantity ?? 1;
-    const qty = quantities[product.product_id] ?? moq;
+    const commercial = resolveCommercialRules(product.price);
+    if (!commercial.orderable || !commercial.rules) {
+      setError(commercial.message ?? "Pricing is unavailable for ordering.");
+      return;
+    }
+    const qty = quantities[product.product_id] ?? commercial.rules.moq;
+    const quantityCheck = validateOrderQuantity(product.price, qty);
+    if (!quantityCheck.orderable) {
+      setError(quantityCheck.message ?? "Quantity does not satisfy MOQ or carton rules.");
+      return;
+    }
 
     setBusyProductId(product.product_id);
     setError(null);
@@ -117,7 +129,7 @@ export function CatalogueScreen({ navigation }: Props) {
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")} requireApprovedBuyer={false}>
       <Screen title="Catalogue" subtitle="Categories · Tiered pricing · MOQ" scroll={false}>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error && !loading ? <ErrorState message={error} onRetry={loadCatalogue} /> : null}
         {successMessage ? <Text style={styles.success}>{successMessage}</Text> : null}
         <TextInput
           style={styles.search}
@@ -152,10 +164,12 @@ export function CatalogueScreen({ navigation }: Props) {
               keyExtractor={(item) => item.product_id}
               contentContainerStyle={styles.list}
               renderItem={({ item }) => {
-                const moq = item.price?.minimum_order_quantity ?? 1;
-                const increment = item.price?.order_increment ?? 1;
-                const qty = quantities[item.product_id] ?? moq;
+                const commercial = resolveCommercialRules(item.price);
+                const moq = commercial.rules?.moq;
+                const increment = commercial.rules?.increment;
+                const qty = moq != null ? quantities[item.product_id] ?? moq : null;
                 const adding = busyProductId === item.product_id;
+                const canOrder = commercial.orderable && moq != null && increment != null;
                 return (
                   <View style={styles.row}>
                     {isApprovedBuyer ? (
@@ -197,19 +211,22 @@ export function CatalogueScreen({ navigation }: Props) {
                       ) : (
                         <Text style={styles.rowMeta}>Sign in as an approved buyer for pricing</Text>
                       )}
-                      {isApprovedBuyer ? (
+                      {isApprovedBuyer && !canOrder && item.price ? (
+                        <Text style={styles.unavailablePrice}>{commercial.message ?? "Pricing unavailable for ordering"}</Text>
+                      ) : null}
+                      {isApprovedBuyer && canOrder ? (
                         <>
                           <View style={styles.stepper}>
                         <TouchableOpacity
                           style={styles.stepperButton}
-                          onPress={() => stepQuantity(item.product_id, moq, increment, -1)}
+                          onPress={() => stepQuantity(item.product_id, moq!, increment!, -1)}
                         >
                           <Text style={styles.stepperButtonText}>−</Text>
                         </TouchableOpacity>
                         <Text style={styles.stepperValue}>{qty}</Text>
                         <TouchableOpacity
                           style={styles.stepperButton}
-                          onPress={() => stepQuantity(item.product_id, moq, increment, 1)}
+                          onPress={() => stepQuantity(item.product_id, moq!, increment!, 1)}
                         >
                           <Text style={styles.stepperButtonText}>+</Text>
                         </TouchableOpacity>
@@ -217,7 +234,7 @@ export function CatalogueScreen({ navigation }: Props) {
                       </View>
                       <TouchableOpacity
                         style={styles.addButton}
-                        disabled={adding || !item.price}
+                        disabled={adding}
                         onPress={() => addToCart(item)}
                       >
                         <Text style={styles.addButtonText}>{adding ? "Adding…" : "Add to cart"}</Text>
@@ -291,5 +308,6 @@ const styles = StyleSheet.create({
   fab: { position: "absolute", bottom: 16, right: 0, left: 0, marginHorizontal: 20, backgroundColor: colors.textPrimary, paddingVertical: 14, borderRadius: 10, alignItems: "center", minHeight: 44, justifyContent: "center" },
   fabText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.white },
   error: { color: colors.error, marginTop: 8, fontSize: typography.sizeSm },
+  unavailablePrice: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.warning, marginTop: 4 },
   success: { color: colors.success, marginTop: 8, fontSize: typography.sizeSm, fontFamily: typography.fontFamilySansSemiBold },
 });

@@ -39,6 +39,21 @@ describe("quote projections", () => {
       }
     );
     assert.equal(normalizeCustomerQuotationSummary({ quotation_id: "quote-1" }), null);
+    assert.equal(
+      normalizeCustomerQuotationSummary({
+        quotation_id: "quote-1",
+        quotation_number: "QT2026/09-0001",
+        status: "   ",
+        current_version: 1,
+        quotation_value: 12500,
+        advance_required: 4000,
+        expires_at: "2026-09-30T00:00:00Z",
+        is_actionable: true,
+        created_at: "2026-09-01T00:00:00Z",
+        updated_at: "2026-09-02T00:00:00Z",
+      }),
+      null
+    );
   });
 
   it("normalizes detail and line facts from Core projections", () => {

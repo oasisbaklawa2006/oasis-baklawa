@@ -9,8 +9,9 @@ import { Screen } from "@/components/Screen";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
 import { addCustomerOrderDraftLine } from "@/lib/api/draft";
+import { defaultOrderQuantity, resolveCommercialRules, validateOrderQuantity } from "@/lib/buyer-commercial-validation";
 import { nextValidQuantity } from "@/lib/draft-utils";
-import { clearQuoteRequestIdempotencyKey, getQuoteRequestIdempotencyKey } from "@/lib/quote-idempotency";
+import { clearQuoteRequestIdempotencyKey, getQuoteRequestIdempotencyKey, type ResolvedQuoteIdempotency } from "@/lib/quote-idempotency";
 import { isQuoteRequestEnabled } from "@/lib/quote-guards";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { customerGateway } from "@/services/customerGateway";
@@ -39,7 +40,7 @@ export function ProductDetailScreen({ navigation, route }: Props) {
   const [quantity, setQuantity] = useState(1);
   const [adding, setAdding] = useState(false);
   const [requestingQuote, setRequestingQuote] = useState(false);
-  const [requestKey, setRequestKey] = useState<string | null>(null);
+  const [requestKey, setRequestKey] = useState<ResolvedQuoteIdempotency | null>(null);
   const [favouriteBusy, setFavouriteBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -51,7 +52,10 @@ export function ProductDetailScreen({ navigation, route }: Props) {
       const match = catalogue.find((p) => p.product_id === productId) ?? null;
       setProduct(match);
       if (match) {
-        setQuantity(match.price?.minimum_order_quantity ?? 1);
+        const moq = defaultOrderQuantity(match.price);
+        if (moq !== null) {
+          setQuantity(moq);
+        }
       }
       if (!match) setError("Product not found in the published catalogue.");
     } catch (e) {
@@ -70,8 +74,10 @@ export function ProductDetailScreen({ navigation, route }: Props) {
     void getQuoteRequestIdempotencyKey().then(setRequestKey);
   }, [isApprovedBuyer]);
 
-  const moq = product?.price?.minimum_order_quantity ?? 1;
-  const increment = product?.price?.order_increment ?? 1;
+  const commercial = resolveCommercialRules(product?.price);
+  const moq = commercial.rules?.moq ?? 0;
+  const increment = commercial.rules?.increment ?? 0;
+  const canOrder = commercial.orderable && moq > 0 && increment > 0;
 
   const priceLabel = useMemo(() => {
     if (!product?.price) return null;
@@ -79,12 +85,17 @@ export function ProductDetailScreen({ navigation, route }: Props) {
   }, [product]);
 
   async function requestQuotation() {
-    if (!product?.price || !requestKey) return;
+    if (!product?.price || !requestKey?.key || !requestKey.persisted || !canOrder) return;
+    const quantityCheck = validateOrderQuantity(product.price, quantity);
+    if (!quantityCheck.orderable) {
+      setNotice(quantityCheck.message ?? "Quantity does not satisfy MOQ or carton rules.");
+      return;
+    }
     setRequestingQuote(true);
     setNotice(null);
     try {
       const result = await customerGateway.submitQuotationRequest({
-        idempotencyKey: requestKey,
+        idempotencyKey: requestKey.key,
         lines: [{ product_id: product.product_id, quantity }],
       });
       await clearQuoteRequestIdempotencyKey();
@@ -100,17 +111,23 @@ export function ProductDetailScreen({ navigation, route }: Props) {
     }
   }
 
+  const quantityCheck = validateOrderQuantity(product?.price, quantity);
   const quoteRequestEnabled = isQuoteRequestEnabled({
-    lineCount: product?.price ? 1 : 0,
+    lineCount: canOrder && quantityCheck.orderable ? 1 : 0,
     submitting: requestingQuote,
-    keyReady: Boolean(requestKey),
-    idempotencyKey: requestKey,
-    keyPersisted: Boolean(requestKey),
+    keyReady: Boolean(requestKey?.key),
+    idempotencyKey: requestKey?.key ?? null,
+    keyPersisted: requestKey?.persisted ?? false,
     isOnline,
   });
 
   async function addToCart() {
-    if (!product?.price) return;
+    if (!product?.price || !canOrder) return;
+    const quantityCheck = validateOrderQuantity(product.price, quantity);
+    if (!quantityCheck.orderable) {
+      setNotice(quantityCheck.message ?? "Quantity does not satisfy MOQ or carton rules.");
+      return;
+    }
     setAdding(true);
     setNotice(null);
     try {
@@ -165,7 +182,7 @@ export function ProductDetailScreen({ navigation, route }: Props) {
                 {priceLabel} / {product.price?.uom}
               </Text>
             ) : (
-              <Text style={styles.unavailable}>Buyer pricing unavailable</Text>
+              <Text style={styles.unavailable}>{commercial.message ?? "Buyer pricing unavailable"}</Text>
             )}
             {product.short_description ? <Text style={styles.description}>{product.short_description}</Text> : null}
             {product.long_description ? <Text style={styles.description}>{product.long_description}</Text> : null}
@@ -175,6 +192,7 @@ export function ProductDetailScreen({ navigation, route }: Props) {
               <Text style={styles.fact}>Tags: {product.dietary_tags.join(", ")}</Text>
             ) : null}
 
+            {canOrder ? (
             <View style={styles.stepper}>
               <TouchableOpacity
                 style={styles.stepBtn}
@@ -195,10 +213,11 @@ export function ProductDetailScreen({ navigation, route }: Props) {
               </TouchableOpacity>
               <Text style={styles.moq}>MOQ {moq}</Text>
             </View>
+            ) : null}
 
             <TouchableOpacity
-              style={[styles.button, (!product.price || adding) && styles.buttonDisabled]}
-              disabled={!product.price || adding}
+              style={[styles.button, (!canOrder || adding) && styles.buttonDisabled]}
+              disabled={!canOrder || adding}
               onPress={addToCart}
               accessibilityRole="button"
             >

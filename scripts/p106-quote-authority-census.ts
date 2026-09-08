@@ -60,8 +60,13 @@ const commerceSurfaces: string[] = [];
 const quoteMentions: { file: string; term: string }[] = [];
 const shadowFindings: string[] = [];
 
+const ALLOWLIST_MANIFESTS = new Set([
+  "src/lib/buyer-deployment-rpc-allowlist.ts",
+  "src/lib/required-rpc-bindings.ts",
+]);
+
 for (const file of walk(join(ROOT, "src"))) {
-  const rel = relative(ROOT, file);
+  const rel = relative(ROOT, file).replaceAll("\\", "/");
   const source = readFileSync(file, "utf8");
   const sourceLower = source.toLowerCase();
   const basename = file.toLowerCase();
@@ -75,7 +80,12 @@ for (const file of walk(join(ROOT, "src"))) {
     if (sourceLower.includes(term)) quoteMentions.push({ file: rel, term });
   }
 
-  if (!isTestFile && !rel.endsWith("src/types/quote-contract.ts") && !rel.endsWith("src/types/database.types.ts")) {
+  if (
+    !isTestFile &&
+    !ALLOWLIST_MANIFESTS.has(rel) &&
+    !rel.endsWith("src/types/quote-contract.ts") &&
+    !rel.endsWith("src/types/database.types.ts")
+  ) {
     const invoked = collectGovernedRpcInvocations(source, rel);
     for (const rpc of invoked) {
       if (CORE_QUOTE_RPC_PREREQUISITES.includes(rpc as (typeof CORE_QUOTE_RPC_PREREQUISITES)[number]) && !allowlist.has(rpc)) {

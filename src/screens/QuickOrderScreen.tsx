@@ -8,6 +8,7 @@ import { Screen } from "@/components/Screen";
 import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
 import { addCustomerOrderDraftLine } from "@/lib/api/draft";
+import { resolveCommercialRules } from "@/lib/buyer-commercial-validation";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { colors, spacing, typography } from "@/theme";
 
@@ -20,6 +21,7 @@ export function QuickOrderScreen({ navigation }: Props) {
   const [rows, setRows] = useState<QuickRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -27,7 +29,11 @@ export function QuickOrderScreen({ navigation }: Props) {
     setError(null);
     try {
       const catalogue = await fetchCatalogue({ includeBuyerPrices: isApprovedBuyer });
-      setRows(catalogue.filter((p) => p.price).map((product) => ({ product })));
+      setRows(
+        catalogue
+          .filter((product) => resolveCommercialRules(product.price).orderable)
+          .map((product) => ({ product }))
+      );
     } catch (e) {
       setError(parseRpcError(e).message);
     } finally {
@@ -49,10 +55,17 @@ export function QuickOrderScreen({ navigation }: Props) {
   }, [rows, query]);
 
   async function quickAdd(product: CatalogueProduct) {
-    const moq = product.price?.minimum_order_quantity ?? 1;
+    const commercial = resolveCommercialRules(product.price);
+    if (!commercial.orderable || !commercial.rules) {
+      setError(commercial.message ?? "Pricing is unavailable for ordering.");
+      return;
+    }
+    const moq = commercial.rules.moq;
     setBusyId(product.product_id);
     try {
       await addCustomerOrderDraftLine(product.product_id, moq);
+      setNotice(`${product.product_name} added to draft cart.`);
+      setError(null);
     } catch (e) {
       setError(parseRpcError(e).message);
     } finally {
@@ -74,6 +87,7 @@ export function QuickOrderScreen({ navigation }: Props) {
         >
           <Text style={styles.aiLinkText}>Paste a text order (AI parser)</Text>
         </TouchableOpacity>
+        {notice ? <Text style={styles.notice}>{notice}</Text> : null}
         <TextInput
           style={styles.search}
           placeholder="Search SKU or product name"
@@ -94,14 +108,15 @@ export function QuickOrderScreen({ navigation }: Props) {
             ListEmptyComponent={<EmptyState title="No priced products" message="Approved buyer pricing is required for Quick Order." />}
             renderItem={({ item }) => {
               const { product } = item;
-              const moq = product.price?.minimum_order_quantity ?? 1;
+              const commercial = resolveCommercialRules(product.price);
+              const moq = commercial.rules?.moq;
               const busy = busyId === product.product_id;
               return (
                 <View style={styles.row}>
                   <View style={styles.rowInfo}>
                     <Text style={styles.title}>{product.product_name}</Text>
                     <Text style={styles.meta}>
-                      {product.sku} · MOQ {moq} · ₹{product.price?.selling_price.toFixed(2)}
+                      {product.sku} · MOQ {moq ?? "—"} · ₹{product.price?.selling_price.toFixed(2)}
                     </Text>
                   </View>
                   <TouchableOpacity
@@ -110,7 +125,7 @@ export function QuickOrderScreen({ navigation }: Props) {
                     onPress={() => quickAdd(product)}
                     accessibilityRole="button"
                   >
-                    <Text style={styles.addBtnText}>{busy ? "…" : `+${moq}`}</Text>
+                    <Text style={styles.addBtnText}>{busy ? "…" : `+${moq ?? 0}`}</Text>
                   </TouchableOpacity>
                 </View>
               );
@@ -126,6 +141,7 @@ const styles = StyleSheet.create({
   back: { fontFamily: typography.fontFamilySansMedium, color: colors.action, marginTop: spacing.sm },
   aiLink: { marginTop: spacing.md, minHeight: 44, justifyContent: "center" },
   aiLinkText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.action, textDecorationLine: "underline" },
+  notice: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.success, marginTop: spacing.sm },
   search: {
     marginTop: spacing.md,
     borderWidth: 1,

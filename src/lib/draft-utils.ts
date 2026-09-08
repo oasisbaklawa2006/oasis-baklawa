@@ -1,3 +1,4 @@
+import { quantityCompletionHint } from "@/lib/buyer-commercial-validation";
 import type {
   BuyerProductPrice,
   CustomerOrderDraft,
@@ -56,23 +57,13 @@ export function issueMessage(issue: DraftReadinessIssue, price?: BuyerProductPri
 export function cartonHint(issue: DraftReadinessIssue, price?: BuyerProductPrice): string | null {
   if (!price || issue.quantity == null) return null;
 
-  const moq = price.minimum_order_quantity ?? 1;
-  const increment = price.order_increment ?? 1;
-  const qty = issue.quantity;
-
-  if (qty < moq) {
-    return `Add ${moq - qty} more to reach MOQ ${moq}`;
+  const moq = price.minimum_order_quantity;
+  const increment = price.order_increment;
+  if (moq === null || moq <= 0 || increment === null || increment <= 0) {
+    return null;
   }
 
-  if (increment > 0) {
-    const remainder = moq != null ? (qty - moq) % increment : qty % increment;
-    if (remainder !== 0) {
-      const add = increment - remainder;
-      return `Add ${add} more to match order increments of ${increment}`;
-    }
-  }
-
-  return null;
+  return quantityCompletionHint(moq, increment, issue.quantity);
 }
 
 export function nextValidQuantity(current: number, moq: number, increment: number, delta: number): number {

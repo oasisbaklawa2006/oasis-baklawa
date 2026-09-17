@@ -1,0 +1,261 @@
+From 0d22600eedd95283868ab2dd8da9932c78ff3b7d Mon Sep 17 00:00:00 2001
+From: AUTH-01 Native Convergence <auth01-agent@local>
+Date: Wed, 16 Sep 2026 20:00:59 +0000
+Subject: [PATCH 01/11] fix(auth): converge native buyer login with governed
+ preflight
+
+- Add buyer-preflight.ts: calls buyer-login-gateway (Central) before any
+  OTP, fails closed on transport/parse failure.
+- Add buyer-identity.ts: normalization ported from Central's auth-identity.ts.
+- Add buyer-identity-claim.ts: wraps the CURRENT (20260914160000) dual
+  verified-identifier claim_approved_b2b_access_request_v2 RPC.
+- Add buyer-session-bridge.ts: MSG91 access-token -> token_hash ->
+  supabase.auth.verifyOtp -> claim, mirroring Central's verifiedProviderSession.
+- Add msg91-otp-widget.ts: native OTP transport via the official
+  @msg91comm/sendotp-react-native SDK. Only client-safe widgetId/tokenAuth
+  are embedded (same class of credential Central already embeds in its own
+  web bundle) -- provider authkey and all provider verification stay
+  server-side in msg91-otp / msg91-email-session (Central edge functions).
+- Rewrite LoginScreen.tsx: Mobile OTP and Email OTP only. Google OAuth and
+  the broken email magic-link path are removed entirely, not just disabled.
+  Every path is preflight-gated before OTP.
+- Rewrite RegisterScreen.tsx: fully unauthenticated, calls
+  submit_b2b_access_request_v2 with its exact current signature. No city
+  field -- no canonical column/param exists.
+- Rewrite resolveBuyerSession(): removed order-draft probing and
+  AsyncStorage-based inference entirely. Deleted application-status-storage.ts.
+  New fail-closed 'no_membership' state.
+- Update session-routing.ts, Access screens, navigation types, BuyerGate.
+- Fix ProductDetailScreen gating: capability-level, not page-level.
+- Sync RPC allowlist / boundary verifier / database.types.ts.
+- tsconfig.json: node_modules exclude + paths shim for the MSG91 package.
+
+Verified: npm run quality (boundary, rc-scan, rc-nav, typecheck, lint,
+test [130/130], census:p106, expo config) passes end to end. No production
+mutation.
+---
+ package-lock.json                         |  11 +
+ package.json                              |   1 +
+ scripts/verify-contract-boundary.mjs      |   3 +-
+ src/components/BuyerGate.tsx              |   2 +-
+ src/context/BuyerSessionContext.tsx       |   9 +-
+ src/lib/api/buyer.ts                      | 124 ++++----
+ src/lib/application-status-storage.ts     |  42 ---
+ src/lib/buyer-deployment-rpc-allowlist.ts |   3 +-
+ src/lib/buyer-identity-claim.ts           | 123 ++++++++
+ src/lib/buyer-identity.ts                 |  50 ++++
+ src/lib/buyer-preflight.ts                |  67 +++++
+ src/lib/buyer-session-bridge.ts           |  71 +++++
+ src/lib/msg91-otp-widget.ts               |  79 +++++
+ src/lib/session-routing.ts                |  16 +-
+ src/navigation/types.ts                   |   4 +-
+ src/screens/AccessPendingScreen.tsx       |   6 +-
+ src/screens/AccessRejectedScreen.tsx      |  16 +-
+ src/screens/LoginScreen.tsx               | 350 +++++++++++++++-------
+ src/screens/ProductDetailScreen.tsx       |  21 +-
+ src/screens/RegisterScreen.tsx            | 200 ++++++-------
+ src/types/database.types.ts               |  41 ++-
+ src/types/msg91-sendotp-react-native.d.ts |  17 ++
+ tsconfig.json                             |   7 +-
+ 23 files changed, 863 insertions(+), 400 deletions(-)
+ delete mode 100644 src/lib/application-status-storage.ts
+ create mode 100644 src/lib/buyer-identity-claim.ts
+ create mode 100644 src/lib/buyer-identity.ts
+ create mode 100644 src/lib/buyer-preflight.ts
+ create mode 100644 src/lib/buyer-session-bridge.ts
+ create mode 100644 src/lib/msg91-otp-widget.ts
+ create mode 100644 src/types/msg91-sendotp-react-native.d.ts
+
+diff --git a/package-lock.json b/package-lock.json
+index e10b20c..df76967 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -11,6 +11,7 @@
+         "@expo-google-fonts/hanken-grotesk": "^0.4.3",
+         "@expo-google-fonts/libre-caslon-text": "^0.4.0",
+         "@expo/metro-runtime": "~3.2.3",
++        "@msg91comm/sendotp-react-native": "^3.0.0",
+         "@react-native-async-storage/async-storage": "1.23.1",
+         "@react-native-community/netinfo": "11.3.1",
+         "@react-navigation/bottom-tabs": "^6.6.1",
+@@ -4024,6 +4025,16 @@
+         "@jridgewell/sourcemap-codec": "^1.4.14"
+       }
+     },
++    "node_modules/@msg91comm/sendotp-react-native": {
++      "version": "3.0.0",
++      "resolved": "https://registry.npmjs.org/@msg91comm/sendotp-react-native/-/sendotp-react-native-3.0.0.tgz",
++      "integrity": "sha512-3vzOvyveoE+XRaEMIC5A/kYearEXT2AIW6I0njbFVkMQOo1exQy/xVgPpqUV7wWWQs07XvLlfeDsDaZKoJcSJA==",
++      "license": "ISC",
++      "peerDependencies": {
++        "react": "*",
++        "react-native": "*"
++      }
++    },
+     "node_modules/@napi-rs/wasm-runtime": {
+       "version": "1.2.2",
+       "resolved": "https://registry.npmjs.org/@napi-rs/wasm-runtime/-/wasm-runtime-1.2.2.tgz",
+diff --git a/package.json b/package.json
+index 9ec6137..5fde8b5 100644
+--- a/package.json
++++ b/package.json
+@@ -24,6 +24,7 @@
+   "dependencies": {
+     "@expo-google-fonts/hanken-grotesk": "^0.4.3",
+     "@expo-google-fonts/libre-caslon-text": "^0.4.0",
++    "@msg91comm/sendotp-react-native": "^3.0.0",
+     "@expo/metro-runtime": "~3.2.3",
+     "@react-native-async-storage/async-storage": "1.23.1",
+     "@react-native-community/netinfo": "11.3.1",
+diff --git a/scripts/verify-contract-boundary.mjs b/scripts/verify-contract-boundary.mjs
+index 3dbd846..b5cb9b9 100644
+--- a/scripts/verify-contract-boundary.mjs
++++ b/scripts/verify-contract-boundary.mjs
+@@ -34,7 +34,8 @@ const allowedRpcs = new Set([
+   "clear_customer_order_draft_v1",
+   "submit_customer_order_v1",
+   "calculate_customer_advance_v1",
+-  "submit_b2b_trade_application_v1",
++  "submit_b2b_access_request_v2",
++  "claim_approved_b2b_access_request_v2",
+   "customer_sales_order_commercial_facts_v1",
+   "customer_order_finance_facts_v1",
+   "customer_proforma_invoice_facts_v1",
+diff --git a/src/components/BuyerGate.tsx b/src/components/BuyerGate.tsx
+index 623d57b..63d4704 100644
+--- a/src/components/BuyerGate.tsx
++++ b/src/components/BuyerGate.tsx
+@@ -51,7 +51,7 @@ export function BuyerGate({ children, onLogin, onRegister, requireApprovedBuyer
+           <Text style={styles.buttonText}>Log In</Text>
+         </TouchableOpacity>
+       ) : null}
+-      {(snapshot?.state === "no_application" || snapshot?.state === "unauthenticated") && onRegister ? (
++      {snapshot?.state === "unauthenticated" && onRegister ? (
+         <TouchableOpacity
+           style={styles.secondaryButton}
+           onPress={onRegister}
+diff --git a/src/context/BuyerSessionContext.tsx b/src/context/BuyerSessionContext.tsx
+index c19ce26..60f0830 100644
+--- a/src/context/BuyerSessionContext.tsx
++++ b/src/context/BuyerSessionContext.tsx
+@@ -1,6 +1,5 @@
+ import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+ import { supabase } from "@/lib/supabase";
+-import { clearStoredApplicationStatus, storeApplicationStatus } from "@/lib/application-status-storage";
+ import {
+   resolveBuyerSession,
+   type BuyerEligibilityState,
+@@ -37,11 +36,6 @@ export function BuyerSessionProvider({ children }: { children: React.ReactNode }
+         lastUserIdRef.current = next.userId;
+       }
+       setSnapshot(next);
+-
+-      if (next.state === "approved_buyer" && next.userId) {
+-        await storeApplicationStatus(next.userId, "approved_buyer");
+-      }
+-
+       return next;
+     } finally {
+       if (requestId === requestIdRef.current) {
+@@ -56,8 +50,7 @@ export function BuyerSessionProvider({ children }: { children: React.ReactNode }
+       if (event === "TOKEN_REFRESHED") {
+         return;
+       }
+-      if (event === "SIGNED_OUT" && lastUserIdRef.current) {
+-        await clearStoredApplicationStatus(lastUserIdRef.current);
++      if (event === "SIGNED_OUT") {
+         lastUserIdRef.current = null;
+       }
+       await refresh();
+diff --git a/src/lib/api/buyer.ts b/src/lib/api/buyer.ts
+index ec077fd..80d6930 100644
+--- a/src/lib/api/buyer.ts
++++ b/src/lib/api/buyer.ts
+@@ -1,20 +1,23 @@
+ import { callRpc } from "@/lib/rpc";
+-import { readStoredApplicationStatus } from "@/lib/application-status-storage";
+ import { parseRpcError } from "@/lib/rpc-errors";
+ import { supabase } from "@/lib/supabase";
+ import type {
+   CustomerCompany,
+   CustomerTeamMember,
+-  SubmitB2bTradeApplicationArgs,
+-  SubmitB2bTradeApplicationResult,
++  SubmitB2bAccessRequestArgs,
++  SubmitB2bAccessRequestResult,
+ } from "@/types/database.types";
+ 
++// PENDING / REJECTED / UNKNOWN / EMPLOYEE identities are blocked at the
++// buyer-login-gateway preflight (see buyer-preflight.ts) and never reach OTP,
++// so they never reach session resolution either. A session existing at all is
++// therefore expected to represent an approved identity; "no_membership" is
++// the fail-closed catch for the case where that invariant doesn't hold (e.g.
++// backend state changed after login, or a pre-AUTH-01 legacy session).
+ export type BuyerEligibilityState =
+   | "unauthenticated"
+-  | "no_application"
+-  | "application_pending"
+-  | "rejected_ineligible"
+   | "approved_buyer"
++  | "no_membership"
+   | "backend_failure";
+ 
+ export interface BuyerSessionSnapshot {
+@@ -40,17 +43,36 @@ export async function fetchCustomerTeam(): Promise<CustomerTeamMember[]> {
+   return data ?? [];
+ }
+ 
+-export async function submitB2bTradeApplication(
+-  args: SubmitB2bTradeApplicationArgs
+-): Promise<SubmitB2bTradeApplicationResult> {
+-  const data = await callRpc("submit_b2b_trade_application_v1", args);
++/**
++ * Public, unauthenticated B2B access intake — submit_b2b_access_request_v2
++ * (Core, granted to anon). Replaces the obsolete authenticated
++ * submit_b2b_trade_application_v1 path. Idempotent on (email, mobile): a
++ * resubmission returns the existing application with duplicate: true rather
++ * than erroring or creating a conflicting record. There is no p_city
++ * parameter — b2b_applications has no city column, so the native form must
++ * not collect one (folding it into the address is explicitly not the
++ * intended fix; if a city field becomes required, that's a Core schema/RPC
++ * change, not a client workaround).
++ */
++export async function submitB2bAccessRequest(
++  args: SubmitB2bAccessRequestArgs
++): Promise<SubmitB2bAccessRequestResult> {
++  const data = await callRpc("submit_b2b_access_request_v2", args);
+   const result = data?.[0];
+   if (!result) {
+-    throw new Error("Trade application did not return a result. Please try again.");
++    throw new Error("Access request did not return a result. Please try again.");
+   }
+   return result;
+ }
+ 
++/**
++ * Backend-authoritative session resolution. No local-storage inference and no
++ * probing of unrelated RPCs (e.g. cart-draft) to guess eligibility — both were
++ * removed as obsolete (AUTH-01 native convergence). Every branch is derived
++ * from server state: the current session, customer_buyer_eligible_company_id,
++ * and the company's own frozen/status flag. Fails closed to "backend_failure"
++ * or "no_membership" rather than ever assuming approval.
++ */
+ export async function resolveBuyerSession(): Promise<BuyerSessionSnapshot> {
+   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+   if (sessionError) {
+@@ -71,79 +93,39 @@ export async function resolveBuyerSession(): Promise<BuyerSessionSnapshot> {
+ 
+   try {
+     const companyId = await fetchBuyerEligibleCompanyId();
+-    if (companyId) {
+-      const company = await fetchCustomerCompany();
+-      if (company?.is_frozen) {
+-        return {
+-          state: "rejected_ineligible",
+-          companyId,
+-          company,
+-          message: "Your company account is frozen. Contact Oasis Baklawa support.",
+-          userId,
+-        };
+-      }
+-      return { state: "approved_buyer", companyId, company, message: null, userI

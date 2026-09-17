@@ -1,0 +1,241 @@
+d, uses the app normally. Staff freezes
+   the company (or de-approves the buyer) in Central. The Supabase JWT
+   itself is untouched -- access-token refresh keeps succeeding silently
+   in the background, and BuyerSessionContext's onAuthStateChange handler
+   explicitly returns early on TOKEN_REFRESHED without re-checking
+   eligibility. No other code anywhere in the app calls refresh()
+   periodically or on focus/foreground (confirmed: zero usages of
+   useFocusEffect, AppState, or setInterval existed before this fix). The
+   result: the buyer keeps seeing stale 'approved_buyer' UI (Dashboard,
+   pricing, Account) indefinitely, for the rest of that app session, with
+   no mechanism to ever notice their access changed short of an explicit
+   logout/login or app kill+relaunch. Server-side RPC authority still
+   correctly rejects any actual mutation attempt on every call (nothing
+   illegitimate can succeed), but the buyer experience is confusing,
+   unexplained per-action failures against UI that still claims they're an
+   approved buyer.
+
+   Fix: BuyerSessionContext now also listens to AppState and calls
+   refresh() on transition to 'active' (foreground). Standard, low-risk
+   pattern; also directly covers 'app reopened after a long inactive
+   period' and 'background/foreground' from the same mandatory item.
+
+2. Concurrent-checkout loser saw a misleading empty-cart message
+   (item 7: confirm the DRAFT_NOT_FOUND loser gets an accurate,
+   actionable message, not a misleading one)
+
+   The core race was already verified defect-free (first-updater-wins via
+   FOR UPDATE + status transition in submit_customer_order_v1 -- see the
+   prior bugsweep report). But the losing submitter's client showed the
+   generic 'No active order draft was found. Add items from the
+   catalogue.' -- accurate for a genuinely empty cart, misleading here: it
+   implies nothing was ever in the cart, when in fact an order very likely
+   WAS just created (by another device on the same account, or this same
+   device on a dropped-response retry).
+
+   Fix: CheckoutScreen now recognizes the DRAFT_NOT_FOUND code specifically
+   in the checkout-submit path (not the general add-to-cart path, where the
+   original message remains correct) and shows 'This cart may have just
+   been submitted -- by you on another device, or a teammate on your
+   account. Check Orders for the new Sales Order before adding these items
+   again,' with a 'View Orders' action button. There is no reliable way to
+   deterministically look up which order resulted (the other submitter
+   used a different idempotency key), so this is the honest, actionable
+   recovery rather than a guess.
+
+No test added for either: both require either supabase/react-native
+runtime (BuyerSessionContext, same established constraint as prior fixes)
+or React Navigation rendering (the CheckoutScreen JSX branch) that this
+repo's plain node:test convention doesn't cover.
+
+Verified: npm run quality passes end to end -- 164/164 tests (unchanged),
+typecheck clean, lint clean, boundary/rc-scan/rc-navigation/cert:bindings/
+census:p106/expo-config all pass. Diff inspected: only the two intended
+files changed, no service-role usage, no secrets, no RLS touched, no
+unrelated changes.
+
+No production mutation of any kind.
+---
+ src/context/BuyerSessionContext.tsx | 22 ++++++++++++++++
+ src/screens/CheckoutScreen.tsx      | 40 ++++++++++++++++++++++++++---
+ 2 files changed, 58 insertions(+), 4 deletions(-)
+
+diff --git a/src/context/BuyerSessionContext.tsx b/src/context/BuyerSessionContext.tsx
+index 60f0830..eda80b8 100644
+--- a/src/context/BuyerSessionContext.tsx
++++ b/src/context/BuyerSessionContext.tsx
+@@ -1,4 +1,5 @@
+ import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
++import { AppState, type AppStateStatus } from "react-native";
+ import { supabase } from "@/lib/supabase";
+ import {
+   resolveBuyerSession,
+@@ -55,8 +56,29 @@ export function BuyerSessionProvider({ children }: { children: React.ReactNode }
+       }
+       await refresh();
+     });
++
++    // Business-data changes (staff freezing a company, de-approving a
++    // buyer) never fire onAuthStateChange -- the JWT itself stays valid,
++    // access-token refresh happens silently, and TOKEN_REFRESHED above
++    // deliberately skips a re-check. Without this, a buyer whose access is
++    // revoked mid-session would keep seeing stale "approved_buyer" UI
++    // (Dashboard, pricing, Account) indefinitely -- server-side RPC
++    // authority still correctly rejects any actual mutation attempt (see
++    // customer_buyer_eligible_company_id() re-evaluating live on every
++    // call), so nothing illegitimate can actually succeed, but the buyer
++    // would hit confusing per-action errors instead of a clean "your
++    // access has changed" state. Re-checking on foreground return is the
++    // standard, low-risk way to catch this -- it also covers "app reopened
++    // after a long inactive period" and "background/foreground" directly.
++    const appStateListener = AppState.addEventListener("change", (nextState: AppStateStatus) => {
++      if (nextState === "active") {
++        void refresh();
++      }
++    });
++
+     return () => {
+       authListener.subscription.unsubscribe();
++      appStateListener.remove();
+     };
+   }, [refresh]);
+ 
+diff --git a/src/screens/CheckoutScreen.tsx b/src/screens/CheckoutScreen.tsx
+index 013c924..2f09e55 100644
+--- a/src/screens/CheckoutScreen.tsx
++++ b/src/screens/CheckoutScreen.tsx
+@@ -28,6 +28,7 @@ export function CheckoutScreen({ navigation }: Props) {
+   const [loading, setLoading] = useState(true);
+   const [submitting, setSubmitting] = useState(false);
+   const [error, setError] = useState<string | null>(null);
++  const [draftAlreadySubmittedElsewhere, setDraftAlreadySubmittedElsewhere] = useState(false);
+   const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
+   const [keyPersisted, setKeyPersisted] = useState(false);
+   const [keyReady, setKeyReady] = useState(false);
+@@ -37,6 +38,7 @@ export function CheckoutScreen({ navigation }: Props) {
+     setLoading(true);
+     setKeyReady(false);
+     setError(null);
++    setDraftAlreadySubmittedElsewhere(false);
+     setPersistenceError(null);
+     setAdvanceState({ status: "loading" });
+ 
+@@ -116,6 +118,7 @@ export function CheckoutScreen({ navigation }: Props) {
+     submitInFlightRef.current = true;
+     setSubmitting(true);
+     setError(null);
++    setDraftAlreadySubmittedElsewhere(false);
+     try {
+       const result = await submitCustomerOrder(idempotencyKey);
+       try {
+@@ -135,7 +138,27 @@ export function CheckoutScreen({ navigation }: Props) {
+         },
+       });
+     } catch (e) {
+-      setError(parseRpcError(e).message);
++      const parsed = parseRpcError(e);
++      if (parsed.code === "DRAFT_NOT_FOUND") {
++        // Distinguish "someone already submitted this shared cart" (this
++        // company's active draft was legitimately promoted to an order by a
++        // concurrent submission -- another team member, or this same device
++        // on a retry after a dropped response) from a genuinely empty cart.
++        // Both surface as DRAFT_NOT_FOUND from submit_customer_order_v1, but
++        // the generic "No active order draft was found. Add items from the
++        // catalogue." message is misleading here: it implies the cart was
++        // always empty, when in fact an order likely WAS just created. There
++        // is no reliable way to look up which order resulted (the other
++        // submitter used a different idempotency key), so the honest,
++        // actionable recovery is to point the buyer at Orders rather than
++        // imply they need to re-add everything.
++        setDraftAlreadySubmittedElsewhere(true);
++        setError(
++          "This cart may have just been submitted -- by you on another device, or a teammate on your account. Check Orders for the new Sales Order before adding these items again."
++        );
++      } else {
++        setError(parsed.message);
++      }
+     } finally {
+       submitInFlightRef.current = false;
+       setSubmitting(false);
+@@ -206,9 +229,18 @@ export function CheckoutScreen({ navigation }: Props) {
+             ) : null}
+ 
+             {error ? (
+-              <Text style={styles.error} accessibilityRole="alert">
+-                {error}
+-              </Text>
++              <View>
++                <Text style={styles.error} accessibilityRole="alert">
++                  {error}
++                </Text>
++                {draftAlreadySubmittedElsewhere ? (
++                  <OasisButton
++                    label="View Orders"
++                    variant="secondary"
++                    onPress={() => navigation.navigate("MainTabs", { screen: "Orders" })}
++                  />
++                ) : null}
++              </View>
+             ) : null}
+ 
+             <Text style={styles.note}>
+-- 
+2.43.0
+
+
+From 9cc9b6387c13deff4a700e9cef727863ff8a9fa1 Mon Sep 17 00:00:00 2001
+From: AUTH-01 Native Convergence <auth01-agent@local>
+Date: Thu, 17 Sep 2026 14:28:14 +0000
+Subject: [PATCH 09/11] test(session,checkout): regression coverage +
+ refresh-storm fix for 111e607
+
+Bugsweep-01 Phase B: regression coverage and verification for the two
+newest fixes (111e607), per the explicit checklist.
+
+1. AppState foreground eligibility revalidation
+
+   Extracted the pure trigger decisions into
+   buyer-session-refresh-triggers.ts: shouldRefreshOnAuthEvent (skips only
+   TOKEN_REFRESHED) and shouldRefreshOnAppState (refreshes only on
+   transition to 'active'). Both are now direct-tested (5 assertions) --
+   the previous version of this logic was inline and, like
+   claimApprovedB2bIdentity()/resolveBuyerSession(), untestable without
+   pulling react-native into node:test.
+
+   While reviewing against the checklist, found and fixed a real gap:
+   refresh() had no in-flight deduplication. An auth event and an AppState
+   foreground transition can fire within the same tick (e.g. the app is
+   resumed right as a background token refresh completes), and each would
+   have started its own resolveBuyerSession() call -- a genuine 'refresh
+   storm' / 'parallel eligibility refresh' risk, exactly what the checklist
+   asked to verify against. Fixed with a shared in-flight promise
+   (inFlightRefreshRef): concurrent callers now await the same request
+   instead of each firing their own. The existing requestId staleness guard
+   already protected correctness (a stale response was always discarded),
+   so this closes a real efficiency/redundant-request gap, not a
+   correctness bug.
+
+   Verified by code trace, not by a fresh defect: does not recurse through
+   auth events (the listener only calls refresh(), which no longer
+   re-triggers onAuthStateChange itself), handles offline foreground
+   gracefully (resolveBuyerSession() already fails closed to
+   backend_failure rather than hanging), and an active valid buyer's
+   snapshot is simply re-confirmed as approved_buyer, not disturbed.
+
+2. Concurrent-checkout losing-client UX
+
+   Extracted classifyCheckoutSubmitError() (checkout-submit-error.ts):
+   classification is by ParsedRpcError.code, not message string-matching,
+   confirmed directly by a test that also proves DRAFT_NOT_READY,
+   PRODUCT_UNAVAILABLE, AUTH_REQUIRED, and UNKNOWN are never misclassified
+   as concurrent promotion. CheckoutScreen.tsx now calls this instead of
+   inlining the branch. View Orders navigates to the real MainTabs/Orders
+   route (unchanged, already valid). draftAlreadySubmittedElsewhere is
+   reset to false at the start of both loadCheckout() and submitOrder(), so
+   a reload/retry clears the stale flag before a new attempt.
+
+Add buyer-session-refresh-triggers.test.ts (5 assertions) and
+checkout-submit-error.test.ts (2 assertions, covering 6 error-code cases).
+
+Verified: npm run quality passes end to end -- 170/170 tests (6 new),
+typecheck clean, lint clean, boundary

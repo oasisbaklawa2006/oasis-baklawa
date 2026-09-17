@@ -1,0 +1,211 @@
+ole.
+ 
+-## Open item flagged, not fixed, in this pass
++## Final status
+ 
+-`create_payment_gateway_payable_intent_v1` / `get_payment_gateway_payable_status_v1`
+-use the same `auth_buyer_company_id()` helper that was found unsafe (no
+-approved/frozen check) and fixed for the final-payment-PI surface. They
+-were not independently fixed in this pass to keep the AUTH-01 lane bounded
+-— flagged here as the next concrete candidate for the same treatment.
++All 36 runtime RPCs are body-verified. All identified defects (three) are
++fixed with executed, passing regression tests; the one remaining finding
++(support-ticket trigger) is investigated and resolved as no security
++impact, with its own executed, passing contract test. No open items
++remain in this matrix.
+-- 
+2.43.0
+
+
+From 69b780156f67540a1ddd124b5844cc052688893b Mon Sep 17 00:00:00 2001
+From: AUTH-01 Native Convergence <auth01-agent@local>
+Date: Thu, 17 Sep 2026 06:18:01 +0000
+Subject: [PATCH 06/11] fix(session,cart): interrupted-claim recovery and
+ cart-overwrite bug
+
+Bug-search pass against current main, outside the AUTH-01 lane. Two real
+defects found, reproduced, fixed, and regression-tested.
+
+1. Interrupted identity claim leaves a permanently stuck session
+   (network interruption / paths that appear successful but leave
+   inconsistent state)
+
+   Repro: OTP verification succeeds (bridgeMsg91SessionAndClaim mints a
+   real, provider-verified Supabase session), then the app is
+   backgrounded/killed or the network drops before
+   claimApprovedB2bIdentity() completes. The user now has a valid session
+   with no buyer membership. On every subsequent launch,
+   resolveBuyerSession() found customer_buyer_eligible_company_id() null
+   and returned 'no_membership' -- routing to SessionRecoveryScreen, whose
+   'Try again' button calls resolveBuyerSession() again, which re-checks
+   membership but never re-attempts the claim that actually failed. This
+   state could never resolve itself; the only way out was realizing you
+   had to go all the way back to Welcome and log in again from scratch
+   (a fresh OTP), which nothing on the recovery screen suggested.
+
+   Fix: resolveBuyerSession() now attempts claimApprovedB2bIdentity() once,
+   speculatively, when company resolution first comes back null, before
+   falling back to 'no_membership'. Safe to call speculatively: Core's
+   claim RPC (current definition, 20260914160000) is a read-then-
+   idempotent-activate operation keyed off the session's own verified
+   phone/email -- a no-op for an already-claimed or genuinely-not-a-buyer
+   session, exactly like calling it twice in the normal login flow already
+   was. 'Try again' on SessionRecoveryScreen now actually has something to
+   retry.
+
+2. 'Add to cart' silently overwrites (not adds to) existing cart quantity
+   (paths that appear successful but leave inconsistent state, relative to
+   user intent/data integrity)
+
+   Repro: add Product A at quantity 5 -> draft cart has 5. Navigate away,
+   reopen Product A's detail page later -> the quantity stepper always
+   reset to the MOQ default (e.g. 1), with no indication 5 was already in
+   the cart. Tap 'Add to cart' again -> add_customer_order_draft_line_v1's
+   ON CONFLICT DO UPDATE SET quantity = excluded.quantity (a REPLACE, by
+   design, matching an edit-quantity flow) sets the line to 1, silently
+   destroying the other 4 units the buyer believed were already secured --
+   while the UI shows a success toast implying it worked additively.
+
+   Fix: ProductDetailScreen now fetches the current draft on load and
+   pre-fills the quantity stepper from the existing line for this product,
+   if any (extracted as the pure, tested findDraftLineQuantity() in
+   draft-utils.ts). When a line already exists, the button reads 'Update
+   cart' instead of 'Add to cart', a note shows 'Already in your cart: N'
+   above the stepper, and the success message reads 'Updated' vs 'Added'
+   accordingly -- so the screen's language now matches the RPC's actual
+   replace semantics instead of implying additive behavior it doesn't have.
+
+Add draft-utils.test.ts (4 assertions) for the new pure helper. No test
+added for the claim-retry fix itself: like claimApprovedB2bIdentity() and
+resolveBuyerSession() already were, it's IO-heavy (imports @/lib/supabase
+at module scope, which pulls in react-native and cannot be imported from
+this repo's plain node:test files -- see buyer-identity-claim-core.ts's
+split for the established precedent) and not something this repo's test
+convention covers without a larger DI refactor.
+
+Verified: npm run quality passes end to end -- 164/164 tests (160
+previous + 4 new), typecheck clean, lint clean, boundary/rc-scan/
+rc-navigation/cert:bindings/census:p106/expo-config all pass.
+
+Also caught and self-corrected during this pass: an str_replace edit to
+draft-utils.ts briefly deleted the 'if (rows.length === 0) return null;'
+guard in aggregateDraftRows() before the pure helper was added -- caught
+immediately by re-reading the file and running typecheck, fixed before
+proceeding, never left in an intermediate broken state across a commit.
+
+No production mutation of any kind.
+---
+ package.json                        |  2 +-
+ src/lib/api/buyer.ts                | 27 ++++++++++++-
+ src/lib/draft-utils.test.ts         | 59 +++++++++++++++++++++++++++++
+ src/lib/draft-utils.ts              | 23 +++++++++++
+ src/screens/ProductDetailScreen.tsx | 51 +++++++++++++++++++++----
+ 5 files changed, 153 insertions(+), 9 deletions(-)
+ create mode 100644 src/lib/draft-utils.test.ts
+
+diff --git a/package.json b/package.json
+index b5abfae..060c826 100644
+--- a/package.json
++++ b/package.json
+@@ -10,7 +10,7 @@
+     "web": "expo start --web",
+     "typecheck": "tsc --noEmit",
+     "lint": "eslint . --max-warnings 0",
+-    "test": "node --import tsx --test src/lib/checkout-idempotency.test.ts src/lib/checkout-submit-guards.test.ts src/lib/rpc-errors.test.ts src/lib/rpc.test.ts src/lib/order-stages.test.ts src/theme/layout.test.ts src/lib/golden-journey.test.ts src/lib/customer-projections.test.ts src/lib/product-publication.test.ts src/lib/buyer-commercial-validation.test.ts src/lib/buyer-communication-log.test.ts src/lib/general-query-idempotency.test.ts src/lib/quote-projections.test.ts src/lib/quote-guards.test.ts src/lib/quote-idempotency.test.ts src/lib/quote-rpc-binding-check.test.ts src/lib/p106-quote-authority.test.ts src/lib/genie-product-resolution.test.ts src/lib/genie-draft-line-commit.test.ts src/lib/payment-gateway-boundary.test.ts src/lib/payment-idempotency.test.ts src/lib/runtime-payment-gateway-binding.test.ts src/lib/buyer-deployment-rpc-allowlist.test.ts src/lib/session-routing.test.ts src/lib/buyer-identity-claim-core.test.ts src/lib/buyer-identity.test.ts src/lib/login-preflight-action.test.ts src/lib/deadlock-regression.test.ts scripts/buyer-mobile-certification/revenue-journey.integration.test.mjs src/services/customerGateway.test.ts",
++    "test": "node --import tsx --test src/lib/checkout-idempotency.test.ts src/lib/checkout-submit-guards.test.ts src/lib/rpc-errors.test.ts src/lib/rpc.test.ts src/lib/order-stages.test.ts src/theme/layout.test.ts src/lib/golden-journey.test.ts src/lib/customer-projections.test.ts src/lib/product-publication.test.ts src/lib/buyer-commercial-validation.test.ts src/lib/buyer-communication-log.test.ts src/lib/general-query-idempotency.test.ts src/lib/quote-projections.test.ts src/lib/quote-guards.test.ts src/lib/quote-idempotency.test.ts src/lib/quote-rpc-binding-check.test.ts src/lib/p106-quote-authority.test.ts src/lib/genie-product-resolution.test.ts src/lib/genie-draft-line-commit.test.ts src/lib/payment-gateway-boundary.test.ts src/lib/payment-idempotency.test.ts src/lib/runtime-payment-gateway-binding.test.ts src/lib/buyer-deployment-rpc-allowlist.test.ts src/lib/session-routing.test.ts src/lib/buyer-identity-claim-core.test.ts src/lib/buyer-identity.test.ts src/lib/login-preflight-action.test.ts src/lib/deadlock-regression.test.ts src/lib/draft-utils.test.ts scripts/buyer-mobile-certification/revenue-journey.integration.test.mjs src/services/customerGateway.test.ts",
+     "e2e": "playwright test",
+     "e2e:install": "playwright install chromium",
+     "cert:bindings": "node --import tsx scripts/buyer-mobile-certification/verify-bindings.mjs",
+diff --git a/src/lib/api/buyer.ts b/src/lib/api/buyer.ts
+index 80d6930..b183eff 100644
+--- a/src/lib/api/buyer.ts
++++ b/src/lib/api/buyer.ts
+@@ -1,6 +1,7 @@
+ import { callRpc } from "@/lib/rpc";
+ import { parseRpcError } from "@/lib/rpc-errors";
+ import { supabase } from "@/lib/supabase";
++import { claimApprovedB2bIdentity } from "@/lib/buyer-identity-claim";
+ import type {
+   CustomerCompany,
+   CustomerTeamMember,
+@@ -92,7 +93,31 @@ export async function resolveBuyerSession(): Promise<BuyerSessionSnapshot> {
+   }
+ 
+   try {
+-    const companyId = await fetchBuyerEligibleCompanyId();
++    let companyId = await fetchBuyerEligibleCompanyId();
++    if (!companyId) {
++      // Recovery for an interrupted identity claim: the OTP/session-bridge
++      // step (buyer-session-bridge.ts) can succeed in creating a verified
++      // Supabase session and then be interrupted (network drop, app
++      // backgrounded/killed) before claimApprovedB2bIdentity() completes.
++      // That leaves a real, provider-verified session with no buyer
++      // membership -- previously a permanent dead end, since this resolver
++      // only re-checked membership and never re-attempted the claim, so
++      // "Try again" on SessionRecoveryScreen could never succeed and the
++      // only way out was a full fresh login (new OTP) that most people
++      // wouldn't think to do. The claim RPC is safe to call speculatively
++      // here: it's a read-then-idempotent-activate operation keyed off the
++      // session's own verified phone/email (see
++      // claim_approved_b2b_access_request_v2's already_active handling), so
++      // calling it on an already-claimed or genuinely-not-a-buyer session is
++      // a harmless no-op, not a mutation risk.
++      try {
++        await claimApprovedB2bIdentity();
++        companyId = await fetchBuyerEligibleCompanyId();
++      } catch {
++        // Genuinely nothing to claim, or a transient backend issue -- fall
++        // through to the normal no_membership branch below either way.
++      }
++    }
+     if (!companyId) {
+       return {
+         state: "no_membership",
+diff --git a/src/lib/draft-utils.test.ts b/src/lib/draft-utils.test.ts
+new file mode 100644
+index 0000000..86c4916
+--- /dev/null
++++ b/src/lib/draft-utils.test.ts
+@@ -0,0 +1,59 @@
++import { describe, it } from "node:test";
++import assert from "node:assert/strict";
++import { findDraftLineQuantity } from "./draft-utils";
++import type { CustomerOrderDraft } from "@/types/database.types";
++
++function draftWithLine(productId: string, quantity: number): CustomerOrderDraft {
++  return {
++    draft_id: "draft-1",
++    company_id: "company-1",
++    status: "active",
++    readiness_status: "incomplete",
++    readiness_issues: [],
++    order_total: quantity * 100,
++    is_checkout_ready: false,
++    lines: [
++      {
++        line_id: "line-1",
++        product_id: productId,
++        quantity,
++        unit_price_snapshot: 100,
++        currency_snapshot: "INR",
++        uom_snapshot: "kg",
++        sku_snapshot: "SKU-1",
++        product_name_snapshot: "Test Product",
++        line_total: quantity * 100,
++      },
++    ],
++  };
++}
++
++describe("findDraftLineQuantity — regression for the cart-overwrite bug", () => {
++  it("returns the existing line's quantity when the product is already in the draft", () => {
++    const draft = draftWithLine("product-a", 7);
++    assert.equal(findDraftLineQuantity(draft, "product-a"), 7);
++  });
++
++  it("returns null when the product is not in the draft", () => {
++    const draft = draftWithLine("product-a", 7);
++    assert.equal(findDraftLineQuantity(draft, "product-b"), null);
++  });
++
++  it("returns nul

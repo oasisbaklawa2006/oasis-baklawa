@@ -1,0 +1,286 @@
+ccessRejectedScreen.tsx
+@@ -3,7 +3,6 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+ import type { RootStackParamList } from "@/navigation/types";
+ import { Screen } from "@/components/Screen";
+-import { useBuyerSession } from "@/context/BuyerSessionContext";
+ import { openExternalUrl } from "@/lib/open-external-url";
+ import { colors, spacing, typography } from "@/theme";
+ 
+@@ -11,15 +10,13 @@ type Props = NativeStackScreenProps<RootStackParamList, "AccessRejected">;
+ 
+ const SUPPORT_PHONE = "+919999792959";
+ 
+-export function AccessRejectedScreen({ navigation }: Props) {
+-  const { snapshot } = useBuyerSession();
+-
++export function AccessRejectedScreen({ navigation, route }: Props) {
+   return (
+     <Screen title="Access Not Approved" subtitle="Trade account application">
+       <View style={styles.body}>
+         <Text style={styles.copy}>
+-          {snapshot?.message ??
+-            "Your trade application was not approved for buyer ordering. Contact Oasis Baklawa to discuss next steps."}
++          {route.params?.message ??
++            "This B2B access request is not active. Contact Oasis Baklawa support or submit a new access request if eligible."}
+         </Text>
+         <TouchableOpacity
+           style={styles.primary}
+@@ -29,6 +26,13 @@ export function AccessRejectedScreen({ navigation }: Props) {
+         >
+           <Text style={styles.primaryText}>Contact buyer support</Text>
+         </TouchableOpacity>
++        <TouchableOpacity
++          style={styles.secondary}
++          onPress={() => navigation.replace("Register")}
++          accessibilityRole="button"
++        >
++          <Text style={styles.secondaryText}>Submit a new access request</Text>
++        </TouchableOpacity>
+         <TouchableOpacity
+           style={styles.secondary}
+           onPress={() => navigation.replace("Welcome")}
+diff --git a/src/screens/LoginScreen.tsx b/src/screens/LoginScreen.tsx
+index 9bf2e6a..83cccbb 100644
+--- a/src/screens/LoginScreen.tsx
++++ b/src/screens/LoginScreen.tsx
+@@ -3,204 +3,309 @@ import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-nativ
+ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+ import type { RootStackParamList } from "@/navigation/types";
+ import { Screen } from "@/components/Screen";
+-import { supabase } from "@/lib/supabase";
++import { useBuyerSession } from "@/context/BuyerSessionContext";
++import { routeFromBuyerSnapshot } from "@/lib/session-routing";
++import { invokeBuyerPreflight, type BuyerPreflightChannel, type BuyerPreflightState } from "@/lib/buyer-preflight";
++import { isEmailIdentifier, normalizeEmail, normalizePhone } from "@/lib/buyer-identity";
++import { sendMsg91Otp, verifyMsg91Otp, retryMsg91Otp } from "@/lib/msg91-otp-widget";
++import { bridgeMsg91SessionAndClaim } from "@/lib/buyer-session-bridge";
++import { openExternalUrl } from "@/lib/open-external-url";
+ import { colors, spacing, typography, touchTarget } from "@/theme";
+ 
+ type Props = NativeStackScreenProps<RootStackParamList, "Login">;
+-type Method = "otp" | "email" | "google";
++type Channel = BuyerPreflightChannel;
++type Stage = "identifier" | "otp";
++
++const SUPPORT_PHONE = "+919999792959";
++const SUPPORT_WHATSAPP =
++  "https://wa.me/919891162212?text=Hello%20Oasis%20Baklawa%2C%20I%20need%20help%20logging%20in.";
++
++function createAttemptId(): string {
++  return `native-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
++}
+ 
+ export function LoginScreen({ navigation }: Props) {
+-  const [method, setMethod] = useState<Method>("otp");
++  const { refresh } = useBuyerSession();
++  const [channel, setChannel] = useState<Channel | null>(null);
+   const [identifier, setIdentifier] = useState("");
+   const [otp, setOtp] = useState("");
+-  const [otpSent, setOtpSent] = useState(false);
++  const [stage, setStage] = useState<Stage>("identifier");
++  const [reqId, setReqId] = useState<string | null>(null);
+   const [busy, setBusy] = useState(false);
+   const [error, setError] = useState<string | null>(null);
++  const [blockedState, setBlockedState] = useState<BuyerPreflightState | null>(null);
+ 
+-  async function sendOtp() {
+-    setBusy(true);
++  function resetChannel() {
++    setChannel(null);
++    setIdentifier("");
++    setOtp("");
++    setStage("identifier");
++    setReqId(null);
++    setError(null);
++    setBlockedState(null);
++  }
++
++  function validatedIdentifier(targetChannel: Channel): string | null {
++    if (targetChannel === "email") {
++      const normalized = normalizeEmail(identifier);
++      return isEmailIdentifier(normalized) ? normalized : null;
++    }
++    const phone = normalizePhone(identifier);
++    // MSG91's SDK and buyer-login-gateway both expect "<country code><10 digits>"
++    // with no '+' — e.g. "9198XXXXXXXX".
++    return phone.last10.length === 10 ? `91${phone.last10}` : null;
++  }
++
++  async function requestOtp(targetChannel: Channel) {
+     setError(null);
++    setBlockedState(null);
++    const normalized = validatedIdentifier(targetChannel);
++    if (!normalized) {
++      setError(
++        targetChannel === "email"
++          ? "Enter a valid email address."
++          : "Enter a valid 10-digit mobile number."
++      );
++      return;
++    }
++
++    setBusy(true);
++    const attemptId = createAttemptId();
+     try {
+-      const { error: signInError } = await supabase.auth.signInWithOtp({ phone: identifier });
+-      if (signInError) throw signInError;
+-      setOtpSent(true);
++      // Preflight is authoritative and MUST run before any OTP is requested.
++      // No eligibility rule is reconstructed on-device.
++      const preflight = await invokeBuyerPreflight(targetChannel, normalized, attemptId);
++      if (!preflight.allowOtp) {
++        setBusy(false);
++        if (preflight.state === "pending") {
++          navigation.replace("AccessPending", { message: preflight.message });
++          return;
++        }
++        if (preflight.state === "rejected") {
++          navigation.replace("AccessRejected", { message: preflight.message });
++          return;
++        }
++        if (preflight.state === "unknown") {
++          navigation.navigate("Register");
++          return;
++        }
++        // employee / ambiguous: no dedicated native destination — fail closed
++        // with an inline message and a support action (matches Central).
++        setBlockedState(preflight.state);
++        setError(preflight.message);
++        return;
++      }
++
++      const sendResult = await sendMsg91Otp(normalized);
++      if (sendResult.invisibleVerified && sendResult.accessToken) {
++        await completeLogin(targetChannel, sendResult.accessToken, normalized, attemptId);
++        return;
++      }
++      setReqId(sendResult.reqId);
++      setIdentifier(normalized);
++      setStage("otp");
+     } catch (e) {
+-      setError(e instanceof Error ? e.message : "Could not send OTP");
++      setError(e instanceof Error ? mapMsg91Error(e.message) : "Could not send OTP. Please try again.");
+     } finally {
+       setBusy(false);
+     }
+   }
+ 
+-  async function verifyOtp() {
++  async function verifyOtp(targetChannel: Channel) {
++    if (!reqId) {
++      setError("OTP session expired. Please request a new code.");
++      return;
++    }
+     setBusy(true);
+     setError(null);
+     try {
+-      const { error: verifyError } = await supabase.auth.verifyOtp({ phone: identifier, token: otp, type: "sms" });
+-      if (verifyError) throw verifyError;
+-      navigation.replace("MainTabs", { screen: "Dashboard" });
++      const accessToken = await verifyMsg91Otp(reqId, otp);
++      await completeLogin(targetChannel, accessToken, identifier, createAttemptId());
+     } catch (e) {
+-      setError(e instanceof Error ? e.message : "Invalid OTP");
+-    } finally {
++      setError(e instanceof Error ? mapMsg91Error(e.message) : "Invalid OTP. Please try again.");
+       setBusy(false);
+     }
+   }
+ 
+-  async function loginWithEmail() {
+-    setBusy(true);
+-    setError(null);
++  async function completeLogin(targetChannel: Channel, accessToken: string, normalizedIdentifier: string, attemptId: string) {
+     try {
+-      const { error: linkError } = await supabase.auth.signInWithOtp({ email: identifier });
+-      if (linkError) throw linkError;
+-      setOtpSent(true);
++      await bridgeMsg91SessionAndClaim(targetChannel, accessToken, normalizedIdentifier, attemptId);
++      const snapshot = await refresh();
++      routeFromBuyerSnapshot(navigation, snapshot, true);
+     } catch (e) {
+-      setError(e instanceof Error ? e.message : "Could not send magic link");
++      setError(e instanceof Error ? mapSessionError(e.message) : "We couldn't complete sign-in. Please try again.");
+     } finally {
+       setBusy(false);
+     }
+   }
+ 
+-  async function loginWithGoogle() {
++  async function resendOtp(targetChannel: Channel) {
++    if (!reqId) return;
+     setBusy(true);
+     setError(null);
+     try {
+-      const { error: oauthError } = await supabase.auth.signInWithOAuth({ provider: "google" });
+-      if (oauthError) throw oauthError;
++      await retryMsg91Otp(reqId, targetChannel === "mobile" ? "SMS-11" : "EMAIL-3");
+     } catch (e) {
+-      setError(e instanceof Error ? e.message : "Google sign-in failed");
++      setError(e instanceof Error ? mapMsg91Error(e.message) : "Could not resend the code.");
+     } finally {
+       setBusy(false);
+     }
+   }
+ 
+-  function selectMethod(nextMethod: Method) {
+-    setMethod(nextMethod);
+-    setIdentifier("");
+-    setOtp("");
+-    setOtpSent(false);
+-    setError(null);
+-  }
+-
+   return (
+-    <Screen title="Log In" subtitle="MSG91 OTP, Email or Google">
+-      <View style={styles.tabs} accessibilityRole="tablist">
+-        {(["otp", "email", "google"] as Method[]).map((m) => (
++    <Screen title="Buyer Log In" subtitle="Use the mobile number or email approved with your Oasis B2B access request">
++      {channel === null && (
++        <View style={styles.form}>
+           <TouchableOpacity
+-            key={m}
+-            onPress={() => selectMethod(m)}
+-            style={[styles.tab, method === m && styles.tabActive]}
+-            accessibilityRole="tab"
+-            accessibilityState={{ selected: method === m }}
+-            accessibilityLabel={m === "otp" ? "Mobile OTP" : m === "email" ? "Email" : "Google"}
++            style={styles.choiceCard}
++            onPress={() => setChannel("mobile")}
++            accessibilityRole="button"
++            accessibilityLabel="Mobile OTP"
+           >
+-            <Text style={[styles.tabText, method === m && styles.tabTextActive]}>
+-              {m === "otp" ? "Mobile OTP" : m === "email" ? "Email" : "Google"}
+-            </Text>
++            <Text style={styles.choiceTitle}>Mobile OTP</Text>
++            <Text style={styles.choiceSubtitle}>Approved buyers verify through MSG91.</Text>
+           </TouchableOpacity>
+-        ))}
+-      </View>
++          <TouchableOpacity
++            style={styles.choiceCard}
++            onPress={() => setChannel("email")}
++            accessibilityRole="button"
++            accessibilityLabel="Email OTP"
++          >
++            <Text style={styles.choiceTitle}>Email OTP</Text>
++            <Text style={styles.choiceSubtitle}>Approved buyers verify through MSG91 email OTP.</Text>
++          </TouchableOpacity>
++        </View>
++      )}
+ 
+-      {method === "otp" && (
++      {channel !== null && (
+         <View style={styles.form}>
++          <TouchableOpacity onPress={resetChannel} accessibilityRole="button" accessibilityLabel="Change login method">
++            <Text style={styles.backLink}>‹ Change login method</Text>
++          </TouchableOpacity>
++
+           <TextInput
+             style={styles.input}
+-            placeholder="+91 mobile number"
+-            keyboardType="phone-pad"
++            placeholder={channel === "mobile" ? "10-digit mobile number" : "you@company.com"}
++

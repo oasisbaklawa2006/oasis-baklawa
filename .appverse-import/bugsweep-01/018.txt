@@ -1,0 +1,188 @@
+reviewed: contained to the two
+intended changes, no secrets, no service-role usage, no RLS touched.
+
+No production mutation of any kind.
+---
+ package.json                               |  2 +-
+ scripts/verify-contract-boundary.mjs       |  2 +-
+ src/lib/buyer-deployment-rpc-allowlist.ts  |  2 +-
+ src/lib/genie-order-parse.ts               | 12 ++++++
+ src/lib/genie-parse-availability.test.ts   | 15 ++++++++
+ src/lib/genie-parse-availability.ts        | 25 ++++++++++++
+ src/lib/support-ticket-idempotency.test.ts |  8 ++--
+ src/lib/support-ticket-idempotency.ts      | 10 +++--
+ src/screens/AiOrderScreen.tsx              | 44 +++++++++++++++-------
+ src/services/customerGateway.ts            |  2 +-
+ src/types/database.types.ts                |  2 +-
+ 11 files changed, 97 insertions(+), 27 deletions(-)
+ create mode 100644 src/lib/genie-parse-availability.test.ts
+ create mode 100644 src/lib/genie-parse-availability.ts
+
+diff --git a/package.json b/package.json
+index 7f0be47..a96f44e 100644
+--- a/package.json
++++ b/package.json
+@@ -10,7 +10,7 @@
+     "web": "expo start --web",
+     "typecheck": "tsc --noEmit",
+     "lint": "eslint . --max-warnings 0",
+-    "test": "node --import tsx --test src/lib/checkout-idempotency.test.ts src/lib/checkout-submit-guards.test.ts src/lib/rpc-errors.test.ts src/lib/rpc.test.ts src/lib/order-stages.test.ts src/theme/layout.test.ts src/lib/golden-journey.test.ts src/lib/customer-projections.test.ts src/lib/product-publication.test.ts src/lib/buyer-commercial-validation.test.ts src/lib/buyer-communication-log.test.ts src/lib/general-query-idempotency.test.ts src/lib/support-ticket-idempotency.test.ts src/lib/quote-projections.test.ts src/lib/quote-guards.test.ts src/lib/quote-idempotency.test.ts src/lib/quote-rpc-binding-check.test.ts src/lib/p106-quote-authority.test.ts src/lib/genie-product-resolution.test.ts src/lib/genie-draft-line-commit.test.ts src/lib/payment-gateway-boundary.test.ts src/lib/payment-idempotency.test.ts src/lib/runtime-payment-gateway-binding.test.ts src/lib/buyer-deployment-rpc-allowlist.test.ts src/lib/session-routing.test.ts src/lib/buyer-identity-claim-core.test.ts src/lib/buyer-identity.test.ts src/lib/login-preflight-action.test.ts src/lib/deadlock-regression.test.ts src/lib/draft-utils.test.ts src/lib/buyer-session-refresh-triggers.test.ts src/lib/checkout-submit-error.test.ts scripts/buyer-mobile-certification/revenue-journey.integration.test.mjs src/services/customerGateway.test.ts",
++    "test": "node --import tsx --test src/lib/checkout-idempotency.test.ts src/lib/checkout-submit-guards.test.ts src/lib/rpc-errors.test.ts src/lib/rpc.test.ts src/lib/order-stages.test.ts src/theme/layout.test.ts src/lib/golden-journey.test.ts src/lib/customer-projections.test.ts src/lib/product-publication.test.ts src/lib/buyer-commercial-validation.test.ts src/lib/buyer-communication-log.test.ts src/lib/general-query-idempotency.test.ts src/lib/support-ticket-idempotency.test.ts src/lib/genie-parse-availability.test.ts src/lib/quote-projections.test.ts src/lib/quote-guards.test.ts src/lib/quote-idempotency.test.ts src/lib/quote-rpc-binding-check.test.ts src/lib/p106-quote-authority.test.ts src/lib/genie-product-resolution.test.ts src/lib/genie-draft-line-commit.test.ts src/lib/payment-gateway-boundary.test.ts src/lib/payment-idempotency.test.ts src/lib/runtime-payment-gateway-binding.test.ts src/lib/buyer-deployment-rpc-allowlist.test.ts src/lib/session-routing.test.ts src/lib/buyer-identity-claim-core.test.ts src/lib/buyer-identity.test.ts src/lib/login-preflight-action.test.ts src/lib/deadlock-regression.test.ts src/lib/draft-utils.test.ts src/lib/buyer-session-refresh-triggers.test.ts src/lib/checkout-submit-error.test.ts scripts/buyer-mobile-certification/revenue-journey.integration.test.mjs src/services/customerGateway.test.ts",
+     "e2e": "playwright test",
+     "e2e:install": "playwright install chromium",
+     "cert:bindings": "node --import tsx scripts/buyer-mobile-certification/verify-bindings.mjs",
+diff --git a/scripts/verify-contract-boundary.mjs b/scripts/verify-contract-boundary.mjs
+index b5cb9b9..922ef77 100644
+--- a/scripts/verify-contract-boundary.mjs
++++ b/scripts/verify-contract-boundary.mjs
+@@ -23,7 +23,7 @@ const allowedRpcs = new Set([
+   "customer_order_status_v1",
+   "customer_order_items_v1",
+   "customer_support_tickets_v1",
+-  "submit_customer_support_ticket_v1",
++  "submit_customer_support_ticket_v2",
+   "customer_buyer_eligible_company_id",
+   "customer_company_v1",
+   "customer_team_v1",
+diff --git a/src/lib/buyer-deployment-rpc-allowlist.ts b/src/lib/buyer-deployment-rpc-allowlist.ts
+index dbe7610..6ba854e 100644
+--- a/src/lib/buyer-deployment-rpc-allowlist.ts
++++ b/src/lib/buyer-deployment-rpc-allowlist.ts
+@@ -7,7 +7,7 @@ export const BUYER_DEPLOYMENT_RPC_ALLOWLIST = [
+   "customer_order_status_v1",
+   "customer_order_items_v1",
+   "customer_support_tickets_v1",
+-  "submit_customer_support_ticket_v1",
++  "submit_customer_support_ticket_v2",
+   "customer_buyer_eligible_company_id",
+   "customer_company_v1",
+   "customer_team_v1",
+diff --git a/src/lib/genie-order-parse.ts b/src/lib/genie-order-parse.ts
+index 09a164f..307d72f 100644
+--- a/src/lib/genie-order-parse.ts
++++ b/src/lib/genie-order-parse.ts
+@@ -1,4 +1,5 @@
+ import { supabase } from "@/lib/supabase";
++import { GENIE_PARSE_ENABLED } from "@/lib/genie-parse-availability";
+ 
+ export type GenieParseMode = "text" | "audio" | "image" | "document";
+ 
+@@ -29,6 +30,17 @@ function normalizeLine(value: unknown): GenieParseLine | null {
+ 
+ /** Governed Oasis Genie edge intake — never invents lines locally when the edge function fails. */
+ export async function invokeGenieOrderParse(request: GenieParseRequest): Promise<GenieParseLine[]> {
++  if (!GENIE_PARSE_ENABLED) {
++    // Enforcement chokepoint, not just a UI-level gate: this is the one
++    // function every Genie parse mode funnels through before reaching
++    // supabase.functions.invoke("ai-order-parse", ...) -- a production edge
++    // function slug confirmed not to exist (see genie-parse-availability.ts).
++    // Any future call site, not only AiOrderScreen, is protected by this
++    // check, not just by the screen disabling its own button.
++    throw new Error(
++      "Oasis Genie order parsing is not yet available on this build. Add items from the catalogue instead."
++    );
++  }
+   const { data, error } = await supabase.functions.invoke("ai-order-parse", {
+     body: {
+       mode: request.mode,
+diff --git a/src/lib/genie-parse-availability.test.ts b/src/lib/genie-parse-availability.test.ts
+new file mode 100644
+index 0000000..a4b80a4
+--- /dev/null
++++ b/src/lib/genie-parse-availability.test.ts
+@@ -0,0 +1,15 @@
++import { describe, it } from "node:test";
++import assert from "node:assert/strict";
++import { GENIE_PARSE_ENABLED } from "./genie-parse-availability";
++
++describe("GENIE_PARSE_ENABLED — ai-order-parse governance gate", () => {
++  it("is false: direct inspection of the live Supabase project " +
++    "(tcxvcatsqqertcnycuop) found no deployed 'ai-order-parse' function, " +
++    "and it does not exist in source in oasis-supabase-core, " +
++    "Oasis-Baklawa-Central, or oasis-ai-studio. This must stay false until " +
++    "a governed, sourced, certified function actually exists -- flipping " +
++    "it to silence a UI complaint would let the app call a production " +
++    "function that isn't there", () => {
++    assert.equal(GENIE_PARSE_ENABLED, false);
++  });
++});
+diff --git a/src/lib/genie-parse-availability.ts b/src/lib/genie-parse-availability.ts
+new file mode 100644
+index 0000000..8e4dd7b
+--- /dev/null
++++ b/src/lib/genie-parse-availability.ts
+@@ -0,0 +1,25 @@
++/**
++ * Whether Oasis Genie order parsing (any mode -- text, audio, image,
++ * document) is permitted to call the production edge function.
++ *
++ * Direct inspection of the live Supabase project (tcxvcatsqqertcnycuop --
++ * the exact project this app's own supabaseUrl points at) found NO
++ * deployed function with the slug "ai-order-parse", which is the ONLY
++ * edge function every Genie parse mode calls (see invokeGenieOrderParse in
++ * genie-order-parse.ts). It also does not exist in source in any of the
++ * three governed repositories (oasis-supabase-core, Oasis-Baklawa-Central,
++ * oasis-ai-studio).
++ *
++ * Kept in its own zero-dependency module (no supabase, no react-native)
++ * specifically so this gate is directly unit-testable, and so it can be
++ * imported by the actual network chokepoint (invokeGenieOrderParse) as the
++ * enforcement point -- not just by the UI screen, which is a much weaker
++ * guarantee (a future call site that imports invokeGenieOrderParse
++ * directly, bypassing AiOrderScreen, would otherwise have no protection
++ * against calling a production function that does not exist).
++ *
++ * Flip to true only once a governed, sourced, certified ai-order-parse
++ * function actually exists -- never to silence a UI complaint about the
++ * feature being unavailable.
++ */
++export const GENIE_PARSE_ENABLED = false;
+diff --git a/src/lib/support-ticket-idempotency.test.ts b/src/lib/support-ticket-idempotency.test.ts
+index 2920759..60a9a55 100644
+--- a/src/lib/support-ticket-idempotency.test.ts
++++ b/src/lib/support-ticket-idempotency.test.ts
+@@ -11,10 +11,10 @@ describe("support ticket idempotency", () => {
+     resetSupportTicketIdempotencyForTests();
+   });
+ 
+-  it("reuses one key across lost-response retries -- this is the client half of the fix for " +
+-    "Core commit de640c6 (submit_customer_support_ticket_v1 previously had no idempotency " +
+-    "protection at all; a retry after a dropped/timed-out response created a genuine duplicate " +
+-    "ticket)", async () => {
++  it("reuses one key across lost-response retries -- this is the client half of the fix that " +
++    "added submit_customer_support_ticket_v2 (branch support-ticket-idempotency-v2): v1 had no " +
++    "idempotency protection at all, and a retry after a dropped/timed-out response created a " +
++    "genuine duplicate ticket", async () => {
+     const first = await getSupportTicketIdempotencyKey();
+     assert.match(first, /^[0-9a-f-]{36}$/i);
+     assert.equal(await getSupportTicketIdempotencyKey(), first);
+diff --git a/src/lib/support-ticket-idempotency.ts b/src/lib/support-ticket-idempotency.ts
+index f488738..87c2e83 100644
+--- a/src/lib/support-ticket-idempotency.ts
++++ b/src/lib/support-ticket-idempotency.ts
+@@ -9,10 +9,12 @@ let fallbackKey: string | null = null;
+  * Returns a stable key so a lost/timed-out ticket-submission response can be
+  * retried safely without creating a duplicate ticket. Companion to
+  * general-query-idempotency.ts, required by Core's
+- * submit_customer_support_ticket_v1(p_idempotency_key, ...) -- see Core
+- * commit de640c6 (branch core-support-ticket-idempotency), which added
+- * server-authoritative idempotency to a submission path that previously had
+- * none at all beyond this app's own disabled-while-submitting button.
++ * submit_customer_support_ticket_v2(p_idempotency_key, ...) -- a new,
++ * backward-compatible RPC (branch support-ticket-idempotency-v2) added
++ * alongside the original submit_customer_support_ticket_v1, which had no
++ * idempotency protection at all beyond this app's own disabled-while-
++ * submitting button and remains deployed, unchanged, for any client still
++ * on the old signature.
+  */
+ export async function getSupportTicketIdempotencyKey(): Promise<string> {
+   try {
+diff --git a/src/screens/AiOrderScreen.tsx b/src/screens/AiOrderScreen.tsx
+index bf26c7c..5da6846 100644
+--- a/src/screens/AiOrderScreen.tsx
++++ b/src/screens/AiOrderScreen.tsx
+@@ -11,6 +11,7 @@ import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
+ import { commitGenieResolvedLineToDraft, clearGenieDraftLineCommits } from "@/lib/genie-draft-line-commit";
+ import { genieDraftLineWriter } from "@/lib/genie-draft-line-writer";
+ import { parseGenieIntake } from "@/lib/genie-intake";
++import

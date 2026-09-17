@@ -1,0 +1,2711 @@
+From 0d22600eedd95283868ab2dd8da9932c78ff3b7d Mon Sep 17 00:00:00 2001
+From: AUTH-01 Native Convergence <auth01-agent@local>
+Date: Wed, 16 Sep 2026 20:00:59 +0000
+Subject: [PATCH 01/11] fix(auth): converge native buyer login with governed
+ preflight
+
+- Add buyer-preflight.ts: calls buyer-login-gateway (Central) before any
+  OTP, fails closed on transport/parse failure.
+- Add buyer-identity.ts: normalization ported from Central's auth-identity.ts.
+- Add buyer-identity-claim.ts: wraps the CURRENT (20260914160000) dual
+  verified-identifier claim_approved_b2b_access_request_v2 RPC.
+- Add buyer-session-bridge.ts: MSG91 access-token -> token_hash ->
+  supabase.auth.verifyOtp -> claim, mirroring Central's verifiedProviderSession.
+- Add msg91-otp-widget.ts: native OTP transport via the official
+  @msg91comm/sendotp-react-native SDK. Only client-safe widgetId/tokenAuth
+  are embedded (same class of credential Central already embeds in its own
+  web bundle) -- provider authkey and all provider verification stay
+  server-side in msg91-otp / msg91-email-session (Central edge functions).
+- Rewrite LoginScreen.tsx: Mobile OTP and Email OTP only. Google OAuth and
+  the broken email magic-link path are removed entirely, not just disabled.
+  Every path is preflight-gated before OTP.
+- Rewrite RegisterScreen.tsx: fully unauthenticated, calls
+  submit_b2b_access_request_v2 with its exact current signature. No city
+  field -- no canonical column/param exists.
+- Rewrite resolveBuyerSession(): removed order-draft probing and
+  AsyncStorage-based inference entirely. Deleted application-status-storage.ts.
+  New fail-closed 'no_membership' state.
+- Update session-routing.ts, Access screens, navigation types, BuyerGate.
+- Fix ProductDetailScreen gating: capability-level, not page-level.
+- Sync RPC allowlist / boundary verifier / database.types.ts.
+- tsconfig.json: node_modules exclude + paths shim for the MSG91 package.
+
+Verified: npm run quality (boundary, rc-scan, rc-nav, typecheck, lint,
+test [130/130], census:p106, expo config) passes end to end. No production
+mutation.
+---
+ package-lock.json                         |  11 +
+ package.json                              |   1 +
+ scripts/verify-contract-boundary.mjs      |   3 +-
+ src/components/BuyerGate.tsx              |   2 +-
+ src/context/BuyerSessionContext.tsx       |   9 +-
+ src/lib/api/buyer.ts                      | 124 ++++----
+ src/lib/application-status-storage.ts     |  42 ---
+ src/lib/buyer-deployment-rpc-allowlist.ts |   3 +-
+ src/lib/buyer-identity-claim.ts           | 123 ++++++++
+ src/lib/buyer-identity.ts                 |  50 ++++
+ src/lib/buyer-preflight.ts                |  67 +++++
+ src/lib/buyer-session-bridge.ts           |  71 +++++
+ src/lib/msg91-otp-widget.ts               |  79 +++++
+ src/lib/session-routing.ts                |  16 +-
+ src/navigation/types.ts                   |   4 +-
+ src/screens/AccessPendingScreen.tsx       |   6 +-
+ src/screens/AccessRejectedScreen.tsx      |  16 +-
+ src/screens/LoginScreen.tsx               | 350 +++++++++++++++-------
+ src/screens/ProductDetailScreen.tsx       |  21 +-
+ src/screens/RegisterScreen.tsx            | 200 ++++++-------
+ src/types/database.types.ts               |  41 ++-
+ src/types/msg91-sendotp-react-native.d.ts |  17 ++
+ tsconfig.json                             |   7 +-
+ 23 files changed, 863 insertions(+), 400 deletions(-)
+ delete mode 100644 src/lib/application-status-storage.ts
+ create mode 100644 src/lib/buyer-identity-claim.ts
+ create mode 100644 src/lib/buyer-identity.ts
+ create mode 100644 src/lib/buyer-preflight.ts
+ create mode 100644 src/lib/buyer-session-bridge.ts
+ create mode 100644 src/lib/msg91-otp-widget.ts
+ create mode 100644 src/types/msg91-sendotp-react-native.d.ts
+
+diff --git a/package-lock.json b/package-lock.json
+index e10b20c..df76967 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -11,6 +11,7 @@
+         "@expo-google-fonts/hanken-grotesk": "^0.4.3",
+         "@expo-google-fonts/libre-caslon-text": "^0.4.0",
+         "@expo/metro-runtime": "~3.2.3",
++        "@msg91comm/sendotp-react-native": "^3.0.0",
+         "@react-native-async-storage/async-storage": "1.23.1",
+         "@react-native-community/netinfo": "11.3.1",
+         "@react-navigation/bottom-tabs": "^6.6.1",
+@@ -4024,6 +4025,16 @@
+         "@jridgewell/sourcemap-codec": "^1.4.14"
+       }
+     },
++    "node_modules/@msg91comm/sendotp-react-native": {
++      "version": "3.0.0",
++      "resolved": "https://registry.npmjs.org/@msg91comm/sendotp-react-native/-/sendotp-react-native-3.0.0.tgz",
++      "integrity": "sha512-3vzOvyveoE+XRaEMIC5A/kYearEXT2AIW6I0njbFVkMQOo1exQy/xVgPpqUV7wWWQs07XvLlfeDsDaZKoJcSJA==",
++      "license": "ISC",
++      "peerDependencies": {
++        "react": "*",
++        "react-native": "*"
++      }
++    },
+     "node_modules/@napi-rs/wasm-runtime": {
+       "version": "1.2.2",
+       "resolved": "https://registry.npmjs.org/@napi-rs/wasm-runtime/-/wasm-runtime-1.2.2.tgz",
+diff --git a/package.json b/package.json
+index 9ec6137..5fde8b5 100644
+--- a/package.json
++++ b/package.json
+@@ -24,6 +24,7 @@
+   "dependencies": {
+     "@expo-google-fonts/hanken-grotesk": "^0.4.3",
+     "@expo-google-fonts/libre-caslon-text": "^0.4.0",
++    "@msg91comm/sendotp-react-native": "^3.0.0",
+     "@expo/metro-runtime": "~3.2.3",
+     "@react-native-async-storage/async-storage": "1.23.1",
+     "@react-native-community/netinfo": "11.3.1",
+diff --git a/scripts/verify-contract-boundary.mjs b/scripts/verify-contract-boundary.mjs
+index 3dbd846..b5cb9b9 100644
+--- a/scripts/verify-contract-boundary.mjs
++++ b/scripts/verify-contract-boundary.mjs
+@@ -34,7 +34,8 @@ const allowedRpcs = new Set([
+   "clear_customer_order_draft_v1",
+   "submit_customer_order_v1",
+   "calculate_customer_advance_v1",
+-  "submit_b2b_trade_application_v1",
++  "submit_b2b_access_request_v2",
++  "claim_approved_b2b_access_request_v2",
+   "customer_sales_order_commercial_facts_v1",
+   "customer_order_finance_facts_v1",
+   "customer_proforma_invoice_facts_v1",
+diff --git a/src/components/BuyerGate.tsx b/src/components/BuyerGate.tsx
+index 623d57b..63d4704 100644
+--- a/src/components/BuyerGate.tsx
++++ b/src/components/BuyerGate.tsx
+@@ -51,7 +51,7 @@ export function BuyerGate({ children, onLogin, onRegister, requireApprovedBuyer
+           <Text style={styles.buttonText}>Log In</Text>
+         </TouchableOpacity>
+       ) : null}
+-      {(snapshot?.state === "no_application" || snapshot?.state === "unauthenticated") && onRegister ? (
++      {snapshot?.state === "unauthenticated" && onRegister ? (
+         <TouchableOpacity
+           style={styles.secondaryButton}
+           onPress={onRegister}
+diff --git a/src/context/BuyerSessionContext.tsx b/src/context/BuyerSessionContext.tsx
+index c19ce26..60f0830 100644
+--- a/src/context/BuyerSessionContext.tsx
++++ b/src/context/BuyerSessionContext.tsx
+@@ -1,6 +1,5 @@
+ import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+ import { supabase } from "@/lib/supabase";
+-import { clearStoredApplicationStatus, storeApplicationStatus } from "@/lib/application-status-storage";
+ import {
+   resolveBuyerSession,
+   type BuyerEligibilityState,
+@@ -37,11 +36,6 @@ export function BuyerSessionProvider({ children }: { children: React.ReactNode }
+         lastUserIdRef.current = next.userId;
+       }
+       setSnapshot(next);
+-
+-      if (next.state === "approved_buyer" && next.userId) {
+-        await storeApplicationStatus(next.userId, "approved_buyer");
+-      }
+-
+       return next;
+     } finally {
+       if (requestId === requestIdRef.current) {
+@@ -56,8 +50,7 @@ export function BuyerSessionProvider({ children }: { children: React.ReactNode }
+       if (event === "TOKEN_REFRESHED") {
+         return;
+       }
+-      if (event === "SIGNED_OUT" && lastUserIdRef.current) {
+-        await clearStoredApplicationStatus(lastUserIdRef.current);
++      if (event === "SIGNED_OUT") {
+         lastUserIdRef.current = null;
+       }
+       await refresh();
+diff --git a/src/lib/api/buyer.ts b/src/lib/api/buyer.ts
+index ec077fd..80d6930 100644
+--- a/src/lib/api/buyer.ts
++++ b/src/lib/api/buyer.ts
+@@ -1,20 +1,23 @@
+ import { callRpc } from "@/lib/rpc";
+-import { readStoredApplicationStatus } from "@/lib/application-status-storage";
+ import { parseRpcError } from "@/lib/rpc-errors";
+ import { supabase } from "@/lib/supabase";
+ import type {
+   CustomerCompany,
+   CustomerTeamMember,
+-  SubmitB2bTradeApplicationArgs,
+-  SubmitB2bTradeApplicationResult,
++  SubmitB2bAccessRequestArgs,
++  SubmitB2bAccessRequestResult,
+ } from "@/types/database.types";
+ 
++// PENDING / REJECTED / UNKNOWN / EMPLOYEE identities are blocked at the
++// buyer-login-gateway preflight (see buyer-preflight.ts) and never reach OTP,
++// so they never reach session resolution either. A session existing at all is
++// therefore expected to represent an approved identity; "no_membership" is
++// the fail-closed catch for the case where that invariant doesn't hold (e.g.
++// backend state changed after login, or a pre-AUTH-01 legacy session).
+ export type BuyerEligibilityState =
+   | "unauthenticated"
+-  | "no_application"
+-  | "application_pending"
+-  | "rejected_ineligible"
+   | "approved_buyer"
++  | "no_membership"
+   | "backend_failure";
+ 
+ export interface BuyerSessionSnapshot {
+@@ -40,17 +43,36 @@ export async function fetchCustomerTeam(): Promise<CustomerTeamMember[]> {
+   return data ?? [];
+ }
+ 
+-export async function submitB2bTradeApplication(
+-  args: SubmitB2bTradeApplicationArgs
+-): Promise<SubmitB2bTradeApplicationResult> {
+-  const data = await callRpc("submit_b2b_trade_application_v1", args);
++/**
++ * Public, unauthenticated B2B access intake — submit_b2b_access_request_v2
++ * (Core, granted to anon). Replaces the obsolete authenticated
++ * submit_b2b_trade_application_v1 path. Idempotent on (email, mobile): a
++ * resubmission returns the existing application with duplicate: true rather
++ * than erroring or creating a conflicting record. There is no p_city
++ * parameter — b2b_applications has no city column, so the native form must
++ * not collect one (folding it into the address is explicitly not the
++ * intended fix; if a city field becomes required, that's a Core schema/RPC
++ * change, not a client workaround).
++ */
++export async function submitB2bAccessRequest(
++  args: SubmitB2bAccessRequestArgs
++): Promise<SubmitB2bAccessRequestResult> {
++  const data = await callRpc("submit_b2b_access_request_v2", args);
+   const result = data?.[0];
+   if (!result) {
+-    throw new Error("Trade application did not return a result. Please try again.");
++    throw new Error("Access request did not return a result. Please try again.");
+   }
+   return result;
+ }
+ 
++/**
++ * Backend-authoritative session resolution. No local-storage inference and no
++ * probing of unrelated RPCs (e.g. cart-draft) to guess eligibility — both were
++ * removed as obsolete (AUTH-01 native convergence). Every branch is derived
++ * from server state: the current session, customer_buyer_eligible_company_id,
++ * and the company's own frozen/status flag. Fails closed to "backend_failure"
++ * or "no_membership" rather than ever assuming approval.
++ */
+ export async function resolveBuyerSession(): Promise<BuyerSessionSnapshot> {
+   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+   if (sessionError) {
+@@ -71,79 +93,39 @@ export async function resolveBuyerSession(): Promise<BuyerSessionSnapshot> {
+ 
+   try {
+     const companyId = await fetchBuyerEligibleCompanyId();
+-    if (companyId) {
+-      const company = await fetchCustomerCompany();
+-      if (company?.is_frozen) {
+-        return {
+-          state: "rejected_ineligible",
+-          companyId,
+-          company,
+-          message: "Your company account is frozen. Contact Oasis Baklawa support.",
+-          userId,
+-        };
+-      }
+-      return { state: "approved_buyer", companyId, company, message: null, userId };
+-    }
+-
+-    const { error: draftProbeError } = await callRpc("get_customer_order_draft_v1").then(
+-      () => ({ error: null }),
+-      (error) => ({ error })
+-    );
+-    if (draftProbeError) {
+-      const parsed = parseRpcError(draftProbeError);
+-      if (parsed.code === "BUYER_NOT_ELIGIBLE") {
+-        return await inferNonEligibleState(userId);
+-      }
+-      if (parsed.code === "AUTH_REQUIRED") {
+-        return { state: "unauthenticated", companyId: null, company: null, message: parsed.message, userId: null };
+-      }
++    if (!companyId) {
+       return {
+-        state: "backend_failure",
++        state: "no_membership",
+         companyId: null,
+         company: null,
+-        message: parsed.message,
++        message:
++          "We couldn't find an active buyer account for this login. If you recently applied for B2B access, contact Oasis support to confirm your approval status.",
+         userId,
+       };
+     }
+ 
+-    return await inferNonEligibleState(userId);
++    const company = await fetchCustomerCompany();
++    if (company?.is_frozen) {
++      return {
++        state: "no_membership",
++        companyId,
++        company,
++        message: "Your company account is frozen. Contact Oasis Baklawa support.",
++        userId,
++      };
++    }
++    return { state: "approved_buyer", companyId, company, message: null, userId };
+   } catch (error) {
++    const parsed = parseRpcError(error);
++    if (parsed.code === "AUTH_REQUIRED") {
++      return { state: "unauthenticated", companyId: null, company: null, message: parsed.message, userId: null };
++    }
+     return {
+       state: "backend_failure",
+       companyId: null,
+       company: null,
+-      message: parseRpcError(error).message,
+-      userId,
+-    };
+-  }
+-}
+-
+-async function inferNonEligibleState(userId: string): Promise<BuyerSessionSnapshot> {
+-  const stored = await readStoredApplicationStatus(userId);
+-  if (stored === "application_pending") {
+-    return {
+-      state: "application_pending",
+-      companyId: null,
+-      company: null,
+-      message: "Your trade application is being reviewed.",
++      message: parsed.message,
+       userId,
+     };
+   }
+-  if (stored === "rejected_ineligible") {
+-    return {
+-      state: "rejected_ineligible",
+-      companyId: null,
+-      company: null,
+-      message: "Your trade application was not approved. Contact Oasis Baklawa support.",
+-      userId,
+-    };
+-  }
+-
+-  return {
+-    state: "no_application",
+-    companyId: null,
+-    company: null,
+-    message: "Submit a B2B trade application to access buyer pricing and ordering.",
+-    userId,
+-  };
+ }
+diff --git a/src/lib/application-status-storage.ts b/src/lib/application-status-storage.ts
+deleted file mode 100644
+index 225ed9f..0000000
+--- a/src/lib/application-status-storage.ts
++++ /dev/null
+@@ -1,42 +0,0 @@
+-import AsyncStorage from "@react-native-async-storage/async-storage";
+-import type { BuyerEligibilityState } from "@/lib/api/buyer";
+-
+-const APPLICATION_STATUS_PREFIX = "oasis_buyer_application_status_v1:";
+-
+-function applicationStatusKey(userId: string): string {
+-  return `${APPLICATION_STATUS_PREFIX}${userId}`;
+-}
+-
+-export async function readStoredApplicationStatus(userId: string): Promise<BuyerEligibilityState | null> {
+-  try {
+-    const value = await AsyncStorage.getItem(applicationStatusKey(userId));
+-    if (value === "application_pending" || value === "rejected_ineligible") {
+-      return value;
+-    }
+-    return null;
+-  } catch {
+-    return null;
+-  }
+-}
+-
+-export async function storeApplicationStatus(userId: string, status: BuyerEligibilityState): Promise<void> {
+-  try {
+-    if (status === "application_pending" || status === "rejected_ineligible") {
+-      await AsyncStorage.setItem(applicationStatusKey(userId), status);
+-      return;
+-    }
+-    if (status === "approved_buyer") {
+-      await AsyncStorage.removeItem(applicationStatusKey(userId));
+-    }
+-  } catch {
+-    // UX cache only — never block session resolution on persistence failure.
+-  }
+-}
+-
+-export async function clearStoredApplicationStatus(userId: string): Promise<void> {
+-  try {
+-    await AsyncStorage.removeItem(applicationStatusKey(userId));
+-  } catch {
+-    // Best-effort on sign-out.
+-  }
+-}
+diff --git a/src/lib/buyer-deployment-rpc-allowlist.ts b/src/lib/buyer-deployment-rpc-allowlist.ts
+index 7e79714..dbe7610 100644
+--- a/src/lib/buyer-deployment-rpc-allowlist.ts
++++ b/src/lib/buyer-deployment-rpc-allowlist.ts
+@@ -18,7 +18,8 @@ export const BUYER_DEPLOYMENT_RPC_ALLOWLIST = [
+   "clear_customer_order_draft_v1",
+   "submit_customer_order_v1",
+   "calculate_customer_advance_v1",
+-  "submit_b2b_trade_application_v1",
++  "submit_b2b_access_request_v2",
++  "claim_approved_b2b_access_request_v2",
+   "customer_sales_order_commercial_facts_v1",
+   "customer_order_finance_facts_v1",
+   "customer_proforma_invoice_facts_v1",
+diff --git a/src/lib/buyer-identity-claim.ts b/src/lib/buyer-identity-claim.ts
+new file mode 100644
+index 0000000..6cd9992
+--- /dev/null
++++ b/src/lib/buyer-identity-claim.ts
+@@ -0,0 +1,123 @@
++// Native wrapper around Core's claim_approved_b2b_access_request_v2(), ported
++// from Oasis-Baklawa-Central's src/lib/b2b-approved-identity-claim.ts. This is
++// the CURRENT (20260914160000_auth01_verified_identifier_membership_compat.sql)
++// dual verified-identifier definition: it activates Buyer membership from a
++// provider-confirmed phone OR email, preserves legacy application bindings, and
++// fails closed on ambiguous company matches. Do not reimplement this logic
++// on-device — Core is the sole authority for the claim decision.
++import { callRpc } from "@/lib/rpc";
++import { supabase } from "@/lib/supabase";
++
++export const APPROVED_B2B_IDENTITY_CLAIM_RPC = "claim_approved_b2b_access_request_v2";
++
++export interface ApprovedB2bIdentityClaimRow {
++  application_id: string | null;
++  claimed: boolean;
++  company_id: string | null;
++  already_active: boolean;
++}
++
++export interface ApprovedB2bIdentityClaimOutcome {
++  applicationId: string | null;
++  companyId: string | null;
++  claimed: boolean;
++  alreadyActive: boolean;
++}
++
++const NO_MATCH_CLAIM_ROW: ApprovedB2bIdentityClaimRow = {
++  application_id: null,
++  claimed: false,
++  company_id: null,
++  already_active: false,
++};
++
++function isApprovedB2bIdentityClaimRow(value: unknown): value is ApprovedB2bIdentityClaimRow {
++  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
++  const row = value as Record<string, unknown>;
++  return (
++    Object.prototype.hasOwnProperty.call(row, "application_id") &&
++    Object.prototype.hasOwnProperty.call(row, "claimed") &&
++    Object.prototype.hasOwnProperty.call(row, "company_id") &&
++    Object.prototype.hasOwnProperty.call(row, "already_active") &&
++    (row.application_id === null || typeof row.application_id === "string") &&
++    typeof row.claimed === "boolean" &&
++    (row.company_id === null || typeof row.company_id === "string") &&
++    typeof row.already_active === "boolean"
++  );
++}
++
++/** Core may return an empty set when no b2b_applications match exists yet for auth.uid(). */
++function normalizeClaimRpcData(data: unknown): ApprovedB2bIdentityClaimRow | null {
++  if (Array.isArray(data)) {
++    if (data.length === 0) return NO_MATCH_CLAIM_ROW;
++    if (data.length === 1) return isApprovedB2bIdentityClaimRow(data[0]) ? data[0] : null;
++    return null;
++  }
++  return isApprovedB2bIdentityClaimRow(data) ? data : null;
++}
++
++function classifyClaimRpcError(message?: string | null): string {
++  const normalized = (message ?? "").toLowerCase();
++  if (normalized.includes("ambiguous") || normalized.includes("conflict")) return "ambiguous";
++  return "rpc_error";
++}
++
++async function waitForAuthenticatedSession(attempts = 8, delayMs = 75): Promise<boolean> {
++  for (let attempt = 0; attempt < attempts; attempt += 1) {
++    const { data } = await supabase.auth.getSession();
++    if (data.session?.access_token) return true;
++    if (attempt < attempts - 1) {
++      await new Promise((resolve) => setTimeout(resolve, delayMs));
++    }
++  }
++  return false;
++}
++
++/**
++ * Claims Buyer membership for the current authenticated, provider-verified
++ * session. Safe to call after BOTH mobile and email session bridges — Core's
++ * current definition matches on verified phone OR verified email. Throws on
++ * genuine RPC failure or a malformed response; never invents a claim.
++ */
++export async function claimApprovedB2bIdentity(): Promise<ApprovedB2bIdentityClaimOutcome> {
++  const sessionReady = await waitForAuthenticatedSession();
++  if (!sessionReady) {
++    throw new Error("APPROVED_B2B_IDENTITY_CLAIM_FAILED:session_missing");
++  }
++
++  let data: unknown;
++  try {
++    data = await callRpc(APPROVED_B2B_IDENTITY_CLAIM_RPC);
++  } catch (error) {
++    const message = error instanceof Error ? error.message : undefined;
++    throw new Error(`APPROVED_B2B_IDENTITY_CLAIM_FAILED:${classifyClaimRpcError(message)}`);
++  }
++
++  const row = normalizeClaimRpcData(data);
++  if (!row) {
++    const reason = Array.isArray(data) && data.length > 1 ? "ambiguous" : "malformed_response";
++    throw new Error(`APPROVED_B2B_IDENTITY_CLAIM_FAILED:${reason}`);
++  }
++
++  return {
++    applicationId: row.application_id,
++    companyId: row.company_id,
++    claimed: row.claimed,
++    alreadyActive: row.already_active,
++  };
++}
++
++/**
++ * Fail closed when the edge bridge signalled a brand-new identity awaiting
++ * bind (approved_b2b_pending_claim / is_new) but Core's claim did not attach
++ * membership. Prevents a silent fall-through to "no application" for a real
++ * approved buyer.
++ */
++export function assertApprovedB2bClaimBound(
++  outcome: ApprovedB2bIdentityClaimOutcome,
++  requireBound: boolean
++): void {
++  if (!requireBound) return;
++  if (outcome.claimed || outcome.alreadyActive) return;
++  throw new Error("APPROVED_B2B_IDENTITY_CLAIM_FAILED:bind_failed");
++}
+diff --git a/src/lib/buyer-identity.ts b/src/lib/buyer-identity.ts
+new file mode 100644
+index 0000000..5401a5e
+--- /dev/null
++++ b/src/lib/buyer-identity.ts
+@@ -0,0 +1,50 @@
++// Identifier normalization, ported from Oasis-Baklawa-Central's src/lib/auth-identity.ts
++// so native and Central classify/send identical identifiers to the shared
++// buyer-login-gateway and MSG91 bridges.
++export interface NormalizedPhone {
++  digits: string;
++  last10: string;
++  national: string;
++  e164: string;
++  variants: string[];
++}
++
++const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
++
++export function isEmailIdentifier(value: string): boolean {
++  return EMAIL_REGEX.test(value.trim().toLowerCase());
++}
++
++export function normalizeEmail(raw: string): string {
++  return raw.trim().toLowerCase();
++}
++
++export function normalizePhone(input: string, defaultCountryCode = "91"): NormalizedPhone {
++  const digits = input.replace(/\D/g, "");
++  const trimmedCountry = defaultCountryCode.replace(/\D/g, "") || "91";
++
++  if (!digits) {
++    return { digits: "", last10: "", national: "", e164: "", variants: [] };
++  }
++
++  const last10 = digits.slice(-10);
++  const national = last10 || digits;
++  const withCountry = national.length === 10 ? `${trimmedCountry}${national}` : digits;
++  const e164 = withCountry.startsWith("+") ? withCountry : `+${withCountry}`;
++
++  const variants = Array.from(
++    new Set(
++      [
++        digits,
++        national,
++        withCountry,
++        e164,
++        `0${national}`,
++        national.length === 10 ? `+${trimmedCountry}${national}` : null,
++        national.length === 10 ? `${trimmedCountry}${national}` : null,
++      ].filter(Boolean) as string[]
++    )
++  );
++
++  return { digits, last10, national, e164, variants };
++}
+diff --git a/src/lib/buyer-preflight.ts b/src/lib/buyer-preflight.ts
+new file mode 100644
+index 0000000..9261d97
+--- /dev/null
++++ b/src/lib/buyer-preflight.ts
+@@ -0,0 +1,67 @@
++// Native client for the canonical Buyer preflight authority (buyer-login-gateway,
++// Oasis-Baklawa-Central). This is the SAME governed classification Central's web
++// Buyer login uses — the native app is another client of it, not a second
++// authority. Never reconstruct eligibility rules on-device: the gateway result
++// is authoritative and must be checked before any OTP is requested.
++import { supabase } from "@/lib/supabase";
++
++export type BuyerPreflightChannel = "mobile" | "email";
++
++export type BuyerPreflightState =
++  | "approved"
++  | "pending"
++  | "employee"
++  | "rejected"
++  | "unknown"
++  | "ambiguous";
++
++export interface BuyerPreflightResult {
++  state: BuyerPreflightState;
++  allowOtp: boolean;
++  message: string;
++}
++
++interface RawPreflightResponse {
++  ok?: boolean;
++  state?: BuyerPreflightState;
++  allowOtp?: boolean;
++  message?: string;
++  error?: string;
++}
++
++/**
++ * Calls buyer-login-gateway in `mode: "preflight"`. Must run BEFORE any OTP is
++ * requested for either channel. Fails closed (ambiguous) on any transport or
++ * parsing failure — never silently allows OTP when the gateway can't be reached.
++ */
++export async function invokeBuyerPreflight(
++  channel: BuyerPreflightChannel,
++  identifier: string,
++  attemptId: string
++): Promise<BuyerPreflightResult> {
++  try {
++    const { data, error } = await supabase.functions.invoke("buyer-login-gateway", {
++      body: { mode: "preflight", channel, identifier, attemptId },
++    });
++    if (error) throw error;
++    const raw = (data ?? {}) as RawPreflightResponse;
++    if (!raw.ok || !raw.state) {
++      return {
++        state: "ambiguous",
++        allowOtp: false,
++        message: raw.message ?? "We couldn't verify this account right now. Please contact Oasis support.",
++      };
++    }
++    return {
++      state: raw.state,
++      allowOtp: Boolean(raw.allowOtp),
++      message: raw.message ?? "",
++    };
++  } catch {
++    return {
++      state: "ambiguous",
++      allowOtp: false,
++      message: "We couldn't verify this account right now. Please contact Oasis support.",
++    };
++  }
++}
+diff --git a/src/lib/buyer-session-bridge.ts b/src/lib/buyer-session-bridge.ts
+new file mode 100644
+index 0000000..704a60d
+--- /dev/null
++++ b/src/lib/buyer-session-bridge.ts
+@@ -0,0 +1,71 @@
++// Bridges an MSG91-verified access-token to the canonical Supabase Buyer
++// session, ported from Oasis-Baklawa-Central's verifiedProviderSession
++// (src/pages/BuyerLogin.tsx). Both channels go through Central's existing
++// edge functions (msg91-otp, msg91-email-session) for server-side provider
++// re-verification, then the SAME supabase.auth.verifyOtp({token_hash,
++// type:"email"}) call Central uses to mint the session — this is not a new,
++// parallel auth mechanism.
++import { supabase } from "@/lib/supabase";
++import {
++  claimApprovedB2bIdentity,
++  assertApprovedB2bClaimBound,
++  type ApprovedB2bIdentityClaimOutcome,
++} from "@/lib/buyer-identity-claim";
++
++export type BuyerLoginChannel = "mobile" | "email";
++
++export interface BuyerSessionBridgeResult {
++  userId: string;
++  claim: ApprovedB2bIdentityClaimOutcome;
++}
++
++interface EdgeBridgeResponse {
++  ok?: boolean;
++  error?: string;
++  reason?: string;
++  token_hash?: string;
++  user_id?: string;
++  email?: string;
++  phone?: string;
++  verified_email?: string;
++  is_new?: boolean;
++  approved_b2b_pending_claim?: boolean;
++}
++
++/**
++ * Exchanges a provider-verified MSG91 access-token for a canonical Supabase
++ * session, then claims Buyer membership. Throws on any failure — callers
++ * must not assume partial success.
++ */
++export async function bridgeMsg91SessionAndClaim(
++  channel: BuyerLoginChannel,
++  accessToken: string,
++  identifier: string,
++  attemptId: string
++): Promise<BuyerSessionBridgeResult> {
++  const edgeFunction = channel === "mobile" ? "msg91-otp" : "msg91-email-session";
++  const body =
++    channel === "mobile"
++      ? { mode: "verify_widget", accessToken, phone: identifier, attemptId }
++      : { accessToken, email: identifier, attemptId };
++
++  const { data, error } = await supabase.functions.invoke(edgeFunction, { body });
++  if (error) throw new Error(error.message || "provider_verification_failed");
++
++  const verifyRes = (data ?? {}) as EdgeBridgeResponse;
++  if (!verifyRes.ok) throw new Error(verifyRes.error || verifyRes.reason || "provider_verification_failed");
++  if (!verifyRes.token_hash || !verifyRes.user_id) throw new Error("session_token_missing");
++
++  const { data: sessionData, error: sessionError } = await supabase.auth.verifyOtp({
++    token_hash: verifyRes.token_hash,
++    type: "email",
++  });
++  if (sessionError || !sessionData.user) {
++    throw new Error(sessionError?.message || "session_create_failed");
++  }
++
++  const claim = await claimApprovedB2bIdentity();
++  assertApprovedB2bClaimBound(claim, Boolean(verifyRes.approved_b2b_pending_claim));
++
++  return { userId: sessionData.user.id, claim };
++}
+diff --git a/src/lib/msg91-otp-widget.ts b/src/lib/msg91-otp-widget.ts
+new file mode 100644
+index 0000000..f924269
+--- /dev/null
++++ b/src/lib/msg91-otp-widget.ts
+@@ -0,0 +1,79 @@
++// Native MSG91 OTP transport using the official @msg91comm/sendotp-react-native
++// SDK (Mobile Integration widget). This is the smallest secure Expo-compatible
++// path found for native OTP: no provider secret is ever embedded here — only
++// the same class of client-safe widgetId/tokenAuth pair Central already embeds
++// in its own web bundle (src/pages/BuyerLogin.tsx: MSG91_WIDGET_ID /
++// MSG91_TOKEN_AUTH). Provider verification of the resulting access-token stays
++// server-side in msg91-otp / msg91-email-session (Central edge functions) —
++// this module never talks to MSG91's privileged REST API directly.
++import { OTPWidget } from "@msg91comm/sendotp-react-native";
++
++// TODO(deployment): these must be the Buyer App's OWN MSG91 widget
++// credentials with "Mobile Integration" enabled in the MSG91 dashboard — they
++// are NOT the same widget Central's web login uses. Populate from the MSG91
++// account before this ships; do not reuse Central's MSG91_WIDGET_ID /
++// MSG91_TOKEN_AUTH, which is scoped to the web widget.
++const MSG91_NATIVE_WIDGET_ID = process.env.EXPO_PUBLIC_MSG91_WIDGET_ID ?? "";
++const MSG91_NATIVE_TOKEN_AUTH = process.env.EXPO_PUBLIC_MSG91_TOKEN_AUTH ?? "";
++
++let initialized = false;
++
++export function ensureMsg91WidgetInitialized(): void {
++  if (initialized) return;
++  if (!MSG91_NATIVE_WIDGET_ID || !MSG91_NATIVE_TOKEN_AUTH) {
++    throw new Error("msg91_widget_not_configured");
++  }
++  OTPWidget.initializeWidget(MSG91_NATIVE_WIDGET_ID, MSG91_NATIVE_TOKEN_AUTH);
++  initialized = true;
++}
++
++export interface Msg91SendResult {
++  accessToken: string | null;
++  reqId: string | null;
++  invisibleVerified: boolean;
++}
++
++/** identifier: E.164-ish digits without '+' for mobile (e.g. "9198XXXXXXXX"), or a bare email. */
++export async function sendMsg91Otp(identifier: string): Promise<Msg91SendResult> {
++  ensureMsg91WidgetInitialized();
++  const response = (await OTPWidget.sendOTP({ identifier })) as {
++    type?: string;
++    message?: string;
++    "access-token"?: string;
++    invisibleVerified?: boolean;
++  };
++  if (response?.type !== "success") {
++    throw new Error(response?.message || "msg91_send_failed");
++  }
++  if (response.invisibleVerified && response["access-token"]) {
++    return { accessToken: response["access-token"], reqId: null, invisibleVerified: true };
++  }
++  // Normal flow: `message` carries the reqId used for verifyOTP/retryOTP.
++  return { accessToken: null, reqId: response.message ?? null, invisibleVerified: false };
++}
++
++export async function verifyMsg91Otp(reqId: string, otp: string): Promise<string> {
++  ensureMsg91WidgetInitialized();
++  const response = (await OTPWidget.verifyOTP({ reqId, otp })) as { type?: string; message?: string };
++  if (response?.type !== "success" || !response.message) {
++    throw new Error(response?.message || "msg91_verify_failed");
++  }
++  // On success `message` carries the provider access-token (same contract as
++  // Central's widget bridge — see extractMsg91AccessToken in BuyerLogin.tsx).
++  return response.message;
++}
++
++export type Msg91RetryChannel = "SMS-11" | "VOICE-4" | "EMAIL-3" | "WHATSAPP-12";
++
++export async function retryMsg91Otp(reqId: string, channel?: Msg91RetryChannel): Promise<void> {
++  ensureMsg91WidgetInitialized();
++  const body: { reqId: string; retryChannel?: number } = { reqId };
++  if (channel) {
++    const code = Number(channel.split("-")[1]);
++    if (!Number.isNaN(code)) body.retryChannel = code;
++  }
++  const response = (await OTPWidget.retryOTP(body)) as { type?: string; message?: string };
++  if (response?.type !== "success") {
++    throw new Error(response?.message || "msg91_retry_failed");
++  }
++}
+diff --git a/src/lib/session-routing.ts b/src/lib/session-routing.ts
+index b62ae21..6294891 100644
+--- a/src/lib/session-routing.ts
++++ b/src/lib/session-routing.ts
+@@ -16,15 +16,13 @@ export function routeFromBuyerSnapshot(
+     case "approved_buyer":
+       navigation.replace("MainTabs", { screen: "Dashboard" });
+       break;
+-    case "application_pending":
+-      navigation.replace("AccessPending");
+-      break;
+-    case "rejected_ineligible":
+-      navigation.replace("AccessRejected");
+-      break;
+-    case "no_application":
+-      navigation.replace("Register");
+-      break;
++    // PENDING / REJECTED / UNKNOWN are pre-auth states owned by the
++    // buyer-login-gateway preflight — a session should never resolve to them.
++    // "no_membership" is the fail-closed catch when that invariant doesn't
++    // hold (e.g. backend state changed after login); it routes to recovery,
++    // never back to Register, so an approved-then-desynced buyer is never
++    // sent to reapply (the historical UAT deadlock).
++    case "no_membership":
+     case "backend_failure":
+       navigation.replace("SessionRecovery", {
+         message: snapshot.message ?? "We could not verify your session. Check your connection and try again.",
+diff --git a/src/navigation/types.ts b/src/navigation/types.ts
+index 4e93525..fe2d2cc 100644
+--- a/src/navigation/types.ts
++++ b/src/navigation/types.ts
+@@ -24,8 +24,8 @@ export type RootStackParamList = {
+   Welcome: undefined;
+   Login: undefined;
+   Register: undefined;
+-  AccessPending: undefined;
+-  AccessRejected: undefined;
++  AccessPending: { message?: string } | undefined;
++  AccessRejected: { message?: string } | undefined;
+   SessionRecovery: { message: string };
+   MainTabs: NavigatorScreenParams<MainTabParamList>;
+   ProductDetail: { productId: string };
+diff --git a/src/screens/AccessPendingScreen.tsx b/src/screens/AccessPendingScreen.tsx
+index c83c762..82e23bf 100644
+--- a/src/screens/AccessPendingScreen.tsx
++++ b/src/screens/AccessPendingScreen.tsx
+@@ -12,14 +12,14 @@ const SUPPORT_PHONE = "+919999792959";
+ const SUPPORT_WHATSAPP =
+   "https://wa.me/919891162212?text=Hello%20Oasis%20Baklawa%2C%20I%20have%20submitted%20a%20trade%20access%20request%20and%20would%20like%20help%20with%20approval.";
+ 
+-export function AccessPendingScreen({ navigation }: Props) {
++export function AccessPendingScreen({ navigation, route }: Props) {
+   return (
+     <Screen title="Access Review" subtitle="Your application is being reviewed">
+       <View style={styles.body}>
+         <Text style={styles.kicker}>ACCESS REVIEW IN PROGRESS</Text>
+         <Text style={styles.copy}>
+-          Our team verifies your business identity, GST and supporting documents before assigning your buyer
+-          category and confidential price grade.
++          {route.params?.message ??
++            "Our team verifies your business identity, GST and supporting documents before assigning your buyer category and confidential price grade."}
+         </Text>
+         <View style={styles.card}>
+           <Text style={styles.cardTitle}>What happens next</Text>
+diff --git a/src/screens/AccessRejectedScreen.tsx b/src/screens/AccessRejectedScreen.tsx
+index 0d98ddb..0bc39df 100644
+--- a/src/screens/AccessRejectedScreen.tsx
+@@ -3,7 +3,6 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+ import type { RootStackParamList } from "@/navigation/types";
+ import { Screen } from "@/components/Screen";
+-import { useBuyerSession } from "@/context/BuyerSessionContext";
+ import { openExternalUrl } from "@/lib/open-external-url";
+ import { colors, spacing, typography } from "@/theme";
+ 
+@@ -11,15 +10,13 @@ type Props = NativeStackScreenProps<RootStackParamList, "AccessRejected">;
+ 
+ const SUPPORT_PHONE = "+919999792959";
+ 
+-export function AccessRejectedScreen({ navigation }: Props) {
+-  const { snapshot } = useBuyerSession();
+-
++export function AccessRejectedScreen({ navigation, route }: Props) {
+   return (
+     <Screen title="Access Not Approved" subtitle="Trade account application">
+       <View style={styles.body}>
+         <Text style={styles.copy}>
+-          {snapshot?.message ??
+-            "Your trade application was not approved for buyer ordering. Contact Oasis Baklawa to discuss next steps."}
++          {route.params?.message ??
++            "This B2B access request is not active. Contact Oasis Baklawa support or submit a new access request if eligible."}
+         </Text>
+         <TouchableOpacity
+           style={styles.primary}
+@@ -29,6 +26,13 @@ export function AccessRejectedScreen({ navigation }: Props) {
+         >
+           <Text style={styles.primaryText}>Contact buyer support</Text>
+         </TouchableOpacity>
++        <TouchableOpacity
++          style={styles.secondary}
++          onPress={() => navigation.replace("Register")}
++          accessibilityRole="button"
++        >
++          <Text style={styles.secondaryText}>Submit a new access request</Text>
++        </TouchableOpacity>
+         <TouchableOpacity
+           style={styles.secondary}
+           onPress={() => navigation.replace("Welcome")}
+diff --git a/src/screens/LoginScreen.tsx b/src/screens/LoginScreen.tsx
+index 9bf2e6a..83cccbb 100644
+--- a/src/screens/LoginScreen.tsx
++++ b/src/screens/LoginScreen.tsx
+@@ -3,204 +3,309 @@ import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-nativ
+ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+ import type { RootStackParamList } from "@/navigation/types";
+ import { Screen } from "@/components/Screen";
+-import { supabase } from "@/lib/supabase";
++import { useBuyerSession } from "@/context/BuyerSessionContext";
++import { routeFromBuyerSnapshot } from "@/lib/session-routing";
++import { invokeBuyerPreflight, type BuyerPreflightChannel, type BuyerPreflightState } from "@/lib/buyer-preflight";
++import { isEmailIdentifier, normalizeEmail, normalizePhone } from "@/lib/buyer-identity";
++import { sendMsg91Otp, verifyMsg91Otp, retryMsg91Otp } from "@/lib/msg91-otp-widget";
++import { bridgeMsg91SessionAndClaim } from "@/lib/buyer-session-bridge";
++import { openExternalUrl } from "@/lib/open-external-url";
+ import { colors, spacing, typography, touchTarget } from "@/theme";
+ 
+ type Props = NativeStackScreenProps<RootStackParamList, "Login">;
+-type Method = "otp" | "email" | "google";
++type Channel = BuyerPreflightChannel;
++type Stage = "identifier" | "otp";
++
++const SUPPORT_PHONE = "+919999792959";
++const SUPPORT_WHATSAPP =
++  "https://wa.me/919891162212?text=Hello%20Oasis%20Baklawa%2C%20I%20need%20help%20logging%20in.";
++
++function createAttemptId(): string {
++  return `native-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
++}
+ 
+ export function LoginScreen({ navigation }: Props) {
+-  const [method, setMethod] = useState<Method>("otp");
++  const { refresh } = useBuyerSession();
++  const [channel, setChannel] = useState<Channel | null>(null);
+   const [identifier, setIdentifier] = useState("");
+   const [otp, setOtp] = useState("");
+-  const [otpSent, setOtpSent] = useState(false);
++  const [stage, setStage] = useState<Stage>("identifier");
++  const [reqId, setReqId] = useState<string | null>(null);
+   const [busy, setBusy] = useState(false);
+   const [error, setError] = useState<string | null>(null);
++  const [blockedState, setBlockedState] = useState<BuyerPreflightState | null>(null);
+ 
+-  async function sendOtp() {
+-    setBusy(true);
++  function resetChannel() {
++    setChannel(null);
++    setIdentifier("");
++    setOtp("");
++    setStage("identifier");
++    setReqId(null);
++    setError(null);
++    setBlockedState(null);
++  }
++
++  function validatedIdentifier(targetChannel: Channel): string | null {
++    if (targetChannel === "email") {
++      const normalized = normalizeEmail(identifier);
++      return isEmailIdentifier(normalized) ? normalized : null;
++    }
++    const phone = normalizePhone(identifier);
++    // MSG91's SDK and buyer-login-gateway both expect "<country code><10 digits>"
++    // with no '+' — e.g. "9198XXXXXXXX".
++    return phone.last10.length === 10 ? `91${phone.last10}` : null;
++  }
++
++  async function requestOtp(targetChannel: Channel) {
+     setError(null);
++    setBlockedState(null);
++    const normalized = validatedIdentifier(targetChannel);
++    if (!normalized) {
++      setError(
++        targetChannel === "email"
++          ? "Enter a valid email address."
++          : "Enter a valid 10-digit mobile number."
++      );
++      return;
++    }
++
++    setBusy(true);
++    const attemptId = createAttemptId();
+     try {
+-      const { error: signInError } = await supabase.auth.signInWithOtp({ phone: identifier });
+-      if (signInError) throw signInError;
+-      setOtpSent(true);
++      // Preflight is authoritative and MUST run before any OTP is requested.
++      // No eligibility rule is reconstructed on-device.
++      const preflight = await invokeBuyerPreflight(targetChannel, normalized, attemptId);
++      if (!preflight.allowOtp) {
++        setBusy(false);
++        if (preflight.state === "pending") {
++          navigation.replace("AccessPending", { message: preflight.message });
++          return;
++        }
++        if (preflight.state === "rejected") {
++          navigation.replace("AccessRejected", { message: preflight.message });
++          return;
++        }
++        if (preflight.state === "unknown") {
++          navigation.navigate("Register");
++          return;
++        }
++        // employee / ambiguous: no dedicated native destination — fail closed
++        // with an inline message and a support action (matches Central).
++        setBlockedState(preflight.state);
++        setError(preflight.message);
++        return;
++      }
++
++      const sendResult = await sendMsg91Otp(normalized);
++      if (sendResult.invisibleVerified && sendResult.accessToken) {
++        await completeLogin(targetChannel, sendResult.accessToken, normalized, attemptId);
++        return;
++      }
++      setReqId(sendResult.reqId);
++      setIdentifier(normalized);
++      setStage("otp");
+     } catch (e) {
+-      setError(e instanceof Error ? e.message : "Could not send OTP");
++      setError(e instanceof Error ? mapMsg91Error(e.message) : "Could not send OTP. Please try again.");
+     } finally {
+       setBusy(false);
+     }
+   }
+ 
+-  async function verifyOtp() {
++  async function verifyOtp(targetChannel: Channel) {
++    if (!reqId) {
++      setError("OTP session expired. Please request a new code.");
++      return;
++    }
+     setBusy(true);
+     setError(null);
+     try {
+-      const { error: verifyError } = await supabase.auth.verifyOtp({ phone: identifier, token: otp, type: "sms" });
+-      if (verifyError) throw verifyError;
+-      navigation.replace("MainTabs", { screen: "Dashboard" });
++      const accessToken = await verifyMsg91Otp(reqId, otp);
++      await completeLogin(targetChannel, accessToken, identifier, createAttemptId());
+     } catch (e) {
+-      setError(e instanceof Error ? e.message : "Invalid OTP");
+-    } finally {
++      setError(e instanceof Error ? mapMsg91Error(e.message) : "Invalid OTP. Please try again.");
+       setBusy(false);
+     }
+   }
+ 
+-  async function loginWithEmail() {
+-    setBusy(true);
+-    setError(null);
++  async function completeLogin(targetChannel: Channel, accessToken: string, normalizedIdentifier: string, attemptId: string) {
+     try {
+-      const { error: linkError } = await supabase.auth.signInWithOtp({ email: identifier });
+-      if (linkError) throw linkError;
+-      setOtpSent(true);
++      await bridgeMsg91SessionAndClaim(targetChannel, accessToken, normalizedIdentifier, attemptId);
++      const snapshot = await refresh();
++      routeFromBuyerSnapshot(navigation, snapshot, true);
+     } catch (e) {
+-      setError(e instanceof Error ? e.message : "Could not send magic link");
++      setError(e instanceof Error ? mapSessionError(e.message) : "We couldn't complete sign-in. Please try again.");
+     } finally {
+       setBusy(false);
+     }
+   }
+ 
+-  async function loginWithGoogle() {
++  async function resendOtp(targetChannel: Channel) {
++    if (!reqId) return;
+     setBusy(true);
+     setError(null);
+     try {
+-      const { error: oauthError } = await supabase.auth.signInWithOAuth({ provider: "google" });
+-      if (oauthError) throw oauthError;
++      await retryMsg91Otp(reqId, targetChannel === "mobile" ? "SMS-11" : "EMAIL-3");
+     } catch (e) {
+-      setError(e instanceof Error ? e.message : "Google sign-in failed");
++      setError(e instanceof Error ? mapMsg91Error(e.message) : "Could not resend the code.");
+     } finally {
+       setBusy(false);
+     }
+   }
+ 
+-  function selectMethod(nextMethod: Method) {
+-    setMethod(nextMethod);
+-    setIdentifier("");
+-    setOtp("");
+-    setOtpSent(false);
+-    setError(null);
+-  }
+-
+   return (
+-    <Screen title="Log In" subtitle="MSG91 OTP, Email or Google">
+-      <View style={styles.tabs} accessibilityRole="tablist">
+-        {(["otp", "email", "google"] as Method[]).map((m) => (
++    <Screen title="Buyer Log In" subtitle="Use the mobile number or email approved with your Oasis B2B access request">
++      {channel === null && (
++        <View style={styles.form}>
+           <TouchableOpacity
+-            key={m}
+-            onPress={() => selectMethod(m)}
+-            style={[styles.tab, method === m && styles.tabActive]}
+-            accessibilityRole="tab"
+-            accessibilityState={{ selected: method === m }}
+-            accessibilityLabel={m === "otp" ? "Mobile OTP" : m === "email" ? "Email" : "Google"}
++            style={styles.choiceCard}
++            onPress={() => setChannel("mobile")}
++            accessibilityRole="button"
++            accessibilityLabel="Mobile OTP"
+           >
+-            <Text style={[styles.tabText, method === m && styles.tabTextActive]}>
+-              {m === "otp" ? "Mobile OTP" : m === "email" ? "Email" : "Google"}
+-            </Text>
++            <Text style={styles.choiceTitle}>Mobile OTP</Text>
++            <Text style={styles.choiceSubtitle}>Approved buyers verify through MSG91.</Text>
+           </TouchableOpacity>
+-        ))}
+-      </View>
++          <TouchableOpacity
++            style={styles.choiceCard}
++            onPress={() => setChannel("email")}
++            accessibilityRole="button"
++            accessibilityLabel="Email OTP"
++          >
++            <Text style={styles.choiceTitle}>Email OTP</Text>
++            <Text style={styles.choiceSubtitle}>Approved buyers verify through MSG91 email OTP.</Text>
++          </TouchableOpacity>
++        </View>
++      )}
+ 
+-      {method === "otp" && (
++      {channel !== null && (
+         <View style={styles.form}>
++          <TouchableOpacity onPress={resetChannel} accessibilityRole="button" accessibilityLabel="Change login method">
++            <Text style={styles.backLink}>‹ Change login method</Text>
++          </TouchableOpacity>
++
+           <TextInput
+             style={styles.input}
+-            placeholder="+91 mobile number"
+-            keyboardType="phone-pad"
++            placeholder={channel === "mobile" ? "10-digit mobile number" : "you@company.com"}
++            keyboardType={channel === "mobile" ? "phone-pad" : "email-address"}
++            autoCapitalize="none"
+             value={identifier}
+             onChangeText={setIdentifier}
+-            editable={!otpSent}
+-            accessibilityLabel="Mobile number"
++            editable={stage === "identifier"}
++            accessibilityLabel={channel === "mobile" ? "Mobile number" : "Email address"}
+           />
+-          {otpSent && (
++
++          {stage === "otp" && (
+             <TextInput
+-              style={styles.input}
++              style={[styles.input, styles.otpInput]}
+               placeholder="Enter OTP"
+               keyboardType="number-pad"
+               value={otp}
+-              onChangeText={setOtp}
++              onChangeText={(v) => setOtp(v.replace(/\D/g, "").slice(0, 8))}
+               accessibilityLabel="One-time password"
+             />
+           )}
++
+           <TouchableOpacity
+             style={[styles.button, busy && styles.buttonDisabled]}
+             disabled={busy}
+-            onPress={otpSent ? verifyOtp : sendOtp}
++            onPress={() => (stage === "identifier" ? requestOtp(channel) : verifyOtp(channel))}
+             accessibilityRole="button"
+-            accessibilityLabel={otpSent ? "Verify OTP" : "Send OTP"}
++            accessibilityLabel={stage === "identifier" ? "Continue with OTP" : "Verify and continue"}
+           >
+-            <Text style={styles.buttonText}>{otpSent ? "Verify OTP" : "Send OTP"}</Text>
++            <Text style={styles.buttonText}>
++              {busy ? "Please wait…" : stage === "identifier" ? "Continue with OTP" : "Verify and continue"}
++            </Text>
+           </TouchableOpacity>
++
++          {stage === "otp" && (
++            <TouchableOpacity onPress={() => resendOtp(channel)} disabled={busy} accessibilityRole="button">
++              <Text style={styles.link}>Resend code</Text>
++            </TouchableOpacity>
++          )}
+         </View>
+       )}
+ 
+-      {method === "email" && (
+-        <View style={styles.form}>
+-          <TextInput
+-            style={styles.input}
+-            placeholder="you@company.com"
+-            keyboardType="email-address"
+-            autoCapitalize="none"
+-            value={identifier}
+-            onChangeText={setIdentifier}
+-            accessibilityLabel="Email address"
+-          />
++      {error ? (
++        <View style={styles.errorBox} accessibilityRole="alert">
++          <Text style={styles.error}>{error}</Text>
++          {blockedState === "employee" && (
++            <Text style={styles.errorHint}>
++              Employees are not part of the Buyer App. Please use the staff admin login, or contact Oasis support for
++              the link.
++            </Text>
++          )}
++          {blockedState === "ambiguous" && (
++            <TouchableOpacity
++              style={styles.errorAction}
++              onPress={() =>
++                openExternalUrl(SUPPORT_WHATSAPP, "WhatsApp is not available on this device. Call support instead.")
++              }
++              accessibilityRole="button"
++            >
++              <Text style={styles.errorActionText}>Contact Oasis support</Text>
++            </TouchableOpacity>
++          )}
++        </View>
++      ) : null}
++
++      <View style={styles.footer}>
++        <TouchableOpacity
++          onPress={() => navigation.navigate("Register")}
++          accessibilityRole="button"
++          accessibilityLabel="Request B2B access"
++        >
++          <Text style={styles.link}>New wholesale buyer? Request B2B Access</Text>
++        </TouchableOpacity>
++        <View style={styles.supportRow}>
+           <TouchableOpacity
+-            style={[styles.button, busy && styles.buttonDisabled]}
+-            disabled={busy}
+-            onPress={loginWithEmail}
++            onPress={() => openExternalUrl(SUPPORT_WHATSAPP, "WhatsApp is not available on this device.")}
+             accessibilityRole="button"
+-            accessibilityLabel={otpSent ? "Magic link sent" : "Send magic link"}
+           >
+-            <Text style={styles.buttonText}>{otpSent ? "Magic Link Sent" : "Send Magic Link"}</Text>
++            <Text style={styles.supportLink}>WhatsApp Oasis</Text>
+           </TouchableOpacity>
+-        </View>
+-      )}
+-
+-      {method === "google" && (
+-        <View style={styles.form}>
+           <TouchableOpacity
+-            style={[styles.button, busy && styles.buttonDisabled]}
+-            disabled={busy}
+-            onPress={loginWithGoogle}
++            onPress={() => openExternalUrl(`tel:${SUPPORT_PHONE}`, `Call ${SUPPORT_PHONE}`)}
+             accessibilityRole="button"
+-            accessibilityLabel="Continue with Google"
+           >
+-            <Text style={styles.buttonText}>Continue with Google</Text>
++            <Text style={styles.supportLink}>Call Oasis</Text>
+           </TouchableOpacity>
+         </View>
+-      )}
+-
+-      {error ? (
+-        <Text style={styles.error} accessibilityRole="alert">
+-          {error}
+-        </Text>
+-      ) : null}
+-
+-      <TouchableOpacity
+-        onPress={() => navigation.navigate("Register")}
+-        accessibilityRole="button"
+-        accessibilityLabel="Apply for B2B trade account"
+-      >
+-        <Text style={styles.link}>New wholesale buyer? Apply for B2B trade account</Text>
+-      </TouchableOpacity>
++      </View>
+     </Screen>
+   );
+ }
+ 
++function mapMsg91Error(raw: string): string {
++  if (raw === "msg91_widget_not_configured") {
++    return "OTP login isn't available on this build yet. Please contact Oasis support.";
++  }
++  if (raw === "msg91_send_failed") return "We couldn't send a code to that number/email. Please try again.";
++  if (raw === "msg91_verify_failed") return "That code didn't match. Please try again.";
++  return raw;
++}
++
++function mapSessionError(raw: string): string {
++  if (raw.startsWith("APPROVED_B2B_IDENTITY_CLAIM_FAILED")) {
++    return "We verified your code but couldn't activate your buyer account. Please contact Oasis support.";
++  }
++  if (raw === "session_token_missing" || raw === "session_create_failed") {
++    return "We couldn't complete sign-in. Please try again.";
++  }
++  return raw;
++}
++
+ const styles = StyleSheet.create({
+-  tabs: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.lg },
+-  tab: {
+-    flex: 1,
+-    paddingVertical: 10,
+-    borderRadius: 8,
+-    backgroundColor: colors.surfacePremium,
+-    alignItems: "center",
+-    minHeight: touchTarget,
+-    justifyContent: "center",
+-  },
+-  tabActive: { backgroundColor: colors.action },
+-  tabText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.action, fontSize: typography.sizeXs },
+-  tabTextActive: { color: colors.white },
+   form: { gap: spacing.md },
++  choiceCard: {
++    borderWidth: 1,
++    borderColor: colors.border,
++    borderRadius: 14,
++    padding: spacing.lg,
++    backgroundColor: colors.white,
++  },
++  choiceTitle: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeMd, color: colors.textPrimary },
++  choiceSubtitle: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted, marginTop: 4 },
++  backLink: { fontFamily: typography.fontFamilySansSemiBold, color: colors.textMuted, fontSize: typography.sizeSm },
+   input: {
+     borderWidth: 1,
+     borderColor: colors.border,
+@@ -213,6 +318,7 @@ const styles = StyleSheet.create({
+     backgroundColor: colors.white,
+     minHeight: touchTarget,
+   },
++  otpInput: { textAlign: "center", letterSpacing: 4 },
+   button: {
+     backgroundColor: colors.action,
+     paddingVertical: 14,
+@@ -223,11 +329,23 @@ const styles = StyleSheet.create({
+   },
+   buttonDisabled: { opacity: 0.55 },
+   buttonText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.white },
+-  error: { color: colors.error, marginTop: spacing.md, fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm },
++  errorBox: { marginTop: spacing.md, gap: spacing.sm },
++  error: { color: colors.error, fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm },
++  errorHint: { color: colors.textSecondary, fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs },
++  errorAction: {
++    alignSelf: "flex-start",
++    backgroundColor: colors.action,
++    paddingHorizontal: spacing.md,
++    paddingVertical: spacing.sm,
++    borderRadius: 8,
++  },
++  errorActionText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.white, fontSize: typography.sizeXs },
++  footer: { marginTop: spacing.xl, gap: spacing.md, alignItems: "center" },
++  supportRow: { flexDirection: "row", gap: spacing.lg },
++  supportLink: { color: colors.textMuted, fontSize: typography.sizeXs, fontFamily: typography.fontFamilySansMedium },
+   link: {
+     color: colors.action,
+     textAlign: "center",
+-    marginTop: spacing.lg,
+     fontSize: typography.sizeSm,
+     fontFamily: typography.fontFamilySansMedium,
+   },
+diff --git a/src/screens/ProductDetailScreen.tsx b/src/screens/ProductDetailScreen.tsx
+index 61118b2..6725688 100644
+--- a/src/screens/ProductDetailScreen.tsx
++++ b/src/screens/ProductDetailScreen.tsx
+@@ -153,7 +153,11 @@ export function ProductDetailScreen({ navigation, route }: Props) {
+   }
+ 
+   return (
+-    <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
++    <BuyerGate
++      onLogin={() => navigation.navigate("Login")}
++      onRegister={() => navigation.navigate("Register")}
++      requireApprovedBuyer={false}
++    >
+       <Screen title="Product" subtitle={product?.sku ?? ""}>
+         {loading ? (
+           <LoadingState message="Loading product…" />
+@@ -182,7 +186,14 @@ export function ProductDetailScreen({ navigation, route }: Props) {
+                 {priceLabel} / {product.price?.uom}
+               </Text>
+             ) : (
+-              <Text style={styles.unavailable}>{commercial.message ?? "Buyer pricing unavailable"}</Text>
++              <View>
++                <Text style={styles.unavailable}>{commercial.message ?? "Buyer pricing unavailable"}</Text>
++                {!isApprovedBuyer ? (
++                  <TouchableOpacity onPress={() => navigation.navigate("Login")} accessibilityRole="button">
++                    <Text style={styles.loginPrompt}>Log in as an approved buyer to see pricing</Text>
++                  </TouchableOpacity>
++                ) : null}
++              </View>
+             )}
+             {product.short_description ? <Text style={styles.description}>{product.short_description}</Text> : null}
+             {product.long_description ? <Text style={styles.description}>{product.long_description}</Text> : null}
+@@ -252,6 +263,12 @@ const styles = StyleSheet.create({
+   meta: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textMuted },
+   price: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeLg, color: colors.action },
+   unavailable: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeMd, color: colors.textMuted },
++  loginPrompt: {
++    fontFamily: typography.fontFamilySansSemiBold,
++    fontSize: typography.sizeSm,
++    color: colors.action,
++    marginTop: 4,
++  },
+   description: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeMd, lineHeight: 22, color: colors.textSecondary },
+   fact: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textSecondary },
+   stepper: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: spacing.md },
+diff --git a/src/screens/RegisterScreen.tsx b/src/screens/RegisterScreen.tsx
+index dff1970..fa69d81 100644
+--- a/src/screens/RegisterScreen.tsx
++++ b/src/screens/RegisterScreen.tsx
+@@ -3,75 +3,71 @@ import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-nativ
+ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+ import type { RootStackParamList } from "@/navigation/types";
+ import { Screen } from "@/components/Screen";
+-import { useBuyerSession } from "@/context/BuyerSessionContext";
+-import { storeApplicationStatus } from "@/lib/application-status-storage";
+-import { submitB2bTradeApplication } from "@/lib/api/buyer";
++import { submitB2bAccessRequest } from "@/lib/api/buyer";
+ import { parseRpcError } from "@/lib/rpc-errors";
+ import { colors, spacing, typography, touchTarget } from "@/theme";
+ 
+ type Props = NativeStackScreenProps<RootStackParamList, "Register">;
+ 
+-interface TradeApplicationForm {
++// No `city` field: submit_b2b_access_request_v2 (Core) has no p_city
++// parameter and b2b_applications has no city column. If city capture becomes
++// a real product requirement, that's a Core schema/RPC change — do not
++// smuggle it into registered_address on the client.
++interface AccessRequestForm {
+   businessName: string;
++  contactName: string;
++  contactEmail: string;
++  contactPhone: string;
+   gstNumber: string;
+-  contactPerson: string;
+-  mobileNumber: string;
+-  email: string;
+-  city: string;
+   registeredAddress: string;
+ }
+ 
+-const EMPTY_FORM: TradeApplicationForm = {
++const EMPTY_FORM: AccessRequestForm = {
+   businessName: "",
++  contactName: "",
++  contactEmail: "",
++  contactPhone: "",
+   gstNumber: "",
+-  contactPerson: "",
+-  mobileNumber: "",
+-  email: "",
+-  city: "",
+   registeredAddress: "",
+ };
+ 
+ export function RegisterScreen({ navigation }: Props) {
+-  const { snapshot, loading, isAuthenticated, userId, refresh } = useBuyerSession();
+-  const [form, setForm] = useState<TradeApplicationForm>(EMPTY_FORM);
++  const [form, setForm] = useState<AccessRequestForm>(EMPTY_FORM);
+   const [submitting, setSubmitting] = useState(false);
+-  const [submitted, setSubmitted] = useState(false);
++  const [result, setResult] = useState<{ status: string; duplicate: boolean } | null>(null);
+   const [error, setError] = useState<string | null>(null);
+   const [tradeDeclaration, setTradeDeclaration] = useState(false);
+   const [dataConsent, setDataConsent] = useState(false);
+ 
+-  function update<K extends keyof TradeApplicationForm>(key: K, value: string) {
++  function update<K extends keyof AccessRequestForm>(key: K, value: string) {
+     setForm((prev) => ({ ...prev, [key]: value }));
+   }
+ 
+-  const canSubmit = tradeDeclaration && dataConsent && form.businessName.trim().length > 0;
++  const canSubmit =
++    tradeDeclaration &&
++    dataConsent &&
++    form.businessName.trim().length > 0 &&
++    form.contactName.trim().length > 0 &&
++    form.contactEmail.trim().length > 0 &&
++    form.contactPhone.trim().length > 0;
+ 
++  // This form works fully logged out — Request B2B Access has no
++  // authentication prerequisite and grants no Buyer authority itself.
+   async function submit() {
+-    if (!isAuthenticated || !userId) {
+-      setError("Log in first so we can link your application to your account.");
+-      return;
+-    }
+-
+     setSubmitting(true);
+     setError(null);
+     try {
+-      const result = await submitB2bTradeApplication({
++      const response = await submitB2bAccessRequest({
+         p_business_name: form.businessName.trim(),
++        p_contact_name: form.contactName.trim(),
++        p_contact_email: form.contactEmail.trim(),
++        p_contact_phone: form.contactPhone.trim(),
+         p_gst_number: form.gstNumber.trim() || null,
+-        p_contact_person: form.contactPerson.trim() || null,
+-        p_mobile_number: form.mobileNumber.trim() || null,
+-        p_contact_email: form.email.trim() || null,
+-        p_city: form.city.trim() || null,
+         p_registered_address: form.registeredAddress.trim() || null,
+         p_trade_declaration: tradeDeclaration,
+         p_data_consent: dataConsent,
+       });
+-
+-      if (result.application_status === "pending") {
+-        await storeApplicationStatus(userId, "application_pending");
+-      }
+-      await refresh();
+-      setSubmitted(true);
++      setResult({ status: response.application_status, duplicate: response.duplicate });
+     } catch (e) {
+       setError(parseRpcError(e).message);
+     } finally {
+@@ -79,67 +75,33 @@ export function RegisterScreen({ navigation }: Props) {
+     }
+   }
+ 
+-  if (loading) {
+-    return (
+-      <Screen title="B2B Trade Application" subtitle="Register your wholesale account">
+-        <Text style={styles.confirmation}>Checking session…</Text>
+-      </Screen>
+-    );
+-  }
+-
+-  if (!isAuthenticated) {
+-    return (
+-      <Screen title="B2B Trade Application" subtitle="Register your wholesale account">
+-        <Text style={styles.confirmation}>
+-          Log in with your mobile or email first. Your trade application is linked to your authenticated account.
+-        </Text>
+-        <TouchableOpacity style={styles.button} onPress={() => navigation.navigate("Login")}>
+-          <Text style={styles.buttonText}>Log In to Continue</Text>
+-        </TouchableOpacity>
+-      </Screen>
+-    );
+-  }
+-
+-  if (snapshot?.state === "approved_buyer") {
++  if (result) {
++    const isApproved = result.status.toLowerCase() === "approved";
+     return (
+-      <Screen title="Account Approved" subtitle="B2B trade account">
+-        <Text style={styles.confirmation}>Your buyer account is approved. You can browse the catalogue and place orders.</Text>
+-        <TouchableOpacity style={styles.button} onPress={() => navigation.replace("MainTabs", { screen: "Dashboard" })}>
+-          <Text style={styles.buttonText}>Go to Home</Text>
+-        </TouchableOpacity>
+-      </Screen>
+-    );
+-  }
+-
+-  if (snapshot?.state === "application_pending" && !submitted) {
+-    return (
+-      <Screen title="Application Pending" subtitle="B2B trade account">
++      <Screen title={result.duplicate ? "Existing Application Found" : "Application Received"} subtitle="B2B access request">
+         <Text style={styles.confirmation}>
+-          Your trade application is under review. Oasis Baklawa will notify you once your wholesale account is approved.
++          {result.duplicate
++            ? `We found an existing access request for this business — its current status is "${result.status}".`
++            : `Thank you. Your access request for ${form.businessName || "your company"} has been submitted and is ${result.status}.`}
++          {isApproved
++            ? " You can log in now with the registered mobile number or email."
++            : " Oasis Baklawa will notify you by email/WhatsApp once your request is reviewed."}
+         </Text>
+-        <TouchableOpacity style={styles.button} onPress={() => navigation.replace("MainTabs", { screen: "Dashboard" })}>
+-          <Text style={styles.buttonText}>Back to Home</Text>
+-        </TouchableOpacity>
+-      </Screen>
+-    );
+-  }
+-
+-  if (submitted) {
+-    return (
+-      <Screen title="Application Received" subtitle="B2B trade account">
+-        <Text style={styles.confirmation}>
+-          Thank you, {form.contactPerson || "buyer"}. Your trade application for {form.businessName || "your company"} has
+-          been submitted and is pending approval.
+-        </Text>
+-        <TouchableOpacity style={styles.button} onPress={() => navigation.replace("MainTabs", { screen: "Dashboard" })}>
+-          <Text style={styles.buttonText}>Back to Home</Text>
+-        </TouchableOpacity>
++        {isApproved ? (
++          <TouchableOpacity style={styles.button} onPress={() => navigation.replace("Login")}>
++            <Text style={styles.buttonText}>Log In</Text>
++          </TouchableOpacity>
++        ) : (
++          <TouchableOpacity style={styles.button} onPress={() => navigation.replace("Welcome")}>
++            <Text style={styles.buttonText}>Back to Welcome</Text>
++          </TouchableOpacity>
++        )}
+       </Screen>
+     );
+   }
+ 
+   return (
+-    <Screen title="B2B Trade Application" subtitle="Register your wholesale account">
++    <Screen title="Request B2B Access" subtitle="No login required — apply for your wholesale trade account">
+       <View style={styles.form}>
+         <TextInput
+           style={styles.input}
+@@ -150,46 +112,39 @@ export function RegisterScreen({ navigation }: Props) {
+         />
+         <TextInput
+           style={styles.input}
+-          placeholder="GST number"
+-          accessibilityLabel="GST number"
+-          autoCapitalize="characters"
+-          value={form.gstNumber}
+-          onChangeText={(v) => update("gstNumber", v)}
++          placeholder="Contact name"
++          accessibilityLabel="Contact name"
++          value={form.contactName}
++          onChangeText={(v) => update("contactName", v)}
+         />
+         <TextInput
+           style={styles.input}
+-          placeholder="Contact person"
+-          accessibilityLabel="Contact person"
+-          value={form.contactPerson}
+-          onChangeText={(v) => update("contactPerson", v)}
++          placeholder="Contact email"
++          accessibilityLabel="Contact email"
++          keyboardType="email-address"
++          autoCapitalize="none"
++          value={form.contactEmail}
++          onChangeText={(v) => update("contactEmail", v)}
+         />
+         <TextInput
+           style={styles.input}
+-          placeholder="Mobile number"
+-          accessibilityLabel="Mobile number"
++          placeholder="Contact mobile number"
++          accessibilityLabel="Contact mobile number"
+           keyboardType="phone-pad"
+-          value={form.mobileNumber}
+-          onChangeText={(v) => update("mobileNumber", v)}
++          value={form.contactPhone}
++          onChangeText={(v) => update("contactPhone", v)}
+         />
+         <TextInput
+           style={styles.input}
+-          placeholder="Email"
+-          accessibilityLabel="Email"
+-          keyboardType="email-address"
+-          autoCapitalize="none"
+-          value={form.email}
+-          onChangeText={(v) => update("email", v)}
+-        />
+-        <TextInput
+-          style={styles.input}
+-          placeholder="City"
+-          accessibilityLabel="City"
+-          value={form.city}
+-          onChangeText={(v) => update("city", v)}
++          placeholder="GST number (optional)"
++          accessibilityLabel="GST number"
++          autoCapitalize="characters"
++          value={form.gstNumber}
++          onChangeText={(v) => update("gstNumber", v)}
+         />
+         <TextInput
+           style={styles.input}
+-          placeholder="Registered address"
++          placeholder="Registered address (optional)"
+           accessibilityLabel="Registered address"
+           value={form.registeredAddress}
+           onChangeText={(v) => update("registeredAddress", v)}
+@@ -215,10 +170,18 @@ export function RegisterScreen({ navigation }: Props) {
+           <Text style={styles.checkboxLabel}>I consent to Oasis Baklawa processing my data for onboarding.</Text>
+         </TouchableOpacity>
+ 
+-        <TouchableOpacity style={[styles.button, (!canSubmit || submitting) && styles.buttonDisabled]} disabled={!canSubmit || submitting} onPress={submit}>
++        <TouchableOpacity
++          style={[styles.button, (!canSubmit || submitting) && styles.buttonDisabled]}
++          disabled={!canSubmit || submitting}
++          onPress={submit}
++        >
+           <Text style={styles.buttonText}>{submitting ? "Submitting…" : "Submit Application"}</Text>
+         </TouchableOpacity>
+         {error ? <Text style={styles.error}>{error}</Text> : null}
++
++        <TouchableOpacity onPress={() => navigation.navigate("Login")} accessibilityRole="button">
++          <Text style={styles.link}>Already approved? Log in instead</Text>
++        </TouchableOpacity>
+       </View>
+     </Screen>
+   );
+@@ -255,4 +218,11 @@ const styles = StyleSheet.create({
+   buttonText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.white },
+   error: { color: colors.error, fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm },
+   confirmation: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeMd, color: colors.textPrimary, lineHeight: 22, marginBottom: spacing.lg },
++  link: {
++    color: colors.action,
++    textAlign: "center",
++    marginTop: spacing.lg,
++    fontSize: typography.sizeSm,
++    fontFamily: typography.fontFamilySansMedium,
++  },
+ });
+diff --git a/src/types/database.types.ts b/src/types/database.types.ts
+index ded64f6..9222c05 100644
+--- a/src/types/database.types.ts
++++ b/src/types/database.types.ts
+@@ -89,9 +89,13 @@ export type Database = {
+         Args: { p_sales_order_value: number };
+         Returns: number;
+       };
+-      submit_b2b_trade_application_v1: {
+-        Args: SubmitB2bTradeApplicationArgs;
+-        Returns: SubmitB2bTradeApplicationResult[];
++      submit_b2b_access_request_v2: {
++        Args: SubmitB2bAccessRequestArgs;
++        Returns: SubmitB2bAccessRequestResult[];
++      };
++      claim_approved_b2b_access_request_v2: {
++        Args: Record<string, never>;
++        Returns: ClaimApprovedB2bAccessRequestResult[];
+       };
+       submit_customer_support_ticket_v1: {
+         Args: {
+@@ -350,35 +354,30 @@ export interface SubmitCustomerOrderResult {
+   is_duplicate_submission: boolean;
+ }
+ 
+-export interface SubmitB2bTradeApplicationArgs {
++export interface SubmitB2bAccessRequestArgs {
+   p_business_name: string;
+-  p_trade_name?: string | null;
+-  p_business_type?: string | null;
++  p_contact_name: string;
++  p_contact_email: string;
++  p_contact_phone: string;
+   p_gst_number?: string | null;
+-  p_expected_volume?: string | null;
+-  p_contact_name?: string | null;
+-  p_contact_person?: string | null;
+-  p_contact_email?: string | null;
+-  p_contact_phone?: string | null;
+-  p_mobile_number?: string | null;
+   p_registered_address?: string | null;
+-  p_city?: string | null;
+-  p_state?: string | null;
+-  p_pincode?: string | null;
+-  p_gst_certificate_path?: string | null;
+-  p_business_proof_path?: string | null;
+-  p_current_brands?: string | null;
+   p_preferred_dispatch?: string | null;
+   p_preferred_dispatch_other_name?: string | null;
+   p_trade_declaration?: boolean;
+   p_data_consent?: boolean;
+ }
+ 
+-export interface SubmitB2bTradeApplicationResult {
++export interface SubmitB2bAccessRequestResult {
+   application_id: string;
+   application_status: string;
+-  company_id: string;
+-  is_duplicate_submission: boolean;
++  duplicate: boolean;
++}
++
++export interface ClaimApprovedB2bAccessRequestResult {
++  application_id: string | null;
++  claimed: boolean;
++  company_id: string | null;
++  already_active: boolean;
+ }
+ 
+ export interface CustomerOrderDraftLine {
+diff --git a/src/types/msg91-sendotp-react-native.d.ts b/src/types/msg91-sendotp-react-native.d.ts
+new file mode 100644
+index 0000000..ee33a55
+--- /dev/null
++++ b/src/types/msg91-sendotp-react-native.d.ts
+@@ -0,0 +1,17 @@
++// TYPE-CHECKING SHIM ONLY — routed here via tsconfig.json "paths" for the
++// exact specifier "@msg91comm/sendotp-react-native". At runtime, Metro/Babel
++// resolves the real package from node_modules as normal (tsconfig "paths" is
++// a `tsc`-only mapping and does not affect the bundler), so this has no
++// effect on the actual app. It exists purely because the package ships its
++// .tsx source as the package entry (no separate compiled .d.ts), and that
++// source doesn't typecheck cleanly under this project's strict tsconfig —
++// a pre-existing issue in the package itself, not ours to fix. Our own usage
++// of it lives in src/lib/msg91-otp-widget.ts, typed against the shape below.
++export const OTPWidget: {
++  initializeWidget: (widgetId: string, tokenAuth: string) => void;
++  sendOTP: (data: { identifier: string }) => Promise<unknown>;
++  verifyOTP: (data: { reqId: string; otp: string }) => Promise<unknown>;
++  retryOTP: (data: { reqId: string; retryChannel?: number }) => Promise<unknown>;
++};
++export const DefaultWidget: unknown;
++export const BiometricAuth: unknown;
+diff --git a/tsconfig.json b/tsconfig.json
+index 3cd8ec9..40978cc 100644
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -2,10 +2,13 @@
+   "extends": "expo/tsconfig.base",
+   "compilerOptions": {
+     "strict": true,
++    "skipLibCheck": true,
+     "baseUrl": ".",
+     "paths": {
+-      "@/*": ["src/*"]
++      "@/*": ["src/*"],
++      "@msg91comm/sendotp-react-native": ["src/types/msg91-sendotp-react-native.d.ts"]
+     }
+   },
+-  "include": ["**/*.ts", "**/*.tsx"]
++  "include": ["**/*.ts", "**/*.tsx"],
++  "exclude": ["node_modules"]
+ }
+-- 
+2.43.0
+
+
+From 4b96419100bc6fa5d3bfc368e0c2577f0ed241dc Mon Sep 17 00:00:00 2001
+From: AUTH-01 Native Convergence <auth01-agent@local>
+Date: Wed, 16 Sep 2026 20:05:03 +0000
+Subject: [PATCH 02/11] test(auth): certify buyer identity and session routing
+
+- Add session-routing.test.ts: structural regression for the historical
+  UAT deadlock. Directly asserts routeFromBuyerSnapshot() never navigates
+  to Register for ANY post-auth state (approved_buyer, no_membership,
+  backend_failure, unauthenticated) -- an approved buyer whose session
+  resolves oddly can no longer be routed back into the application form,
+  which is what risked the duplicate/conflicted-application deadlock.
+- Add buyer-identity-claim-core.ts: split the pure claim-outcome logic
+  (row validation, normalization, the fail-closed assertApprovedB2bClaimBound
+  guard) out of buyer-identity-claim.ts, which imports @/lib/supabase and
+  therefore react-native at module scope -- importing it directly from a
+  plain node:test file fails (esbuild cannot parse react-native/index.js
+  outside Metro). This mirrors the existing convention in rpc.test.ts,
+  which also avoids importing rpc.ts's runtime implementation. buyer-
+  identity-claim.ts now re-exports the core module and adds only the
+  actual RPC call / session-wait IO on top -- no behavior change.
+- Add buyer-identity-claim-core.test.ts: covers assertApprovedB2bClaimBound
+  fail-closed behavior directly -- the claim-layer half of the deadlock
+  guard (a brand-new approved identity that the claim RPC didn't actually
+  bind must throw, never silently fall through as unapproved).
+- Add buyer-identity.test.ts: normalization coverage (email recognition,
+  phone variant collapsing to a single last10/e164 form, empty-input
+  safety) for the functions buyer-preflight.ts and msg91-otp-widget.ts
+  both depend on for correct identifier matching against Core.
+- Wire all three into package.json's test script.
+
+Verified: npm run quality passes end to end -- 144/144 tests (130
+pre-existing + 14 new), typecheck clean, lint clean, boundary/rc-scan/
+rc-navigation/cert:bindings/census:p106/expo-config all pass. No production
+mutation.
+---
+ package.json                              |  2 +-
+ src/lib/buyer-identity-claim-core.test.ts | 40 +++++++++++
+ src/lib/buyer-identity-claim-core.ts      | 73 +++++++++++++++++++
+ src/lib/buyer-identity-claim.ts           | 85 +++++------------------
+ src/lib/buyer-identity.test.ts            | 33 +++++++++
+ src/lib/session-routing.test.ts           | 77 ++++++++++++++++++++
+ 6 files changed, 241 insertions(+), 69 deletions(-)
+ create mode 100644 src/lib/buyer-identity-claim-core.test.ts
+ create mode 100644 src/lib/buyer-identity-claim-core.ts
+ create mode 100644 src/lib/buyer-identity.test.ts
+ create mode 100644 src/lib/session-routing.test.ts
+
+diff --git a/package.json b/package.json
+index 5fde8b5..6ed1bf3 100644
+--- a/package.json
++++ b/package.json
+@@ -10,7 +10,7 @@
+     "web": "expo start --web",
+     "typecheck": "tsc --noEmit",
+     "lint": "eslint . --max-warnings 0",
+-    "test": "node --import tsx --test src/lib/checkout-idempotency.test.ts src/lib/checkout-submit-guards.test.ts src/lib/rpc-errors.test.ts src/lib/rpc.test.ts src/lib/order-stages.test.ts src/theme/layout.test.ts src/lib/golden-journey.test.ts src/lib/customer-projections.test.ts src/lib/product-publication.test.ts src/lib/buyer-commercial-validation.test.ts src/lib/buyer-communication-log.test.ts src/lib/general-query-idempotency.test.ts src/lib/quote-projections.test.ts src/lib/quote-guards.test.ts src/lib/quote-idempotency.test.ts src/lib/quote-rpc-binding-check.test.ts src/lib/p106-quote-authority.test.ts src/lib/genie-product-resolution.test.ts src/lib/genie-draft-line-commit.test.ts src/lib/payment-gateway-boundary.test.ts src/lib/payment-idempotency.test.ts src/lib/runtime-payment-gateway-binding.test.ts src/lib/buyer-deployment-rpc-allowlist.test.ts scripts/buyer-mobile-certification/revenue-journey.integration.test.mjs src/services/customerGateway.test.ts",
++    "test": "node --import tsx --test src/lib/checkout-idempotency.test.ts src/lib/checkout-submit-guards.test.ts src/lib/rpc-errors.test.ts src/lib/rpc.test.ts src/lib/order-stages.test.ts src/theme/layout.test.ts src/lib/golden-journey.test.ts src/lib/customer-projections.test.ts src/lib/product-publication.test.ts src/lib/buyer-commercial-validation.test.ts src/lib/buyer-communication-log.test.ts src/lib/general-query-idempotency.test.ts src/lib/quote-projections.test.ts src/lib/quote-guards.test.ts src/lib/quote-idempotency.test.ts src/lib/quote-rpc-binding-check.test.ts src/lib/p106-quote-authority.test.ts src/lib/genie-product-resolution.test.ts src/lib/genie-draft-line-commit.test.ts src/lib/payment-gateway-boundary.test.ts src/lib/payment-idempotency.test.ts src/lib/runtime-payment-gateway-binding.test.ts src/lib/buyer-deployment-rpc-allowlist.test.ts src/lib/session-routing.test.ts src/lib/buyer-identity-claim-core.test.ts src/lib/buyer-identity.test.ts scripts/buyer-mobile-certification/revenue-journey.integration.test.mjs src/services/customerGateway.test.ts",
+     "e2e": "playwright test",
+     "e2e:install": "playwright install chromium",
+     "cert:bindings": "node --import tsx scripts/buyer-mobile-certification/verify-bindings.mjs",
+diff --git a/src/lib/buyer-identity-claim-core.test.ts b/src/lib/buyer-identity-claim-core.test.ts
+new file mode 100644
+index 0000000..5225e64
+--- /dev/null
++++ b/src/lib/buyer-identity-claim-core.test.ts
+@@ -0,0 +1,40 @@
++import { describe, it } from "node:test";
++import assert from "node:assert/strict";
++import { assertApprovedB2bClaimBound, type ApprovedB2bIdentityClaimOutcome } from "./buyer-identity-claim-core";
++
++function outcome(overrides: Partial<ApprovedB2bIdentityClaimOutcome> = {}): ApprovedB2bIdentityClaimOutcome {
++  return {
++    applicationId: null,
++    companyId: null,
++    claimed: false,
++    alreadyActive: false,
++    ...overrides,
++  };
++}
++
++describe("assertApprovedB2bClaimBound", () => {
++  it("does not throw when requireBound is false, regardless of outcome", () => {
++    assert.doesNotThrow(() => assertApprovedB2bClaimBound(outcome(), false));
++  });
++
++  it("does not throw when the identity was freshly claimed", () => {
++    assert.doesNotThrow(() =>
++      assertApprovedB2bClaimBound(outcome({ claimed: true, applicationId: "app-1", companyId: "co-1" }), true)
++    );
++  });
++
++  it("does not throw when membership was already active (legacy-bound replay)", () => {
++    assert.doesNotThrow(() =>
++      assertApprovedB2bClaimBound(outcome({ alreadyActive: true, companyId: "co-1" }), true)
++    );
++  });
++
++  it("throws (fail closed) when a fresh identity was signalled bound but the claim returned no-match — " +
++    "this is the deadlock guard: a brand-new approved identity must never silently fall through as " +
++    "if unauthenticated/no-application", () => {
++    assert.throws(
++      () => assertApprovedB2bClaimBound(outcome(), true),
++      /APPROVED_B2B_IDENTITY_CLAIM_FAILED:bind_failed/
++    );
++  });
++});
+diff --git a/src/lib/buyer-identity-claim-core.ts b/src/lib/buyer-identity-claim-core.ts
+new file mode 100644
+index 0000000..8de261f
+--- /dev/null
++++ b/src/lib/buyer-identity-claim-core.ts
+@@ -0,0 +1,73 @@
++// Pure logic for the Buyer identity claim outcome, split out from
++// buyer-identity-claim.ts specifically so it can be unit tested without
++// pulling in @/lib/supabase (and transitively react-native) at module load
++// time — matching this repo's existing test convention (see rpc.test.ts,
++// which type-checks callRpc without importing its runtime implementation).
++export const APPROVED_B2B_IDENTITY_CLAIM_RPC = "claim_approved_b2b_access_request_v2";
++
++export interface ApprovedB2bIdentityClaimRow {
++  application_id: string | null;
++  claimed: boolean;
++  company_id: string | null;
++  already_active: boolean;
++}
++
++export interface ApprovedB2bIdentityClaimOutcome {
++  applicationId: string | null;
++  companyId: string | null;
++  claimed: boolean;
++  alreadyActive: boolean;
++}
++
++const NO_MATCH_CLAIM_ROW: ApprovedB2bIdentityClaimRow = {
++  application_id: null,
++  claimed: false,
++  company_id: null,
++  already_active: false,
++};
++
++export function isApprovedB2bIdentityClaimRow(value: unknown): value is ApprovedB2bIdentityClaimRow {
++  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
++  const row = value as Record<string, unknown>;
++  return (
++    Object.prototype.hasOwnProperty.call(row, "application_id") &&
++    Object.prototype.hasOwnProperty.call(row, "claimed") &&
++    Object.prototype.hasOwnProperty.call(row, "company_id") &&
++    Object.prototype.hasOwnProperty.call(row, "already_active") &&
++    (row.application_id === null || typeof row.application_id === "string") &&
++    typeof row.claimed === "boolean" &&
++    (row.company_id === null || typeof row.company_id === "string") &&
++    typeof row.already_active === "boolean"
++  );
++}
++
++/** Core may return an empty set when no b2b_applications match exists yet for auth.uid(). */
++export function normalizeClaimRpcData(data: unknown): ApprovedB2bIdentityClaimRow | null {
++  if (Array.isArray(data)) {
++    if (data.length === 0) return NO_MATCH_CLAIM_ROW;
++    if (data.length === 1) return isApprovedB2bIdentityClaimRow(data[0]) ? data[0] : null;
++    return null;
++  }
++  return isApprovedB2bIdentityClaimRow(data) ? data : null;
++}
++
++export function classifyClaimRpcError(message?: string | null): string {
++  const normalized = (message ?? "").toLowerCase();
++  if (normalized.includes("ambiguous") || normalized.includes("conflict")) return "ambiguous";
++  return "rpc_error";
++}
++
++/**
++ * Fail closed when the edge bridge signalled a brand-new identity awaiting
++ * bind (approved_b2b_pending_claim / is_new) but Core's claim did not attach
++ * membership. Prevents a silent fall-through to "no application" for a real
++ * approved buyer — this is the deadlock guard at the claim layer.
++ */
++export function assertApprovedB2bClaimBound(
++  outcome: ApprovedB2bIdentityClaimOutcome,
++  requireBound: boolean
++): void {
++  if (!requireBound) return;
++  if (outcome.claimed || outcome.alreadyActive) return;
++  throw new Error("APPROVED_B2B_IDENTITY_CLAIM_FAILED:bind_failed");
++}
+diff --git a/src/lib/buyer-identity-claim.ts b/src/lib/buyer-identity-claim.ts
+index 6cd9992..63688ef 100644
+--- a/src/lib/buyer-identity-claim.ts
++++ b/src/lib/buyer-identity-claim.ts
+@@ -5,62 +5,26 @@
+ // provider-confirmed phone OR email, preserves legacy application bindings, and
+ // fails closed on ambiguous company matches. Do not reimplement this logic
+ // on-device — Core is the sole authority for the claim decision.
++//
++// All pure logic (row validation, outcome normalization, the fail-closed
++// bound assertion) lives in buyer-identity-claim-core.ts, which has no
++// supabase/react-native import and is unit tested directly. This file is
++// only the IO: the actual RPC call and session wait.
+ import { callRpc } from "@/lib/rpc";
+ import { supabase } from "@/lib/supabase";
++import {
++  APPROVED_B2B_IDENTITY_CLAIM_RPC,
++  classifyClaimRpcError,
++  normalizeClaimRpcData,
++  type ApprovedB2bIdentityClaimOutcome,
++} from "@/lib/buyer-identity-claim-core";
+ 
+-export const APPROVED_B2B_IDENTITY_CLAIM_RPC = "claim_approved_b2b_access_request_v2";
+-
+-export interface ApprovedB2bIdentityClaimRow {
+-  application_id: string | null;
+-  claimed: boolean;
+-  company_id: string | null;
+-  already_active: boolean;
+-}
+-
+-export interface ApprovedB2bIdentityClaimOutcome {
+-  applicationId: string | null;
+-  companyId: string | null;
+-  claimed: boolean;
+-  alreadyActive: boolean;
+-}
+-
+-const NO_MATCH_CLAIM_ROW: ApprovedB2bIdentityClaimRow = {
+-  application_id: null,
+-  claimed: false,
+-  company_id: null,
+-  already_active: false,
+-};
+-
+-function isApprovedB2bIdentityClaimRow(value: unknown): value is ApprovedB2bIdentityClaimRow {
+-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+-  const row = value as Record<string, unknown>;
+-  return (
+-    Object.prototype.hasOwnProperty.call(row, "application_id") &&
+-    Object.prototype.hasOwnProperty.call(row, "claimed") &&
+-    Object.prototype.hasOwnProperty.call(row, "company_id") &&
+-    Object.prototype.hasOwnProperty.call(row, "already_active") &&
+-    (row.application_id === null || typeof row.application_id === "string") &&
+-    typeof row.claimed === "boolean" &&
+-    (row.company_id === null || typeof row.company_id === "string") &&
+-    typeof row.already_active === "boolean"
+-  );
+-}
+-
+-/** Core may return an empty set when no b2b_applications match exists yet for auth.uid(). */
+-function normalizeClaimRpcData(data: unknown): ApprovedB2bIdentityClaimRow | null {
+-  if (Array.isArray(data)) {
+-    if (data.length === 0) return NO_MATCH_CLAIM_ROW;
+-    if (data.length === 1) return isApprovedB2bIdentityClaimRow(data[0]) ? data[0] : null;
+-    return null;
+-  }
+-  return isApprovedB2bIdentityClaimRow(data) ? data : null;
+-}
+-
+-function classifyClaimRpcError(message?: string | null): string {
+-  const normalized = (message ?? "").toLowerCase();
+-  if (normalized.includes("ambiguous") || normalized.includes("conflict")) return "ambiguous";
+-  return "rpc_error";
+-}
++export {
++  APPROVED_B2B_IDENTITY_CLAIM_RPC,
++  assertApprovedB2bClaimBound,
++  type ApprovedB2bIdentityClaimOutcome,
++  type ApprovedB2bIdentityClaimRow,
++} from "@/lib/buyer-identity-claim-core";
+ 
+ async function waitForAuthenticatedSession(attempts = 8, delayMs = 75): Promise<boolean> {
+   for (let attempt = 0; attempt < attempts; attempt += 1) {
+@@ -106,18 +70,3 @@ export async function claimApprovedB2bIdentity(): Promise<ApprovedB2bIdentityCla
+     alreadyActive: row.already_active,
+   };
+ }
+-
+-/**
+- * Fail closed when the edge bridge signalled a brand-new identity awaiting
+- * bind (approved_b2b_pending_claim / is_new) but Core's claim did not attach
+- * membership. Prevents a silent fall-through to "no application" for a real
+- * approved buyer.
+- */
+-export function assertApprovedB2bClaimBound(
+-  outcome: ApprovedB2bIdentityClaimOutcome,
+-  requireBound: boolean
+-): void {
+-  if (!requireBound) return;
+-  if (outcome.claimed || outcome.alreadyActive) return;
+-  throw new Error("APPROVED_B2B_IDENTITY_CLAIM_FAILED:bind_failed");
+-}
+diff --git a/src/lib/buyer-identity.test.ts b/src/lib/buyer-identity.test.ts
+new file mode 100644
+index 0000000..20e7746
+--- /dev/null
++++ b/src/lib/buyer-identity.test.ts
+@@ -0,0 +1,33 @@
++import { describe, it } from "node:test";
++import assert from "node:assert/strict";
++import { isEmailIdentifier, normalizeEmail, normalizePhone } from "./buyer-identity";
++
++describe("buyer-identity normalization", () => {
++  it("recognizes a plausible email and rejects a bare mobile number", () => {
++    assert.equal(isEmailIdentifier("buyer@company.com"), true);
++    assert.equal(isEmailIdentifier("9876543210"), false);
++  });
++
++  it("lowercases and trims email", () => {
++    assert.equal(normalizeEmail("  Buyer@Company.COM  "), "buyer@company.com");
++  });
++
++  it("normalizes a 10-digit Indian mobile number to 91-prefixed and e164 forms", () => {
++    const result = normalizePhone("9876543210");
++    assert.equal(result.last10, "9876543210");
++    assert.equal(result.e164, "+919876543210");
++  });
++
++  it("strips a leading 0 / +91 / 91 consistently to the same last10", () => {
++    const variants = ["09876543210", "+919876543210", "919876543210", "98765 43210"];
++    for (const v of variants) {
++      assert.equal(normalizePhone(v).last10, "9876543210", `expected last10 9876543210 for input "${v}"`);
++    }
++  });
++
++  it("returns empty fields for an empty/garbage input rather than throwing", () => {
++    const result = normalizePhone("");
++    assert.equal(result.last10, "");
++    assert.equal(result.e164, "");
++  });
++});
+diff --git a/src/lib/session-routing.test.ts b/src/lib/session-routing.test.ts
+new file mode 100644
+index 0000000..092519a
+--- /dev/null
++++ b/src/lib/session-routing.test.ts
+@@ -0,0 +1,77 @@
++import { describe, it } from "node:test";
++import assert from "node:assert/strict";
++import { routeFromBuyerSnapshot } from "./session-routing";
++import type { BuyerSessionSnapshot, BuyerEligibilityState } from "./api/buyer";
++
++interface RecordedCall {
++  screen: string;
++  params?: unknown;
++}
++
++function fakeNavigator() {
++  const calls: RecordedCall[] = [];
++  return {
++    calls,
++    // eslint-disable-next-line @typescript-eslint/no-explicit-any
++    replace: (screen: string, params?: any) => {
++      calls.push({ screen, params });
++    },
++  };
++}
++
++function snapshot(state: BuyerEligibilityState, overrides: Partial<BuyerSessionSnapshot> = {}): BuyerSessionSnapshot {
++  return {
++    state,
++    companyId: null,
++    company: null,
++    message: null,
++    userId: state === "unauthenticated" ? null : "user-1",
++    ...overrides,
++  };
++}
++
++describe("routeFromBuyerSnapshot / historical UAT deadlock regression", () => {
++  it("routes approved_buyer straight to Dashboard", () => {
++    const nav = fakeNavigator();
++    routeFromBuyerSnapshot(nav, snapshot("approved_buyer"), true);
++    assert.deepEqual(nav.calls, [{ screen: "MainTabs", params: { screen: "Dashboard" } }]);
++  });
++
++  it("NEVER routes any post-auth state to Register — this is the historical deadlock: an " +
++    "approved buyer whose session resolved to a non-approved state must never be sent back " +
++    "to the application form (Register), which risked a duplicate/conflicted application", () => {
++    const states: BuyerEligibilityState[] = ["unauthenticated", "approved_buyer", "no_membership", "backend_failure"];
++    const nav = fakeNavigator();
++    for (const state of states) {
++      routeFromBuyerSnapshot(nav, snapshot(state), true);
++    }
++    assert.ok(
++      nav.calls.every((call) => call.screen !== "Register"),
++      `routeFromBuyerSnapshot must never navigate to Register; got: ${JSON.stringify(nav.calls)}`
++    );
++  });
++
++  it("routes no_membership (approved-then-desynced fail-closed case) to SessionRecovery, not Register", () => {
++    const nav = fakeNavigator();
++    routeFromBuyerSnapshot(nav, snapshot("no_membership", { message: "test message" }), true);
++    assert.equal(nav.calls[0].screen, "SessionRecovery");
++    assert.deepEqual(nav.calls[0].params, { message: "test message" });
++  });
++
++  it("routes backend_failure to SessionRecovery with a fallback message when none is given", () => {
++    const nav = fakeNavigator();
++    routeFromBuyerSnapshot(nav, snapshot("backend_failure"), true);
++    assert.equal(nav.calls[0].screen, "SessionRecovery");
++    assert.ok(typeof (nav.calls[0].params as { message?: string })?.message === "string");
++  });
++
++  it("routes unauthenticated to Welcome when onboarded, Onboarding otherwise", () => {
++    const navOnboarded = fakeNavigator();
++    routeFromBuyerSnapshot(navOnboarded, snapshot("unauthenticated"), true);
++    assert.deepEqual(navOnboarded.calls, [{ screen: "Welcome", params: undefined }]);
++
++    const navFresh = fakeNavigator();
++    routeFromBuyerSnapshot(navFresh, snapshot("unauthenticated"), false);
++    assert.deepEqual(navFresh.calls, [{ screen: "Onboarding", params: undefined }]);
++  });
++});
+-- 
+2.43.0
+
+
+From 93ca72ac1593e327fcbf6a4ffb432d7c3557f9cb Mon Sep 17 00:00:00 2001
+From: AUTH-01 Native Convergence <auth01-agent@local>
+Date: Wed, 16 Sep 2026 20:25:34 +0000
+Subject: [PATCH 03/11] test(auth): close buyer auth security and routing
+ certification
+
+- Extract decideLoginAction() (login-preflight-action.ts): pure decision
+  function for what LoginScreen does with a buyer-login-gateway preflight
+  result. LoginScreen.tsx now delegates to it instead of branching inline,
+  so the critical invariant -- sendOTP is reachable for state='approved'
+  and ONLY that state -- is directly testable without rendering the screen
+  (no React Native Testing Library in this repo; this is the smaller
+  dependency-free alternative, per instruction).
+- Add login-preflight-action.test.ts: direct tests for all six preflight
+  branches (approved/pending/rejected/unknown/employee/ambiguous),
+  including an explicit loop asserting no non-approved state can ever
+  produce a send_otp action.
+- Employee wording corrected to the locked contract: this app has no staff
+  OTP flow. An employee identifier entered in Buyer Login is blocked inline
+  with an instruction to use the existing Admin Login surface (work email +
+  password, standard Supabase email/password session) -- never staff
+---
+ package.json                           |   2 +-
+ src/lib/deadlock-regression.test.ts    | 138 +++++++++++++++++++++++++
+ src/lib/login-preflight-action.test.ts |  64 ++++++++++++
+ src/lib/login-preflight-action.ts      |  43 ++++++++
+ src/screens/LoginScreen.tsx            |  32 +++---
+ 5 files changed, 259 insertions(+), 20 deletions(-)
+ create mode 100644 src/lib/deadlock-regression.test.ts
+ create mode 100644 src/lib/login-preflight-action.test.ts
+ create mode 100644 src/lib/login-preflight-action.ts
+
+diff --git a/package.json b/package.json
+index 6ed1bf3..b5abfae 100644
+--- a/package.json
++++ b/package.json
+@@ -10,7 +10,7 @@
+     "web": "expo start --web",
+     "typecheck": "tsc --noEmit",
+     "lint": "eslint . --max-warnings 0",
+-    "test": "node --import tsx --test src/lib/checkout-idempotency.test.ts src/lib/checkout-submit-guards.test.ts src/lib/rpc-errors.test.ts src/lib/rpc.test.ts src/lib/order-stages.test.ts src/theme/layout.test.ts src/lib/golden-journey.test.ts src/lib/customer-projections.test.ts src/lib/product-publication.test.ts src/lib/buyer-commercial-validation.test.ts src/lib/buyer-communication-log.test.ts src/lib/general-query-idempotency.test.ts src/lib/quote-projections.test.ts src/lib/quote-guards.test.ts src/lib/quote-idempotency.test.ts src/lib/quote-rpc-binding-check.test.ts src/lib/p106-quote-authority.test.ts src/lib/genie-product-resolution.test.ts src/lib/genie-draft-line-commit.test.ts src/lib/payment-gateway-boundary.test.ts src/lib/payment-idempotency.test.ts src/lib/runtime-payment-gateway-binding.test.ts src/lib/buyer-deployment-rpc-allowlist.test.ts src/lib/session-routing.test.ts src/lib/buyer-identity-claim-core.test.ts src/lib/buyer-identity.test.ts scripts/buyer-mobile-certification/revenue-journey.integration.test.mjs src/services/customerGateway.test.ts",
++    "test": "node --import tsx --test src/lib/checkout-idempotency.test.ts src/lib/checkout-submit-guards.test.ts src/lib/rpc-errors.test.ts src/lib/rpc.test.ts src/lib/order-stages.test.ts src/theme/layout.test.ts src/lib/golden-journey.test.ts src/lib/customer-projections.test.ts src/lib/product-publication.test.ts src/lib/buyer-commercial-validation.test.ts src/lib/buyer-communication-log.test.ts src/lib/general-query-idempotency.test.ts src/lib/quote-projections.test.ts src/lib/quote-guards.test.ts src/lib/quote-idempotency.test.ts src/lib/quote-rpc-binding-check.test.ts src/lib/p106-quote-authority.test.ts src/lib/genie-product-resolution.test.ts src/lib/genie-draft-line-commit.test.ts src/lib/payment-gateway-boundary.test.ts src/lib/payment-idempotency.test.ts src/lib/runtime-payment-gateway-binding.test.ts src/lib/buyer-deployment-rpc-allowlist.test.ts src/lib/session-routing.test.ts src/lib/buyer-identity-claim-core.test.ts src/lib/buyer-identity.test.ts src/lib/login-preflight-action.test.ts src/lib/deadlock-regression.test.ts scripts/buyer-mobile-certification/revenue-journey.integration.test.mjs src/services/customerGateway.test.ts",
+     "e2e": "playwright test",
+     "e2e:install": "playwright install chromium",
+     "cert:bindings": "node --import tsx scripts/buyer-mobile-certification/verify-bindings.mjs",
+diff --git a/src/lib/deadlock-regression.test.ts b/src/lib/deadlock-regression.test.ts
+new file mode 100644
+index 0000000..88ee7a1
+--- /dev/null
++++ b/src/lib/deadlock-regression.test.ts
+@@ -0,0 +1,138 @@
++import { describe, it } from "node:test";
++import assert from "node:assert/strict";
++import { decideLoginAction } from "./login-preflight-action";
++import { assertApprovedB2bClaimBound } from "./buyer-identity-claim-core";
++import { routeFromBuyerSnapshot } from "./session-routing";
++import type { BuyerPreflightResult } from "./buyer-preflight";
++import type { ApprovedB2bIdentityClaimOutcome } from "./buyer-identity-claim-core";
++import type { BuyerSessionSnapshot } from "./api/buyer";
++
++interface RecordedCall {
++  screen: string;
++  params?: unknown;
++}
++function fakeNavigator() {
++  const calls: RecordedCall[] = [];
++  return { calls, replace: (screen: string, params?: unknown) => calls.push({ screen, params }) };
++}
++
++/**
++ * End-to-end pure-state walk of the historical physical-UAT deadlock scenario:
++ * an approved B2B application, logging in with the approved identifier,
++ * against every decision point this repo owns client-side (preflight
++ * decision -> claim-bound assertion -> post-claim session routing). Backend
++ * behavior for the claim RPC itself (legacy-binding preservation, exact-one-
++ * company resolution, ambiguous-company fail-closed) is Core's own authority
++ * and already covered there -- see
++ * oasis-supabase-core/supabase/tests/20260910040000_b2b_prelogin_access_lifecycle_contract.sql
++ * and 20260914060000_b2b_verified_email_identity_claim_contract.sql, which
++ * this test does not duplicate. What this test proves is that the NATIVE
++ * client, given the outcomes those Core contracts guarantee, cannot itself
++ * reintroduce the deadlock (routing an approved identity back to Register).
++ */
++describe("APPROVED CLIENT end-to-end regression (historical physical-UAT deadlock)", () => {
++  it("CASE A — approved, existing legacy-bound application: preflight allows OTP, claim reports " +
++    "already-active membership (no new claim needed, no new application, existing binding " +
++    "preserved by Core), and routing lands on Dashboard -- Register is never shown", () => {
++    // 1. Preflight
++    const preflight: BuyerPreflightResult = {
++      state: "approved",
++      allowOtp: true,
++      message: "Approved B2B account found. Continue with mobile OTP.",
++    };
++    const loginAction = decideLoginAction(preflight);
++    assert.deepEqual(loginAction, { type: "send_otp" });
++
++    // 2. Claim outcome as Core's current dual-identifier RPC would report for
++    // a legacy-bound application being replayed by its already-bound owner
++    // (already_active: true, claimed: false -- no new application, no new
++    // company, existing binding untouched; see AUTH-01 migration comment
++    // "existing application user_id is never overwritten when non-null").
++    const claimOutcome: ApprovedB2bIdentityClaimOutcome = {
++      applicationId: "app-existing-legacy",
++      companyId: "company-1",
++      claimed: false,
++      alreadyActive: true,
++    };
++    // approved_b2b_pending_claim is false here because msg91-otp/msg91-email-session
++    // only sets it for a brand-new (is_new) identity -- not this replay case.
++    assert.doesNotThrow(() => assertApprovedB2bClaimBound(claimOutcome, false));
++
++    // 3. Session resolution reflects the now-active membership.
++    const snapshot: BuyerSessionSnapshot = {
++      state: "approved_buyer",
++      companyId: claimOutcome.companyId,
++      company: null,
++      message: null,
++      userId: "auth-uuid-current",
++    };
++
++    // 4. Routing.
++    const nav = fakeNavigator();
++    routeFromBuyerSnapshot(nav, snapshot, true);
++
++    assert.deepEqual(nav.calls, [{ screen: "MainTabs", params: { screen: "Dashboard" } }]);
++    assert.ok(nav.calls.every((c) => c.screen !== "Register"), "Register must never be shown to an approved identity");
++    assert.equal(nav.calls.length, 1, "no duplicate/extra navigation occurred");
++  });
++
++  it("CASE A2 — approved, brand-new identity (first-ever login for this approved application): " +
++    "claim must actually bind or the client fails closed rather than silently treating the " +
++    "buyer as unapproved", () => {
++    const freshClaim: ApprovedB2bIdentityClaimOutcome = {
++      applicationId: "app-2",
++      companyId: "company-2",
++      claimed: true,
++      alreadyActive: false,
++    };
++    // approved_b2b_pending_claim: true for a genuinely new identity.
++    assert.doesNotThrow(() => assertApprovedB2bClaimBound(freshClaim, true));
++
++    const nav = fakeNavigator();
++    routeFromBuyerSnapshot(
++      nav,
++      { state: "approved_buyer", companyId: "company-2", company: null, message: null, userId: "u2" },
++      true
++    );
++    assert.deepEqual(nav.calls, [{ screen: "MainTabs", params: { screen: "Dashboard" } }]);
++  });
++
++  it("CASE A3 — approved, but Core signalled a pending bind that never actually bound: fails " +
++    "closed (throws) rather than routing anywhere -- this is the deadlock guard itself", () => {
++    const unboundClaim: ApprovedB2bIdentityClaimOutcome = {
++      applicationId: null,
++      companyId: null,
++      claimed: false,
++      alreadyActive: false,
++    };
++    assert.throws(() => assertApprovedB2bClaimBound(unboundClaim, true));
++  });
++
++  it("CASE B — pending: no OTP, no session, routed to AccessPending only", () => {
++    const action = decideLoginAction({ state: "pending", allowOtp: false, message: "under review" });
++    assert.deepEqual(action, { type: "navigate", screen: "AccessPending", message: "under review" });
++  });
++
++  it("CASE C — rejected: no OTP, no session, routed to AccessRejected only", () => {
++    const action = decideLoginAction({ state: "rejected", allowOtp: false, message: "not active" });
++    assert.deepEqual(action, { type: "navigate", screen: "AccessRejected", message: "not active" });
++  });
++
++  it("CASE D — unknown: no OTP, no session, routed to Register (this is the ONLY case that " +
++    "legitimately reaches Register from the login screen)", () => {
++    const action = decideLoginAction({ state: "unknown", allowOtp: false, message: "not registered" });
++    assert.deepEqual(action, { type: "navigate", screen: "Register" });
++  });
++
++  it("CASE E — employee: no Buyer OTP, no Buyer session/membership, Admin Login offered", () => {
++    const action = decideLoginAction({ state: "employee", allowOtp: false, message: "employee account" });
++    assert.equal(action.type, "inline_block");
++    assert.notEqual(action.type, "send_otp");
++  });
++
++  it("CASE F — ambiguous: fails closed, no OTP", () => {
++    const action = decideLoginAction({ state: "ambiguous", allowOtp: false, message: "conflicting records" });
++    assert.equal(action.type, "inline_block");
++    assert.notEqual(action.type, "send_otp");
++  });
++});
+diff --git a/src/lib/login-preflight-action.test.ts b/src/lib/login-preflight-action.test.ts
+new file mode 100644
+index 0000000..1122b95
+--- /dev/null
++++ b/src/lib/login-preflight-action.test.ts
+@@ -0,0 +1,64 @@
++import { describe, it } from "node:test";
++import assert from "node:assert/strict";
++import { decideLoginAction } from "./login-preflight-action";
++import type { BuyerPreflightResult } from "./buyer-preflight";
++
++function preflight(state: BuyerPreflightResult["state"], allowOtp: boolean, message = "msg"): BuyerPreflightResult {
++  return { state, allowOtp, message };
++}
++
++describe("decideLoginAction — buyer-login-gateway preflight branches", () => {
++  it("APPROVED: sends OTP, and ONLY approved sends OTP", () => {
++    assert.deepEqual(decideLoginAction(preflight("approved", true)), { type: "send_otp" });
++  });
++
++  it("critical invariant: no non-approved state ever produces a send_otp action", () => {
++    const nonApproved: BuyerPreflightResult["state"][] = ["pending", "rejected", "unknown", "employee", "ambiguous"];
++    for (const state of nonApproved) {
++      const action = decideLoginAction(preflight(state, false));
++      assert.notEqual(action.type, "send_otp", `state "${state}" must never produce send_otp`);
++    }
++  });
++
++  it("PENDING: navigates to AccessPending, no OTP", () => {
++    const action = decideLoginAction(preflight("pending", false, "under review"));
++    assert.deepEqual(action, { type: "navigate", screen: "AccessPending", message: "under review" });
++  });
++
++  it("REJECTED: navigates to AccessRejected, no OTP", () => {
++    const action = decideLoginAction(preflight("rejected", false, "not approved"));
++    assert.deepEqual(action, { type: "navigate", screen: "AccessRejected", message: "not approved" });
++  });
++
++  it("UNKNOWN: navigates to Register (Request B2B Access), no OTP", () => {
++    const action = decideLoginAction(preflight("unknown", false));
++    assert.deepEqual(action, { type: "navigate", screen: "Register" });
++  });
++
++  it("EMPLOYEE: blocks inline with Admin Login instruction — no Buyer OTP, no Buyer session, " +
++    "no Buyer membership. The destination offered is the existing Admin Login surface " +
++    "(work email + password, standard Supabase auth), never a Staff OTP flow, which this " +
++    "app does not and must not implement", () => {
++    const action = decideLoginAction(preflight("employee", false, "belongs to an Oasis employee account"));
++    assert.deepEqual(action, { type: "inline_block", state: "employee", message: "belongs to an Oasis employee account" });
++    // Structurally: this action type is never "send_otp" and never "navigate"
++    // to any Buyer screen (Dashboard, Register, AccessPending, AccessRejected)
++    // — it cannot create a Buyer session or membership because the OTP
++    // transport (sendMsg91Otp) is simply never invoked for this action type.
++    assert.notEqual(action.type, "send_otp");
++    assert.notEqual(action.type, "navigate");
++  });
++
++  it("AMBIGUOUS: fails closed inline with a support action, no OTP", () => {
++    const action = decideLoginAction(preflight("ambiguous", false, "conflicting records"));
++    assert.deepEqual(action, { type: "inline_block", state: "ambiguous", message: "conflicting records" });
++  });
++
++  it("defers entirely to allowOtp rather than re-deriving eligibility from state — if the " +
++    "gateway ever sent allowOtp:true for a non-'approved' state, this function would still " +
++    "send OTP (no client-side eligibility reconstruction), matching the contract that the " +
++    "gateway alone is authoritative", () => {
++    const action = decideLoginAction(preflight("pending", true));
++    assert.deepEqual(action, { type: "send_otp" });
++  });
++});
+diff --git a/src/lib/login-preflight-action.ts b/src/lib/login-preflight-action.ts
+new file mode 100644
+index 0000000..d8b80fe
+--- /dev/null
++++ b/src/lib/login-preflight-action.ts
+@@ -0,0 +1,43 @@
++// Pure decision logic for what LoginScreen does with a buyer-login-gateway
++// preflight result, extracted specifically so the critical invariant --
++// OTP is requested for APPROVED and ONLY APPROVED -- can be asserted directly
++// without rendering the screen (no React Native Testing Library in this repo;
++// this is the smaller, dependency-free alternative). LoginScreen.tsx calls
++// this and executes the returned action; it contains no logic of its own
++// beyond what this function decides.
++import type { BuyerPreflightResult, BuyerPreflightState } from "@/lib/buyer-preflight";
++
++export type LoginPreflightAction =
++  | { type: "send_otp" }
++  | { type: "navigate"; screen: "AccessPending" | "AccessRejected" | "Register"; message?: string }
++  | { type: "inline_block"; state: BuyerPreflightState; message: string };
++
++/**
++ * The single critical invariant this app enforces: sendOTP is only ever
++ * reachable for state === "approved" (equivalently, allowOtp === true, which
++ * the gateway sets exclusively for "approved"). Every other state is routed
++ * away or blocked inline -- none of them reach the OTP transport.
++ */
++export function decideLoginAction(preflight: BuyerPreflightResult): LoginPreflightAction {
++  if (preflight.allowOtp) {
++    return { type: "send_otp" };
++  }
++  if (preflight.state === "pending") {
++    return { type: "navigate", screen: "AccessPending", message: preflight.message };
++  }
++  if (preflight.state === "rejected") {
++    return { type: "navigate", screen: "AccessRejected", message: preflight.message };
++  }
++  if (preflight.state === "unknown") {
++    return { type: "navigate", screen: "Register" };
++  }
++  // employee: this Buyer App has no staff authentication of its own — Oasis
++  // employees (admins, management, sales, accounts, dispatch, factory,
++  // operations, etc.) authenticate exclusively through the separate Admin
++  // Login surface (registered work email + password, standard Supabase
++  // email/password session), never through Buyer OTP. This function only
++  // signals the block; LoginScreen shows the Admin Login instruction inline.
++  // ambiguous: no dedicated destination either — fail closed inline with a
++  // support action, matching Central's own inline (non-navigating) treatment.
++  return { type: "inline_block", state: preflight.state, message: preflight.message };
++}
+diff --git a/src/screens/LoginScreen.tsx b/src/screens/LoginScreen.tsx
+index 83cccbb..c974da4 100644
+--- a/src/screens/LoginScreen.tsx
++++ b/src/screens/LoginScreen.tsx
+@@ -6,6 +6,7 @@ import { Screen } from "@/components/Screen";
+ import { useBuyerSession } from "@/context/BuyerSessionContext";
+ import { routeFromBuyerSnapshot } from "@/lib/session-routing";
+ import { invokeBuyerPreflight, type BuyerPreflightChannel, type BuyerPreflightState } from "@/lib/buyer-preflight";
++import { decideLoginAction } from "@/lib/login-preflight-action";
+ import { isEmailIdentifier, normalizeEmail, normalizePhone } from "@/lib/buyer-identity";
+ import { sendMsg91Otp, verifyMsg91Otp, retryMsg91Otp } from "@/lib/msg91-otp-widget";
+ import { bridgeMsg91SessionAndClaim } from "@/lib/buyer-session-bridge";
+@@ -75,26 +76,19 @@ export function LoginScreen({ navigation }: Props) {
+       // Preflight is authoritative and MUST run before any OTP is requested.
+       // No eligibility rule is reconstructed on-device.
+       const preflight = await invokeBuyerPreflight(targetChannel, normalized, attemptId);
+-      if (!preflight.allowOtp) {
++      const action = decideLoginAction(preflight);
++      if (action.type === "navigate") {
+         setBusy(false);
+-        if (preflight.state === "pending") {
+-          navigation.replace("AccessPending", { message: preflight.message });
+-          return;
+-        }
+-        if (preflight.state === "rejected") {
+-          navigation.replace("AccessRejected", { message: preflight.message });
+-          return;
+-        }
+-        if (preflight.state === "unknown") {
+-          navigation.navigate("Register");
+-          return;
+-        }
+-        // employee / ambiguous: no dedicated native destination — fail closed
+-        // with an inline message and a support action (matches Central).
+-        setBlockedState(preflight.state);
+-        setError(preflight.message);
++        navigation.replace(action.screen, action.screen === "Register" ? undefined : { message: action.message });
+         return;
+       }
++      if (action.type === "inline_block") {
++        setBusy(false);
++        setBlockedState(action.state);
++        setError(action.message);
++        return;
++      }
++      // action.type === "send_otp" — the ONLY path that reaches MSG91.
+ 
+       const sendResult = await sendMsg91Otp(normalized);
+       if (sendResult.invisibleVerified && sendResult.accessToken) {
+@@ -230,8 +224,8 @@ export function LoginScreen({ navigation }: Props) {
+           <Text style={styles.error}>{error}</Text>
+           {blockedState === "employee" && (
+             <Text style={styles.errorHint}>
+-              Employees are not part of the Buyer App. Please use the staff admin login, or contact Oasis support for
+-              the link.
++              This identifier belongs to an Oasis employee account. Employees authenticate through Admin Login
++              (registered work email and password), not the Buyer App.
+             </Text>
+           )}
+           {blockedState === "ambiguous" && (
+-- 
+2.43.0
+
+
+From 48893a71372d47285506eb0c621d3aae82ba9fd8 Mon Sep 17 00:00:00 2001
+From: AUTH-01 Native Convergence <auth01-agent@local>
+Date: Thu, 17 Sep 2026 02:18:46 +0000
+Subject: [PATCH 04/11] test(auth): complete buyer RPC security certification
+
+Add docs/auth01-rpc-security-matrix.md: the complete 36/36 body-verified
+Buyer RPC security matrix for AUTH-01, closing the evidence gap from the
+prior certification commit (93ca72a), which had only 9/36 RPCs body-read
+and the rest grant-verified only.
+
+All 36 entries in buyer-deployment-rpc-allowlist.ts / verify-contract-
+boundary.mjs are now individually classified (PUBLIC SAFE / PRE-LOGIN
+PUBLIC INTAKE / AUTHENTICATED BUYER / BUYER + STAFF / INTERNAL ONLY) with
+direct evidence: exact migration file, company-derivation mechanism,
+cross-company protection, and frozen/inactive handling for each.
+
+Two real Core defects were found during this body audit and fixed on a
+separate Core branch (auth01-rpc-staff-exclusion-fix, not this repo):
+
+- customer_order_status_v1 / customer_order_items_v1 /
+  customer_support_tickets_v1 used an inline eligibility gate with no role
+  filter and no staff exclusion, unlike the canonical
+  customer_buyer_eligible_company_id() helper introduced later for exactly
+  this family. Core commit 8a81780 fixes all three to call the canonical
+  helper, plus a pgTAP regression (not run -- no live Postgres in this
+  sandbox).
+- get_sales_order_pi_final_payment_request_v1 and its three governing RLS
+  policies used the weaker auth_buyer_company_id() helper (no
+  approved/status/frozen check), letting a buyer whose company was later
+  frozen still read final-payment-PI details for their own orders. Core
+  commit 5de4246 fixes this using the same canonical-helper swap, plus a
+  pgTAP regression (also not run).
+
+A third, lower-severity occurrence of the identical drift (in the
+support_ticket_set_customer_context() BEFORE INSERT trigger that actually
++governs submit_customer_support_ticket_v1's authorization) was found and
++documented but NOT fixed -- it's a write-path attribution edge case, not a
++data-disclosure defect (order-ownership is independently and correctly
++enforced by the same trigger), and warrants its own careful pass rather
++than a rushed edit to a trigger with several unrelated field resets.
++Recorded as a follow-up recommendation in the matrix doc, along with a
++second open item: create_payment_gateway_payable_intent_v1 and
++get_payment_gateway_payable_status_v1 use the same auth_buyer_company_id()
++helper that was fixed for final-payment-PI, and were not independently
++re-verified/fixed in this pass.
++
++No native app code changed in this commit -- this is documentation of the
++already-complete AUTH-01 implementation (0d22600, 4b96419, 93ca72a).
++
++Verified: npm run quality still passes end to end (unchanged from the
++prior commit -- 160/160 tests, typecheck, lint, boundary/rc-scan/
++rc-navigation/cert:bindings/census:p106/expo-config all clean). No
++production mutation of any kind, in either repository.
++---
++ docs/auth01-rpc-security-matrix.md | 115 +++++++++++++++++++++++++++++
++ 1 file changed, 115 insertions(+)
++ create mode 100644 docs/auth01-rpc-security-matrix.md
++
++diff --git a/docs/auth01-rpc-security-matrix.md b/docs/auth01-rpc-security-matrix.md
++new file mode 100644
++index 0000000..1f5f686
++--- /dev/null
+++++ b/docs/auth01-rpc-security-matrix.md
++@@ -0,0 +1,115 @@
+++# AUTH-01 Buyer RPC Security Matrix
+++
+++Body-verified against current-main `oasis-supabase-core` SQL (migration
+++chronology respected; superseded definitions ignored). Static analysis —
+++no live database 

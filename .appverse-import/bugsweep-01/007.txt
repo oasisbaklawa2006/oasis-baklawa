@@ -1,0 +1,306 @@
+tation).
++export const APPROVED_B2B_IDENTITY_CLAIM_RPC = "claim_approved_b2b_access_request_v2";
++
++export interface ApprovedB2bIdentityClaimRow {
++  application_id: string | null;
++  claimed: boolean;
++  company_id: string | null;
++  already_active: boolean;
++}
++
++export interface ApprovedB2bIdentityClaimOutcome {
++  applicationId: string | null;
++  companyId: string | null;
++  claimed: boolean;
++  alreadyActive: boolean;
++}
++
++const NO_MATCH_CLAIM_ROW: ApprovedB2bIdentityClaimRow = {
++  application_id: null,
++  claimed: false,
++  company_id: null,
++  already_active: false,
++};
++
++export function isApprovedB2bIdentityClaimRow(value: unknown): value is ApprovedB2bIdentityClaimRow {
++  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
++  const row = value as Record<string, unknown>;
++  return (
++    Object.prototype.hasOwnProperty.call(row, "application_id") &&
++    Object.prototype.hasOwnProperty.call(row, "claimed") &&
++    Object.prototype.hasOwnProperty.call(row, "company_id") &&
++    Object.prototype.hasOwnProperty.call(row, "already_active") &&
++    (row.application_id === null || typeof row.application_id === "string") &&
++    typeof row.claimed === "boolean" &&
++    (row.company_id === null || typeof row.company_id === "string") &&
++    typeof row.already_active === "boolean"
++  );
++}
++
++/** Core may return an empty set when no b2b_applications match exists yet for auth.uid(). */
++export function normalizeClaimRpcData(data: unknown): ApprovedB2bIdentityClaimRow | null {
++  if (Array.isArray(data)) {
++    if (data.length === 0) return NO_MATCH_CLAIM_ROW;
++    if (data.length === 1) return isApprovedB2bIdentityClaimRow(data[0]) ? data[0] : null;
++    return null;
++  }
++  return isApprovedB2bIdentityClaimRow(data) ? data : null;
++}
++
++export function classifyClaimRpcError(message?: string | null): string {
++  const normalized = (message ?? "").toLowerCase();
++  if (normalized.includes("ambiguous") || normalized.includes("conflict")) return "ambiguous";
++  return "rpc_error";
++}
++
++/**
++ * Fail closed when the edge bridge signalled a brand-new identity awaiting
++ * bind (approved_b2b_pending_claim / is_new) but Core's claim did not attach
++ * membership. Prevents a silent fall-through to "no application" for a real
++ * approved buyer — this is the deadlock guard at the claim layer.
++ */
++export function assertApprovedB2bClaimBound(
++  outcome: ApprovedB2bIdentityClaimOutcome,
++  requireBound: boolean
++): void {
++  if (!requireBound) return;
++  if (outcome.claimed || outcome.alreadyActive) return;
++  throw new Error("APPROVED_B2B_IDENTITY_CLAIM_FAILED:bind_failed");
++}
+diff --git a/src/lib/buyer-identity-claim.ts b/src/lib/buyer-identity-claim.ts
+index 6cd9992..63688ef 100644
+--- a/src/lib/buyer-identity-claim.ts
++++ b/src/lib/buyer-identity-claim.ts
+@@ -5,62 +5,26 @@
+ // provider-confirmed phone OR email, preserves legacy application bindings, and
+ // fails closed on ambiguous company matches. Do not reimplement this logic
+ // on-device — Core is the sole authority for the claim decision.
++//
++// All pure logic (row validation, outcome normalization, the fail-closed
++// bound assertion) lives in buyer-identity-claim-core.ts, which has no
++// supabase/react-native import and is unit tested directly. This file is
++// only the IO: the actual RPC call and session wait.
+ import { callRpc } from "@/lib/rpc";
+ import { supabase } from "@/lib/supabase";
++import {
++  APPROVED_B2B_IDENTITY_CLAIM_RPC,
++  classifyClaimRpcError,
++  normalizeClaimRpcData,
++  type ApprovedB2bIdentityClaimOutcome,
++} from "@/lib/buyer-identity-claim-core";
+ 
+-export const APPROVED_B2B_IDENTITY_CLAIM_RPC = "claim_approved_b2b_access_request_v2";
+-
+-export interface ApprovedB2bIdentityClaimRow {
+-  application_id: string | null;
+-  claimed: boolean;
+-  company_id: string | null;
+-  already_active: boolean;
+-}
+-
+-export interface ApprovedB2bIdentityClaimOutcome {
+-  applicationId: string | null;
+-  companyId: string | null;
+-  claimed: boolean;
+-  alreadyActive: boolean;
+-}
+-
+-const NO_MATCH_CLAIM_ROW: ApprovedB2bIdentityClaimRow = {
+-  application_id: null,
+-  claimed: false,
+-  company_id: null,
+-  already_active: false,
+-};
+-
+-function isApprovedB2bIdentityClaimRow(value: unknown): value is ApprovedB2bIdentityClaimRow {
+-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+-  const row = value as Record<string, unknown>;
+-  return (
+-    Object.prototype.hasOwnProperty.call(row, "application_id") &&
+-    Object.prototype.hasOwnProperty.call(row, "claimed") &&
+-    Object.prototype.hasOwnProperty.call(row, "company_id") &&
+-    Object.prototype.hasOwnProperty.call(row, "already_active") &&
+-    (row.application_id === null || typeof row.application_id === "string") &&
+-    typeof row.claimed === "boolean" &&
+-    (row.company_id === null || typeof row.company_id === "string") &&
+-    typeof row.already_active === "boolean"
+-  );
+-}
+-
+-/** Core may return an empty set when no b2b_applications match exists yet for auth.uid(). */
+-function normalizeClaimRpcData(data: unknown): ApprovedB2bIdentityClaimRow | null {
+-  if (Array.isArray(data)) {
+-    if (data.length === 0) return NO_MATCH_CLAIM_ROW;
+-    if (data.length === 1) return isApprovedB2bIdentityClaimRow(data[0]) ? data[0] : null;
+-    return null;
+-  }
+-  return isApprovedB2bIdentityClaimRow(data) ? data : null;
+-}
+-
+-function classifyClaimRpcError(message?: string | null): string {
+-  const normalized = (message ?? "").toLowerCase();
+-  if (normalized.includes("ambiguous") || normalized.includes("conflict")) return "ambiguous";
+-  return "rpc_error";
+-}
++export {
++  APPROVED_B2B_IDENTITY_CLAIM_RPC,
++  assertApprovedB2bClaimBound,
++  type ApprovedB2bIdentityClaimOutcome,
++  type ApprovedB2bIdentityClaimRow,
++} from "@/lib/buyer-identity-claim-core";
+ 
+ async function waitForAuthenticatedSession(attempts = 8, delayMs = 75): Promise<boolean> {
+   for (let attempt = 0; attempt < attempts; attempt += 1) {
+@@ -106,18 +70,3 @@ export async function claimApprovedB2bIdentity(): Promise<ApprovedB2bIdentityCla
+     alreadyActive: row.already_active,
+   };
+ }
+-
+-/**
+- * Fail closed when the edge bridge signalled a brand-new identity awaiting
+- * bind (approved_b2b_pending_claim / is_new) but Core's claim did not attach
+- * membership. Prevents a silent fall-through to "no application" for a real
+- * approved buyer.
+- */
+-export function assertApprovedB2bClaimBound(
+-  outcome: ApprovedB2bIdentityClaimOutcome,
+-  requireBound: boolean
+-): void {
+-  if (!requireBound) return;
+-  if (outcome.claimed || outcome.alreadyActive) return;
+-  throw new Error("APPROVED_B2B_IDENTITY_CLAIM_FAILED:bind_failed");
+-}
+diff --git a/src/lib/buyer-identity.test.ts b/src/lib/buyer-identity.test.ts
+new file mode 100644
+index 0000000..20e7746
+--- /dev/null
++++ b/src/lib/buyer-identity.test.ts
+@@ -0,0 +1,33 @@
++import { describe, it } from "node:test";
++import assert from "node:assert/strict";
++import { isEmailIdentifier, normalizeEmail, normalizePhone } from "./buyer-identity";
++
++describe("buyer-identity normalization", () => {
++  it("recognizes a plausible email and rejects a bare mobile number", () => {
++    assert.equal(isEmailIdentifier("buyer@company.com"), true);
++    assert.equal(isEmailIdentifier("9876543210"), false);
++  });
++
++  it("lowercases and trims email", () => {
++    assert.equal(normalizeEmail("  Buyer@Company.COM  "), "buyer@company.com");
++  });
++
++  it("normalizes a 10-digit Indian mobile number to 91-prefixed and e164 forms", () => {
++    const result = normalizePhone("9876543210");
++    assert.equal(result.last10, "9876543210");
++    assert.equal(result.e164, "+919876543210");
++  });
++
++  it("strips a leading 0 / +91 / 91 consistently to the same last10", () => {
++    const variants = ["09876543210", "+919876543210", "919876543210", "98765 43210"];
++    for (const v of variants) {
++      assert.equal(normalizePhone(v).last10, "9876543210", `expected last10 9876543210 for input "${v}"`);
++    }
++  });
++
++  it("returns empty fields for an empty/garbage input rather than throwing", () => {
++    const result = normalizePhone("");
++    assert.equal(result.last10, "");
++    assert.equal(result.e164, "");
++  });
++});
+diff --git a/src/lib/session-routing.test.ts b/src/lib/session-routing.test.ts
+new file mode 100644
+index 0000000..092519a
+--- /dev/null
++++ b/src/lib/session-routing.test.ts
+@@ -0,0 +1,77 @@
++import { describe, it } from "node:test";
++import assert from "node:assert/strict";
++import { routeFromBuyerSnapshot } from "./session-routing";
++import type { BuyerSessionSnapshot, BuyerEligibilityState } from "./api/buyer";
++
++interface RecordedCall {
++  screen: string;
++  params?: unknown;
++}
++
++function fakeNavigator() {
++  const calls: RecordedCall[] = [];
++  return {
++    calls,
++    // eslint-disable-next-line @typescript-eslint/no-explicit-any
++    replace: (screen: string, params?: any) => {
++      calls.push({ screen, params });
++    },
++  };
++}
++
++function snapshot(state: BuyerEligibilityState, overrides: Partial<BuyerSessionSnapshot> = {}): BuyerSessionSnapshot {
++  return {
++    state,
++    companyId: null,
++    company: null,
++    message: null,
++    userId: state === "unauthenticated" ? null : "user-1",
++    ...overrides,
++  };
++}
++
++describe("routeFromBuyerSnapshot / historical UAT deadlock regression", () => {
++  it("routes approved_buyer straight to Dashboard", () => {
++    const nav = fakeNavigator();
++    routeFromBuyerSnapshot(nav, snapshot("approved_buyer"), true);
++    assert.deepEqual(nav.calls, [{ screen: "MainTabs", params: { screen: "Dashboard" } }]);
++  });
++
++  it("NEVER routes any post-auth state to Register — this is the historical deadlock: an " +
++    "approved buyer whose session resolved to a non-approved state must never be sent back " +
++    "to the application form (Register), which risked a duplicate/conflicted application", () => {
++    const states: BuyerEligibilityState[] = ["unauthenticated", "approved_buyer", "no_membership", "backend_failure"];
++    const nav = fakeNavigator();
++    for (const state of states) {
++      routeFromBuyerSnapshot(nav, snapshot(state), true);
++    }
++    assert.ok(
++      nav.calls.every((call) => call.screen !== "Register"),
++      `routeFromBuyerSnapshot must never navigate to Register; got: ${JSON.stringify(nav.calls)}`
++    );
++  });
++
++  it("routes no_membership (approved-then-desynced fail-closed case) to SessionRecovery, not Register", () => {
++    const nav = fakeNavigator();
++    routeFromBuyerSnapshot(nav, snapshot("no_membership", { message: "test message" }), true);
++    assert.equal(nav.calls[0].screen, "SessionRecovery");
++    assert.deepEqual(nav.calls[0].params, { message: "test message" });
++  });
++
++  it("routes backend_failure to SessionRecovery with a fallback message when none is given", () => {
++    const nav = fakeNavigator();
++    routeFromBuyerSnapshot(nav, snapshot("backend_failure"), true);
++    assert.equal(nav.calls[0].screen, "SessionRecovery");
++    assert.ok(typeof (nav.calls[0].params as { message?: string })?.message === "string");
++  });
++
++  it("routes unauthenticated to Welcome when onboarded, Onboarding otherwise", () => {
++    const navOnboarded = fakeNavigator();
++    routeFromBuyerSnapshot(navOnboarded, snapshot("unauthenticated"), true);
++    assert.deepEqual(navOnboarded.calls, [{ screen: "Welcome", params: undefined }]);
++
++    const navFresh = fakeNavigator();
++    routeFromBuyerSnapshot(navFresh, snapshot("unauthenticated"), false);
++    assert.deepEqual(navFresh.calls, [{ screen: "Onboarding", params: undefined }]);
++  });
++});
+-- 
+2.43.0
+
+
+From 93ca72ac1593e327fcbf6a4ffb432d7c3557f9cb Mon Sep 17 00:00:00 2001
+From: AUTH-01 Native Convergence <auth01-agent@local>
+Date: Wed, 16 Sep 2026 20:25:34 +0000
+Subject: [PATCH 03/11] test(auth): close buyer auth security and routing
+ certification
+
+- Extract decideLoginAction() (login-preflight-action.ts): pure decision
+  function for what LoginScr

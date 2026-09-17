@@ -1,0 +1,340 @@
+d };
+-    }
+-
+-    const { error: draftProbeError } = await callRpc("get_customer_order_draft_v1").then(
+-      () => ({ error: null }),
+-      (error) => ({ error })
+-    );
+-    if (draftProbeError) {
+-      const parsed = parseRpcError(draftProbeError);
+-      if (parsed.code === "BUYER_NOT_ELIGIBLE") {
+-        return await inferNonEligibleState(userId);
+-      }
+-      if (parsed.code === "AUTH_REQUIRED") {
+-        return { state: "unauthenticated", companyId: null, company: null, message: parsed.message, userId: null };
+-      }
++    if (!companyId) {
+       return {
+-        state: "backend_failure",
++        state: "no_membership",
+         companyId: null,
+         company: null,
+-        message: parsed.message,
++        message:
++          "We couldn't find an active buyer account for this login. If you recently applied for B2B access, contact Oasis support to confirm your approval status.",
+         userId,
+       };
+     }
+ 
+-    return await inferNonEligibleState(userId);
++    const company = await fetchCustomerCompany();
++    if (company?.is_frozen) {
++      return {
++        state: "no_membership",
++        companyId,
++        company,
++        message: "Your company account is frozen. Contact Oasis Baklawa support.",
++        userId,
++      };
++    }
++    return { state: "approved_buyer", companyId, company, message: null, userId };
+   } catch (error) {
++    const parsed = parseRpcError(error);
++    if (parsed.code === "AUTH_REQUIRED") {
++      return { state: "unauthenticated", companyId: null, company: null, message: parsed.message, userId: null };
++    }
+     return {
+       state: "backend_failure",
+       companyId: null,
+       company: null,
+-      message: parseRpcError(error).message,
+-      userId,
+-    };
+-  }
+-}
+-
+-async function inferNonEligibleState(userId: string): Promise<BuyerSessionSnapshot> {
+-  const stored = await readStoredApplicationStatus(userId);
+-  if (stored === "application_pending") {
+-    return {
+-      state: "application_pending",
+-      companyId: null,
+-      company: null,
+-      message: "Your trade application is being reviewed.",
++      message: parsed.message,
+       userId,
+     };
+   }
+-  if (stored === "rejected_ineligible") {
+-    return {
+-      state: "rejected_ineligible",
+-      companyId: null,
+-      company: null,
+-      message: "Your trade application was not approved. Contact Oasis Baklawa support.",
+-      userId,
+-    };
+-  }
+-
+-  return {
+-    state: "no_application",
+-    companyId: null,
+-    company: null,
+-    message: "Submit a B2B trade application to access buyer pricing and ordering.",
+-    userId,
+-  };
+ }
+diff --git a/src/lib/application-status-storage.ts b/src/lib/application-status-storage.ts
+deleted file mode 100644
+index 225ed9f..0000000
+--- a/src/lib/application-status-storage.ts
++++ /dev/null
+@@ -1,42 +0,0 @@
+-import AsyncStorage from "@react-native-async-storage/async-storage";
+-import type { BuyerEligibilityState } from "@/lib/api/buyer";
+-
+-const APPLICATION_STATUS_PREFIX = "oasis_buyer_application_status_v1:";
+-
+-function applicationStatusKey(userId: string): string {
+-  return `${APPLICATION_STATUS_PREFIX}${userId}`;
+-}
+-
+-export async function readStoredApplicationStatus(userId: string): Promise<BuyerEligibilityState | null> {
+-  try {
+-    const value = await AsyncStorage.getItem(applicationStatusKey(userId));
+-    if (value === "application_pending" || value === "rejected_ineligible") {
+-      return value;
+-    }
+-    return null;
+-  } catch {
+-    return null;
+-  }
+-}
+-
+-export async function storeApplicationStatus(userId: string, status: BuyerEligibilityState): Promise<void> {
+-  try {
+-    if (status === "application_pending" || status === "rejected_ineligible") {
+-      await AsyncStorage.setItem(applicationStatusKey(userId), status);
+-      return;
+-    }
+-    if (status === "approved_buyer") {
+-      await AsyncStorage.removeItem(applicationStatusKey(userId));
+-    }
+-  } catch {
+-    // UX cache only — never block session resolution on persistence failure.
+-  }
+-}
+-
+-export async function clearStoredApplicationStatus(userId: string): Promise<void> {
+-  try {
+-    await AsyncStorage.removeItem(applicationStatusKey(userId));
+-  } catch {
+-    // Best-effort on sign-out.
+-  }
+-}
+diff --git a/src/lib/buyer-deployment-rpc-allowlist.ts b/src/lib/buyer-deployment-rpc-allowlist.ts
+index 7e79714..dbe7610 100644
+--- a/src/lib/buyer-deployment-rpc-allowlist.ts
++++ b/src/lib/buyer-deployment-rpc-allowlist.ts
+@@ -18,7 +18,8 @@ export const BUYER_DEPLOYMENT_RPC_ALLOWLIST = [
+   "clear_customer_order_draft_v1",
+   "submit_customer_order_v1",
+   "calculate_customer_advance_v1",
+-  "submit_b2b_trade_application_v1",
++  "submit_b2b_access_request_v2",
++  "claim_approved_b2b_access_request_v2",
+   "customer_sales_order_commercial_facts_v1",
+   "customer_order_finance_facts_v1",
+   "customer_proforma_invoice_facts_v1",
+diff --git a/src/lib/buyer-identity-claim.ts b/src/lib/buyer-identity-claim.ts
+new file mode 100644
+index 0000000..6cd9992
+--- /dev/null
++++ b/src/lib/buyer-identity-claim.ts
+@@ -0,0 +1,123 @@
++// Native wrapper around Core's claim_approved_b2b_access_request_v2(), ported
++// from Oasis-Baklawa-Central's src/lib/b2b-approved-identity-claim.ts. This is
++// the CURRENT (20260914160000_auth01_verified_identifier_membership_compat.sql)
++// dual verified-identifier definition: it activates Buyer membership from a
++// provider-confirmed phone OR email, preserves legacy application bindings, and
++// fails closed on ambiguous company matches. Do not reimplement this logic
++// on-device — Core is the sole authority for the claim decision.
++import { callRpc } from "@/lib/rpc";
++import { supabase } from "@/lib/supabase";
++
++export const APPROVED_B2B_IDENTITY_CLAIM_RPC = "claim_approved_b2b_access_request_v2";
++
++export interface ApprovedB2bIdentityClaimRow {
++  application_id: string | null;
++  claimed: boolean;
++  company_id: string | null;
++  already_active: boolean;
++}
++
++export interface ApprovedB2bIdentityClaimOutcome {
++  applicationId: string | null;
++  companyId: string | null;
++  claimed: boolean;
++  alreadyActive: boolean;
++}
++
++const NO_MATCH_CLAIM_ROW: ApprovedB2bIdentityClaimRow = {
++  application_id: null,
++  claimed: false,
++  company_id: null,
++  already_active: false,
++};
++
++function isApprovedB2bIdentityClaimRow(value: unknown): value is ApprovedB2bIdentityClaimRow {
++  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
++  const row = value as Record<string, unknown>;
++  return (
++    Object.prototype.hasOwnProperty.call(row, "application_id") &&
++    Object.prototype.hasOwnProperty.call(row, "claimed") &&
++    Object.prototype.hasOwnProperty.call(row, "company_id") &&
++    Object.prototype.hasOwnProperty.call(row, "already_active") &&
++    (row.application_id === null || typeof row.application_id === "string") &&
++    typeof row.claimed === "boolean" &&
++    (row.company_id === null || typeof row.company_id === "string") &&
++    typeof row.already_active === "boolean"
++  );
++}
++
++/** Core may return an empty set when no b2b_applications match exists yet for auth.uid(). */
++function normalizeClaimRpcData(data: unknown): ApprovedB2bIdentityClaimRow | null {
++  if (Array.isArray(data)) {
++    if (data.length === 0) return NO_MATCH_CLAIM_ROW;
++    if (data.length === 1) return isApprovedB2bIdentityClaimRow(data[0]) ? data[0] : null;
++    return null;
++  }
++  return isApprovedB2bIdentityClaimRow(data) ? data : null;
++}
++
++function classifyClaimRpcError(message?: string | null): string {
++  const normalized = (message ?? "").toLowerCase();
++  if (normalized.includes("ambiguous") || normalized.includes("conflict")) return "ambiguous";
++  return "rpc_error";
++}
++
++async function waitForAuthenticatedSession(attempts = 8, delayMs = 75): Promise<boolean> {
++  for (let attempt = 0; attempt < attempts; attempt += 1) {
++    const { data } = await supabase.auth.getSession();
++    if (data.session?.access_token) return true;
++    if (attempt < attempts - 1) {
++      await new Promise((resolve) => setTimeout(resolve, delayMs));
++    }
++  }
++  return false;
++}
++
++/**
++ * Claims Buyer membership for the current authenticated, provider-verified
++ * session. Safe to call after BOTH mobile and email session bridges — Core's
++ * current definition matches on verified phone OR verified email. Throws on
++ * genuine RPC failure or a malformed response; never invents a claim.
++ */
++export async function claimApprovedB2bIdentity(): Promise<ApprovedB2bIdentityClaimOutcome> {
++  const sessionReady = await waitForAuthenticatedSession();
++  if (!sessionReady) {
++    throw new Error("APPROVED_B2B_IDENTITY_CLAIM_FAILED:session_missing");
++  }
++
++  let data: unknown;
++  try {
++    data = await callRpc(APPROVED_B2B_IDENTITY_CLAIM_RPC);
++  } catch (error) {
++    const message = error instanceof Error ? error.message : undefined;
++    throw new Error(`APPROVED_B2B_IDENTITY_CLAIM_FAILED:${classifyClaimRpcError(message)}`);
++  }
++
++  const row = normalizeClaimRpcData(data);
++  if (!row) {
++    const reason = Array.isArray(data) && data.length > 1 ? "ambiguous" : "malformed_response";
++    throw new Error(`APPROVED_B2B_IDENTITY_CLAIM_FAILED:${reason}`);
++  }
++
++  return {
++    applicationId: row.application_id,
++    companyId: row.company_id,
++    claimed: row.claimed,
++    alreadyActive: row.already_active,
++  };
++}
++
++/**
++ * Fail closed when the edge bridge signalled a brand-new identity awaiting
++ * bind (approved_b2b_pending_claim / is_new) but Core's claim did not attach
++ * membership. Prevents a silent fall-through to "no application" for a real
++ * approved buyer.
++ */
++export function assertApprovedB2bClaimBound(
++  outcome: ApprovedB2bIdentityClaimOutcome,
++  requireBound: boolean
++): void {
++  if (!requireBound) return;
++  if (outcome.claimed || outcome.alreadyActive) return;
++  throw new Error("APPROVED_B2B_IDENTITY_CLAIM_FAILED:bind_failed");
++}
+diff --git a/src/lib/buyer-identity.ts b/src/lib/buyer-identity.ts
+new file mode 100644
+index 0000000..5401a5e
+--- /dev/null
++++ b/src/lib/buyer-identity.ts
+@@ -0,0 +1,50 @@
++// Identifier normalization, ported from Oasis-Baklawa-Central's src/lib/auth-identity.ts
++// so native and Central classify/send identical identifiers to the shared
++// buyer-login-gateway and MSG91 bridges.
++export interface NormalizedPhone {
++  digits: string;
++  last10: string;
++  national: string;
++  e164: string;
++  variants: string[];
++}
++
++const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
++
++export function isEmailIdentifier(value: string): boolean {
++  return EMAIL_REGEX.test(value.trim().toLowerCase());
++}
++
++export function normalizeEmail(raw: string): string {
++  return raw.trim().toLowerCase();
++}
++
++export function normalizePhone(input: string, defaultCountryCode = "91"): NormalizedPhone {
++  const digits = input.replace(/\D/g, "");
++  const trimmedCountry = defaultCountryCode.replace(/\D/g, "") || "91";
++
++  if (!digits) {
++    return { digits: "", last10: "", national: "", e164: "", variants: [] };
++  }
++
++  const last10 = digits.slice(-10);
++  const national = last10 || digits;
++  const withCountry = national.length === 10 ? `${trimmedCountry}${national}` : digits;
++  const e164 = withCountry.startsWith("+") ? withCountry : `+${withCountry}`;
++
++  const variants = Array.from(
++    new Set(
++      [
++        digits,
++        national,
++        withCountry,
++        e164,
++        `0${national}`,
++        national.length === 10 ? `+${trimmedCountry}${national}` : null,
++        national.length === 10 ? `${trimmedCountry}${national}` : null,
++      ].filter(Boolean) as string[]
++    )
++  );
++
++  return { digits, last10, national, e164, variants };
++}
+diff --git a/src/lib/buyer-preflight.ts b/src/lib/buyer-preflight.ts
+new file mode 100644
+index 0000000..9261d97
+--- /dev/null
++++ b/src/lib/buyer-preflight.ts
+@@ -0,0 +1,67 @@
++// Native client for the canonical Buyer preflight authority (buyer-login-gateway,
++// Oasis-Baklawa-Central). 

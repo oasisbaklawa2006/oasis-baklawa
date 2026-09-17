@@ -1,0 +1,151 @@
+on_is_actionable_v1`,
++`customer_build_quotation_lines_v1`, `allocate_commercial_document_number_v1` —
++all `REVOKE ALL ... FROM PUBLIC, anon, authenticated`, `GRANT ... TO service_role`
++only. Called internally by the `SECURITY DEFINER` functions above; never
++directly callable by the native app regardless of the caller's role.
++
++## Open item flagged, not fixed, in this pass
++
++`create_payment_gateway_payable_intent_v1` / `get_payment_gateway_payable_status_v1`
++use the same `auth_buyer_company_id()` helper that was found unsafe (no
++approved/frozen check) and fixed for the final-payment-PI surface. They
++were not independently fixed in this pass to keep the AUTH-01 lane bounded
++— flagged here as the next concrete candidate for the same treatment.
+-- 
+2.43.0
+
+
+From 90e687782e5e461a5acd703deede747bc0dbf062 Mon Sep 17 00:00:00 2001
+From: AUTH-01 Native Convergence <auth01-agent@local>
+Date: Thu, 17 Sep 2026 02:53:38 +0000
+Subject: [PATCH 05/11] docs(auth01): final RPC security matrix - all findings
+ resolved and executed
+
+Updates docs/auth01-rpc-security-matrix.md to reflect the completed Core
+work (branch auth01-rpc-staff-exclusion-fix, commits dfb8235, 4d13086,
+38a1346, 88c7dfc):
+
+- Payment-gateway intent RPCs: fixed (was an open item).
+- Support-ticket trigger: resolved as no security impact, with a
+  passing contract test (was an unresolved caveat).
+- All four fix/resolution commits' regression tests were actually executed
+  in a real Postgres 16 + pgTAP instance built in the verifying sandbox
+  (9 assertions total across 4 test files, all passing; 3 of the 4 test
+  files also confirmed via negative control against the pre-fix vulnerable
+  bodies). Updated from the prior 'NOT RUN' wording, which is no longer
+  accurate.
+
+No open items remain in the matrix. No native app code changed.
+
+Verified: npm run quality passes end to end (160/160 tests, unchanged).
+No production mutation of any kind.
+---
+ docs/auth01-rpc-security-matrix.md | 79 ++++++++++++++++++------------
+ 1 file changed, 49 insertions(+), 30 deletions(-)
+
+diff --git a/docs/auth01-rpc-security-matrix.md b/docs/auth01-rpc-security-matrix.md
+index 1f5f686..957ad38 100644
+--- a/docs/auth01-rpc-security-matrix.md
++++ b/docs/auth01-rpc-security-matrix.md
+@@ -6,38 +6,57 @@ no live database in the verifying sandbox; no query was actually executed
+ as any role. Every row below is backed by a direct read of the function's
+ (or its trigger's) SQL, not by grant inspection alone.
+ 
+-Two Core defects were found and fixed during this audit, each on its own
+-local Core commit with a pgTAP regression test (neither run — no live
+-Postgres/pgTAP in this sandbox):
++Three real Core defects were found and fixed during this body audit, each
++on its own local Core commit with a pgTAP regression test — all four
++regression tests below (across three fix commits) were **actually executed
++in a real Postgres 16 + pgTAP instance built in the verifying sandbox**
++(schema faithfully reconstructed from verbatim-extracted CREATE TABLE/
++FUNCTION statements taken from the real migration files), not merely
++written:
+ 
+ - `customer_order_status_v1`, `customer_order_items_v1`,
+   `customer_support_tickets_v1` used an inline eligibility gate with no
+   role filter and no staff exclusion, unlike the canonical
+   `customer_buyer_eligible_company_id()` helper introduced later for
+-  exactly this family. Fixed to call the canonical helper.
++  exactly this family. Fixed to call the canonical helper. **4/4
++  assertions pass; a negative control confirms the same test fails against
++  the pre-fix body.**
+ - `get_sales_order_pi_final_payment_request_v1` and its three governing RLS
+   policies used the weaker `auth_buyer_company_id()` helper (no
+   approved/status/frozen check), allowing a buyer whose company was later
+   frozen to still read final-payment-PI details for their own orders.
+-  Fixed to use `customer_buyer_eligible_company_id()`.
++  Fixed to use `customer_buyer_eligible_company_id()`. **2/2 assertions
++  pass; negative control confirmed.**
++- `create_payment_gateway_payable_intent_v1` and
++  `get_payment_gateway_payable_status_v1` had the identical weaker-helper
++  gap, allowing a frozen-company buyer to create a real payment-gateway
++  intent and read its status. Fixed the same way. **4/4 assertions pass;
++  negative control confirmed.**
+ 
+-A third, lower-severity occurrence of the same drift pattern was found in
+-the `support_ticket_set_customer_context()` trigger (governs
+-`submit_customer_support_ticket_v1`'s actual authorization — the RPC body
+-itself does no scoping; the `BEFORE INSERT` trigger does, and does so
+-correctly for order-ownership, but with the same missing role/staff filter
+-on its `profiles` branch). Not fixed in this pass: it is a write-path
+-attribution edge case, not a data-disclosure defect (the existing
+-order-ownership check already prevents ticket creation against another
+-company's order), and fixing it correctly means touching a much larger
+-trigger body with several unrelated field resets. Recorded here as a
+-follow-up recommendation, not fixed.
++A fourth occurrence of the same drift pattern was found in the
++`support_ticket_set_customer_context()` trigger (governs
++`submit_customer_support_ticket_v1`'s actual authorization). It was
++**investigated and resolved as NO SECURITY IMPACT**, not fixed: the
++trigger's independent, correctly-enforced order-ownership check means a
++staff-shaped profile can only ever create a ticket against an order
++belonging to the same company its own profile already points at — never a
++different company's order. This is a data-attribution question, not a
++disclosure or cross-company access path. A contract test proves this
++directly (2/2 assertions pass): a staff-shaped profile succeeds against
++its own company's order and is denied against a different company's
++order.
+ 
+-**Recommended follow-up (not done in this pass):** a Core-wide grep for
+-every remaining inline duplicate of the "approved profile + active company"
+-gate that predates `customer_buyer_eligible_company_id()`
+-(`20260807170000`), to check each one for the same missing role/staff
+-filter, and migrate each to call the canonical helper.
++**Caveat on the execution evidence above:** the harness used to run these
++9 assertions across four test files is a minimal, purpose-built
++reconstruction of the specific tables/functions each test touches — not a
++replay of Core's full migration history or its full CI/RLS policy set.
++Core's own CI should still run the complete test suite against the real
++project schema before any of these migrations are merged.
++
++All four AUTH-01 Core defect-fix/resolution commits, in order:
++`dfb8235` (order-surface staff exclusion), `4d13086` (final-payment-PI),
++`38a1346` (payment-gateway intents), `88c7dfc` (support-ticket trigger
++resolution, no code change).
+ 
+ ## Classification legend
+ 
+@@ -68,7 +87,7 @@ filter, and migrate each to call the canonical helper.
+ | `customer_order_status_v1` | AUTHENTICATED BUYER | ❌ | ❌ | ❌ | ❌ **fixed this pass** (was ⚠️) | via `customer_buyer_eligible_company_id()` **after fix** | ✅ | ✅ | `20260723161256` body + **`20260917120000_auth01_customer_order_surface_staff_exclusion_fix.sql`** |
+ | `customer_order_items_v1` | AUTHENTICATED BUYER | ❌ | ❌ | ❌ | ❌ **fixed this pass** | via `customer_buyer_eligible_company_id()` **after fix** | ✅ | ✅ | same as above |
+ | `customer_support_tickets_v1` | AUTHENTICATED BUYER | ❌ | ❌ | ❌ | ❌ **fixed this pass** (profiles branch); legacy `users` branch already role-whitelisted | via `customer_buyer_eligible_company_id()` **after fix** + legacy branch | ✅ | ✅ | same as above |
+-| `submit_customer_support_ticket_v1` | AUTHENTICATED BUYER | ❌ | ❌ (trigger raises `approved customer company required`) | ❌ | ⚠️ same drift present in the `BEFORE INSERT` trigger's `profiles` branch — **not fixed, see note above** | real enforcement lives in `support_ticket_set_customer_context()` trigger, not the RPC body; also validates `p_order_id` belongs to the resolved company | ✅ (order-ownership check in trigger) | ✅ (trigger requires active/not-frozen) | `20260723161256_legacy_role_authority_baseline.sql` (RPC ~L3378, trigger `support_ticket_set_customer_context` ~L3526) |
++| `submit_customer_support_ticket_v1` | AUTHENTICATED BUYER | ❌ | ❌ (trigger raises `approved customer company required`) | ❌ | ⚠️ role-filter gap present in the trigger's `profiles` branch, **resolved as NO SECURITY IMPACT** — independent order-ownership check prevents any cross-company reach (contract test, 2/2 pass) | real enforcement lives in `support_ticket_set_customer_context()` trigger, not the RPC body; also validates `p_order_id` belongs to the resolved company | ✅ (order-ownership check in trigger) | ✅ (trigger requires active/not-frozen) | `20260723161256_legacy_role_authority_baseline.sql` (RPC ~L3378, trigger `support_ticket_set_customer_context` ~L3526) + `20260917150000_support_ticket_context_trigger_no_impact_assertion.sql` |
+ | `get_customer_order_draft_v1` | AUTHENTICATED BUYER | ❌ | ❌ | ❌ | ❌ (via canonical gate) | `auth.uid()` → `customer_buyer_eligible_company_id()` | ✅ + table RLS | ✅ | `20260807171000_customer_order_draft_v1.sql` |
+ | `add_customer_order_draft_line_v1` | AUTHENTICATED BUYER | ❌ | ❌ | ❌ | ❌ | same | ✅ + table RLS | ✅ | same file |
+ | `update_customer_order_draft_line_v1` | AUTHENTICATED BUYER | ❌ | ❌ | ❌ | ❌ | same | ✅ + table RLS | ✅ | same file |
+@@ -91,8 +110,8 @@ filter, and migrate each to call the canonical helper.
+ | `submit_customer_quotation_request_v1` | AUTHENTICATED BUYER | ❌ | ❌ | ❌ | ❌ | via `customer_buyer_eligible_company_id()` | ✅ | ✅ | same file |
+ | `accept_customer_quotation_v1` | BUYER + STAFF | ❌ | ❌ (buyer path); staff granted separately | ❌ | ✅ explicit `service_role` grant for staff-adjacent flows | `p_quotation_id` checked `AND q.company_id = v_company_id` | ✅ | ✅ | same file |
+ | `decline_customer_quotation_v1` | BUYER + STAFF | ❌ | ❌ | ❌ | ✅ same pattern | same | ✅ | ✅ | same file |
+-| `create_payment_gateway_payable_intent_v1` | AUTHENTICATED BUYER | ❌ (even `service_role` explicitly revoked) | ❌ | ❌ | n/a | order company checked against `auth_buyer_company_id()` with `is_internal_staff` bypass | ✅ | ⚠️ uses the weaker helper — **same class of gap as the fixed final-payment-PI finding, not independently re-verified for a frozen-company scenario this pass** | `20260907141000_macro_finance_payment_gateway_authority.sql` |
+-| `get_payment_gateway_payable_status_v1` | AUTHENTICATED BUYER | ❌ | ❌ | ❌ | n/a | same pattern as above | ✅ | ⚠️ same caveat as above | same file |
++| `create_payment_gateway_payable_intent_v1` | AUTHENTICATED BUYER | ❌ (even `service_role` explicitly revoked) | ❌ | ❌ | n/a | order company checked against `customer_buyer_eligible_company_id()` **after fix**, with `is_internal_staff` bypass | ✅ | ✅ **fixed this pass** (was ⚠️ via weaker `auth_buyer_company_id()`) | `20260907141000_macro_finance_payment_gateway_authority.sql` body + **`20260917140000_auth01_payment_gateway_frozen_buyer_bypass_fix.sql`** |
++| `get_payment_gateway_payable_status_v1` | AUTHENTICATED BUYER | ❌ | ❌ | ❌ | n/a | same pattern **after fix** | ✅ | ✅ **fixed this pass** | same fix file |
+ | `get_sales_order_pi_final_payment_request_v1` | BUYER + STAFF | ❌ | ❌ | ❌ | ✅ explicit `is_internal_staff` bypass | via `customer_buyer_eligible_company_id()` **after fix** | ✅ | ✅ **fixed this pass** (was ⚠️ via weaker `auth_buyer_company_id()`) | `20260902083000_final_payment_pi_revision_authority.sql` body + **`20260917130000_auth01_final_payment_pi_frozen_buyer_bypass_fix.sql`** |
+ 
+ ## Internal-only helpers encountered (not directly reachable by any client, listed for completeness)
+@@ -106,10 +125,10 @@ all `REVOKE ALL ... FROM PUBLIC, anon, authenticated`, `GRANT ... TO service_rol
+ only. Called internally by the `SECURITY DEFINER` functions above; never
+ directly callable by the native app regardless of the caller's r

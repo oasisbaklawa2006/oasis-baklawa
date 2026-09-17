@@ -1,0 +1,272 @@
+            keyboardType={channel === "mobile" ? "phone-pad" : "email-address"}
++            autoCapitalize="none"
+             value={identifier}
+             onChangeText={setIdentifier}
+-            editable={!otpSent}
+-            accessibilityLabel="Mobile number"
++            editable={stage === "identifier"}
++            accessibilityLabel={channel === "mobile" ? "Mobile number" : "Email address"}
+           />
+-          {otpSent && (
++
++          {stage === "otp" && (
+             <TextInput
+-              style={styles.input}
++              style={[styles.input, styles.otpInput]}
+               placeholder="Enter OTP"
+               keyboardType="number-pad"
+               value={otp}
+-              onChangeText={setOtp}
++              onChangeText={(v) => setOtp(v.replace(/\D/g, "").slice(0, 8))}
+               accessibilityLabel="One-time password"
+             />
+           )}
++
+           <TouchableOpacity
+             style={[styles.button, busy && styles.buttonDisabled]}
+             disabled={busy}
+-            onPress={otpSent ? verifyOtp : sendOtp}
++            onPress={() => (stage === "identifier" ? requestOtp(channel) : verifyOtp(channel))}
+             accessibilityRole="button"
+-            accessibilityLabel={otpSent ? "Verify OTP" : "Send OTP"}
++            accessibilityLabel={stage === "identifier" ? "Continue with OTP" : "Verify and continue"}
+           >
+-            <Text style={styles.buttonText}>{otpSent ? "Verify OTP" : "Send OTP"}</Text>
++            <Text style={styles.buttonText}>
++              {busy ? "Please wait…" : stage === "identifier" ? "Continue with OTP" : "Verify and continue"}
++            </Text>
+           </TouchableOpacity>
++
++          {stage === "otp" && (
++            <TouchableOpacity onPress={() => resendOtp(channel)} disabled={busy} accessibilityRole="button">
++              <Text style={styles.link}>Resend code</Text>
++            </TouchableOpacity>
++          )}
+         </View>
+       )}
+ 
+-      {method === "email" && (
+-        <View style={styles.form}>
+-          <TextInput
+-            style={styles.input}
+-            placeholder="you@company.com"
+-            keyboardType="email-address"
+-            autoCapitalize="none"
+-            value={identifier}
+-            onChangeText={setIdentifier}
+-            accessibilityLabel="Email address"
+-          />
++      {error ? (
++        <View style={styles.errorBox} accessibilityRole="alert">
++          <Text style={styles.error}>{error}</Text>
++          {blockedState === "employee" && (
++            <Text style={styles.errorHint}>
++              Employees are not part of the Buyer App. Please use the staff admin login, or contact Oasis support for
++              the link.
++            </Text>
++          )}
++          {blockedState === "ambiguous" && (
++            <TouchableOpacity
++              style={styles.errorAction}
++              onPress={() =>
++                openExternalUrl(SUPPORT_WHATSAPP, "WhatsApp is not available on this device. Call support instead.")
++              }
++              accessibilityRole="button"
++            >
++              <Text style={styles.errorActionText}>Contact Oasis support</Text>
++            </TouchableOpacity>
++          )}
++        </View>
++      ) : null}
++
++      <View style={styles.footer}>
++        <TouchableOpacity
++          onPress={() => navigation.navigate("Register")}
++          accessibilityRole="button"
++          accessibilityLabel="Request B2B access"
++        >
++          <Text style={styles.link}>New wholesale buyer? Request B2B Access</Text>
++        </TouchableOpacity>
++        <View style={styles.supportRow}>
+           <TouchableOpacity
+-            style={[styles.button, busy && styles.buttonDisabled]}
+-            disabled={busy}
+-            onPress={loginWithEmail}
++            onPress={() => openExternalUrl(SUPPORT_WHATSAPP, "WhatsApp is not available on this device.")}
+             accessibilityRole="button"
+-            accessibilityLabel={otpSent ? "Magic link sent" : "Send magic link"}
+           >
+-            <Text style={styles.buttonText}>{otpSent ? "Magic Link Sent" : "Send Magic Link"}</Text>
++            <Text style={styles.supportLink}>WhatsApp Oasis</Text>
+           </TouchableOpacity>
+-        </View>
+-      )}
+-
+-      {method === "google" && (
+-        <View style={styles.form}>
+           <TouchableOpacity
+-            style={[styles.button, busy && styles.buttonDisabled]}
+-            disabled={busy}
+-            onPress={loginWithGoogle}
++            onPress={() => openExternalUrl(`tel:${SUPPORT_PHONE}`, `Call ${SUPPORT_PHONE}`)}
+             accessibilityRole="button"
+-            accessibilityLabel="Continue with Google"
+           >
+-            <Text style={styles.buttonText}>Continue with Google</Text>
++            <Text style={styles.supportLink}>Call Oasis</Text>
+           </TouchableOpacity>
+         </View>
+-      )}
+-
+-      {error ? (
+-        <Text style={styles.error} accessibilityRole="alert">
+-          {error}
+-        </Text>
+-      ) : null}
+-
+-      <TouchableOpacity
+-        onPress={() => navigation.navigate("Register")}
+-        accessibilityRole="button"
+-        accessibilityLabel="Apply for B2B trade account"
+-      >
+-        <Text style={styles.link}>New wholesale buyer? Apply for B2B trade account</Text>
+-      </TouchableOpacity>
++      </View>
+     </Screen>
+   );
+ }
+ 
++function mapMsg91Error(raw: string): string {
++  if (raw === "msg91_widget_not_configured") {
++    return "OTP login isn't available on this build yet. Please contact Oasis support.";
++  }
++  if (raw === "msg91_send_failed") return "We couldn't send a code to that number/email. Please try again.";
++  if (raw === "msg91_verify_failed") return "That code didn't match. Please try again.";
++  return raw;
++}
++
++function mapSessionError(raw: string): string {
++  if (raw.startsWith("APPROVED_B2B_IDENTITY_CLAIM_FAILED")) {
++    return "We verified your code but couldn't activate your buyer account. Please contact Oasis support.";
++  }
++  if (raw === "session_token_missing" || raw === "session_create_failed") {
++    return "We couldn't complete sign-in. Please try again.";
++  }
++  return raw;
++}
++
+ const styles = StyleSheet.create({
+-  tabs: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.lg },
+-  tab: {
+-    flex: 1,
+-    paddingVertical: 10,
+-    borderRadius: 8,
+-    backgroundColor: colors.surfacePremium,
+-    alignItems: "center",
+-    minHeight: touchTarget,
+-    justifyContent: "center",
+-  },
+-  tabActive: { backgroundColor: colors.action },
+-  tabText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.action, fontSize: typography.sizeXs },
+-  tabTextActive: { color: colors.white },
+   form: { gap: spacing.md },
++  choiceCard: {
++    borderWidth: 1,
++    borderColor: colors.border,
++    borderRadius: 14,
++    padding: spacing.lg,
++    backgroundColor: colors.white,
++  },
++  choiceTitle: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeMd, color: colors.textPrimary },
++  choiceSubtitle: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted, marginTop: 4 },
++  backLink: { fontFamily: typography.fontFamilySansSemiBold, color: colors.textMuted, fontSize: typography.sizeSm },
+   input: {
+     borderWidth: 1,
+     borderColor: colors.border,
+@@ -213,6 +318,7 @@ const styles = StyleSheet.create({
+     backgroundColor: colors.white,
+     minHeight: touchTarget,
+   },
++  otpInput: { textAlign: "center", letterSpacing: 4 },
+   button: {
+     backgroundColor: colors.action,
+     paddingVertical: 14,
+@@ -223,11 +329,23 @@ const styles = StyleSheet.create({
+   },
+   buttonDisabled: { opacity: 0.55 },
+   buttonText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.white },
+-  error: { color: colors.error, marginTop: spacing.md, fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm },
++  errorBox: { marginTop: spacing.md, gap: spacing.sm },
++  error: { color: colors.error, fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm },
++  errorHint: { color: colors.textSecondary, fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs },
++  errorAction: {
++    alignSelf: "flex-start",
++    backgroundColor: colors.action,
++    paddingHorizontal: spacing.md,
++    paddingVertical: spacing.sm,
++    borderRadius: 8,
++  },
++  errorActionText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.white, fontSize: typography.sizeXs },
++  footer: { marginTop: spacing.xl, gap: spacing.md, alignItems: "center" },
++  supportRow: { flexDirection: "row", gap: spacing.lg },
++  supportLink: { color: colors.textMuted, fontSize: typography.sizeXs, fontFamily: typography.fontFamilySansMedium },
+   link: {
+     color: colors.action,
+     textAlign: "center",
+-    marginTop: spacing.lg,
+     fontSize: typography.sizeSm,
+     fontFamily: typography.fontFamilySansMedium,
+   },
+diff --git a/src/screens/ProductDetailScreen.tsx b/src/screens/ProductDetailScreen.tsx
+index 61118b2..6725688 100644
+--- a/src/screens/ProductDetailScreen.tsx
++++ b/src/screens/ProductDetailScreen.tsx
+@@ -153,7 +153,11 @@ export function ProductDetailScreen({ navigation, route }: Props) {
+   }
+ 
+   return (
+-    <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
++    <BuyerGate
++      onLogin={() => navigation.navigate("Login")}
++      onRegister={() => navigation.navigate("Register")}
++      requireApprovedBuyer={false}
++    >
+       <Screen title="Product" subtitle={product?.sku ?? ""}>
+         {loading ? (
+           <LoadingState message="Loading product…" />
+@@ -182,7 +186,14 @@ export function ProductDetailScreen({ navigation, route }: Props) {
+                 {priceLabel} / {product.price?.uom}
+               </Text>
+             ) : (
+-              <Text style={styles.unavailable}>{commercial.message ?? "Buyer pricing unavailable"}</Text>
++              <View>
++                <Text style={styles.unavailable}>{commercial.message ?? "Buyer pricing unavailable"}</Text>
++                {!isApprovedBuyer ? (
++                  <TouchableOpacity onPress={() => navigation.navigate("Login")} accessibilityRole="button">
++                    <Text style={styles.loginPrompt}>Log in as an approved buyer to see pricing</Text>
++                  </TouchableOpacity>
++                ) : null}
++              </View>
+             )}
+             {product.short_description ? <Text style={styles.description}>{product.short_description}</Text> : null}
+             {product.long_description ? <Text style={styles.description}>{product.long_description}</Text> : null}
+@@ -252,6 +263,12 @@ const styles = StyleSheet.create({
+   meta: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textMuted },
+   price: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeLg, color: colors.action },
+   unavailable: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeMd, color: colors.textMuted },
++  loginPrompt: {
++    fontFamily: typography.fontFamilySansSemiBold,
++    fontSize: typography.sizeSm,
++    color: colors.action,
++    marginTop: 4,
++  },
+   description: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeMd, lineHeight: 22, color: colors.textSecondary },
+   fact: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textSecondary },
+   stepper: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: spacing.md },
+diff --git a/src/screens/RegisterScreen.tsx b/src/screens/RegisterScreen.tsx
+index dff1970..fa69d81 100644
+--- a/src/screens/RegisterScreen.tsx
++++ b/src/screens/RegisterScreen.tsx
+@@ -3,75 +3,71 @@ import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-nativ
+ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+ import type { RootStackParamList } from "@/navigation/type

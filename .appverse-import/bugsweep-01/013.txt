@@ -1,0 +1,247 @@
+l for a null draft (no active draft yet)", () => {
++    assert.equal(findDraftLineQuantity(null, "product-a"), null);
++  });
++
++  it("regression: ProductDetailScreen must pre-fill from this rather than always defaulting to " +
++    "MOQ, because add_customer_order_draft_line_v1 REPLACES the line's quantity on conflict -- " +
++    "re-adding the same product with a fresh MOQ-default quantity silently overwrites (not adds " +
++    "to) whatever quantity was already in the cart for that product", () => {
++    const draft = draftWithLine("product-a", 50);
++    const existingQuantity = findDraftLineQuantity(draft, "product-a");
++    // The screen must use this value to initialize its quantity stepper,
++    // not a hardcoded/MOQ default, or the next "Add to cart" tap for the
++    // same product would submit a smaller quantity and silently erase the
++    // buyer's existing 50 units.
++    assert.equal(existingQuantity, 50);
++    assert.notEqual(existingQuantity, null);
++  });
++});
+diff --git a/src/lib/draft-utils.ts b/src/lib/draft-utils.ts
+index 57ecdff..bc4aa25 100644
+--- a/src/lib/draft-utils.ts
++++ b/src/lib/draft-utils.ts
+@@ -80,3 +80,26 @@ export function nextValidQuantity(current: number, moq: number, increment: numbe
+   }
+   return candidate;
+ }
++
++/**
++ * Finds the existing draft-cart quantity for a product, if any.
++ *
++ * add_customer_order_draft_line_v1 (Core) is an UPSERT that REPLACES the
++ * line's quantity (`ON CONFLICT ... DO UPDATE SET quantity =
++ * excluded.quantity`), not an increment -- by design, matching how the
++ * quantity stepper is meant to represent the final total for that product,
++ * not a delta to add. A screen that re-initializes its quantity input from
++ * scratch (e.g. a hardcoded MOQ default) every time it's opened, rather
++ * than from this, will silently overwrite -- not add to -- whatever
++ * quantity is already in the draft for that product the next time the
++ * buyer submits. ProductDetailScreen uses this to pre-fill its stepper
++ * from the existing line and label the action "Update cart" instead of
++ * "Add to cart" when one exists.
++ */
++export function findDraftLineQuantity(
++  draft: CustomerOrderDraft | null,
++  productId: string
++): number | null {
++  const line = draft?.lines.find((l) => l.product_id === productId);
++  return line ? line.quantity : null;
++}
+diff --git a/src/screens/ProductDetailScreen.tsx b/src/screens/ProductDetailScreen.tsx
+index 6725688..c6f9654 100644
+--- a/src/screens/ProductDetailScreen.tsx
++++ b/src/screens/ProductDetailScreen.tsx
+@@ -8,9 +8,9 @@ import { ProductImage } from "@/components/ProductImage";
+ import { Screen } from "@/components/Screen";
+ import { ErrorState, LoadingState } from "@/components/StateViews";
+ import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
+-import { addCustomerOrderDraftLine } from "@/lib/api/draft";
++import { addCustomerOrderDraftLine, getCustomerOrderDraft } from "@/lib/api/draft";
+ import { defaultOrderQuantity, resolveCommercialRules, validateOrderQuantity } from "@/lib/buyer-commercial-validation";
+-import { nextValidQuantity } from "@/lib/draft-utils";
++import { findDraftLineQuantity, nextValidQuantity } from "@/lib/draft-utils";
+ import { clearQuoteRequestIdempotencyKey, getQuoteRequestIdempotencyKey, type ResolvedQuoteIdempotency } from "@/lib/quote-idempotency";
+ import { isQuoteRequestEnabled } from "@/lib/quote-guards";
+ import { parseRpcError } from "@/lib/rpc-errors";
+@@ -43,6 +43,7 @@ export function ProductDetailScreen({ navigation, route }: Props) {
+   const [requestKey, setRequestKey] = useState<ResolvedQuoteIdempotency | null>(null);
+   const [favouriteBusy, setFavouriteBusy] = useState(false);
+   const [notice, setNotice] = useState<string | null>(null);
++  const [existingCartQuantity, setExistingCartQuantity] = useState<number | null>(null);
+ 
+   const load = useCallback(async () => {
+     setLoading(true);
+@@ -51,7 +52,29 @@ export function ProductDetailScreen({ navigation, route }: Props) {
+       const catalogue = await fetchCatalogue({ includeBuyerPrices: isApprovedBuyer });
+       const match = catalogue.find((p) => p.product_id === productId) ?? null;
+       setProduct(match);
+-      if (match) {
++      let inCartQuantity: number | null = null;
++      if (match && isApprovedBuyer) {
++        // Without this, quantity always resets to the MOQ default, and
++        // add_customer_order_draft_line_v1's ON CONFLICT DO UPDATE SET
++        // quantity = excluded.quantity REPLACES (not adds to) the existing
++        // line -- so tapping "Add to cart" again with a different quantity
++        // than what's already in the draft silently overwrites, not
++        // increments, the cart total for this product. Pre-filling the
++        // stepper with what's already there, and labelling the action
++        // "Update cart" in that case, makes the RPC's actual replace
++        // semantics match what the screen shows and what the button says.
++        try {
++          const draft = await getCustomerOrderDraft();
++          inCartQuantity = findDraftLineQuantity(draft, productId);
++        } catch {
++          // Non-fatal: worst case the stepper falls back to the MOQ default
++          // below, same as before this fix.
++        }
++      }
++      setExistingCartQuantity(inCartQuantity);
++      if (inCartQuantity !== null) {
++        setQuantity(inCartQuantity);
++      } else if (match) {
+         const moq = defaultOrderQuantity(match.price);
+         if (moq !== null) {
+           setQuantity(moq);
+@@ -132,7 +155,8 @@ export function ProductDetailScreen({ navigation, route }: Props) {
+     setNotice(null);
+     try {
+       await addCustomerOrderDraftLine(product.product_id, quantity);
+-      setNotice("Added to your draft cart.");
++      setExistingCartQuantity(quantity);
++      setNotice(existingCartQuantity !== null ? "Updated your draft cart." : "Added to your draft cart.");
+     } catch (e) {
+       setNotice(parseRpcError(e).message);
+     } finally {
+@@ -204,7 +228,11 @@ export function ProductDetailScreen({ navigation, route }: Props) {
+             ) : null}
+ 
+             {canOrder ? (
+-            <View style={styles.stepper}>
++            <>
++              {existingCartQuantity !== null ? (
++                <Text style={styles.inCartNote}>Already in your cart: {existingCartQuantity}</Text>
++              ) : null}
++              <View style={styles.stepper}>
+               <TouchableOpacity
+                 style={styles.stepBtn}
+                 onPress={() => setQuantity((q) => nextValidQuantity(q, moq, increment, -1))}
+@@ -223,7 +251,8 @@ export function ProductDetailScreen({ navigation, route }: Props) {
+                 <Text style={styles.stepBtnText}>+</Text>
+               </TouchableOpacity>
+               <Text style={styles.moq}>MOQ {moq}</Text>
+-            </View>
++              </View>
++            </>
+             ) : null}
+ 
+             <TouchableOpacity
+@@ -232,7 +261,9 @@ export function ProductDetailScreen({ navigation, route }: Props) {
+               onPress={addToCart}
+               accessibilityRole="button"
+             >
+-              <Text style={styles.buttonText}>{adding ? "Adding…" : "Add to cart"}</Text>
++              <Text style={styles.buttonText}>
++                {adding ? "Saving…" : existingCartQuantity !== null ? "Update cart" : "Add to cart"}
++              </Text>
+             </TouchableOpacity>
+             <TouchableOpacity
+               style={[styles.secondaryButton, !quoteRequestEnabled && styles.buttonDisabled]}
+@@ -272,6 +303,12 @@ const styles = StyleSheet.create({
+   description: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeMd, lineHeight: 22, color: colors.textSecondary },
+   fact: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textSecondary },
+   stepper: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: spacing.md },
++  inCartNote: {
++    fontFamily: typography.fontFamilySansMedium,
++    fontSize: typography.sizeXs,
++    color: colors.textMuted,
++    marginTop: spacing.sm,
++  },
+   stepBtn: {
+     width: 44,
+     height: 44,
+-- 
+2.43.0
+
+
+From 19cab48bb7cc1874c0c4d81291aebc2040a920bd Mon Sep 17 00:00:00 2001
+From: AUTH-01 Native Convergence <auth01-agent@local>
+Date: Thu, 17 Sep 2026 07:15:30 +0000
+Subject: [PATCH 07/11] fix(orders): checkout-success banner persists
+ indefinitely across tab revisits
+
+Bug-search pass, continued (broken navigation / stale state category).
+
+Repro: complete a checkout -> navigation.replace('MainTabs', { screen:
+'Orders', params: { checkoutSuccess: {...} } }) lands the buyer on Orders
+with that param set. OrdersScreen reads route.params?.checkoutSuccess and
+renders the success banner, but nothing ever clears it. MainTabNavigator
+sets no unmountOnBlur on the Orders tab (correctly -- that would also
+discard the rest of the screen's state), so per standard React Navigation
+bottom-tabs behavior, the route's params persist across tab switches. The
+banner ('Sales Order created', order number, value, advance) reappears
+every single time the buyer revisits the Orders tab afterwards -- for an
+order that may be long since dispatched, days or weeks later -- not just
+once as intended.
+
+Fix: clear checkoutSuccess via navigation.setParams({ checkoutSuccess:
+undefined }) in an effect keyed on its presence, which runs after the
+render that displays it (not before), so it still shows exactly once on
+arrival and never again on a later tab revisit.
+
+No test added: this is React Navigation param/tab-lifecycle behavior,
+which (like the two fixes in 69b7801) this repo's plain node:test
+convention doesn't cover without a component-rendering framework (no RNTL
+here). Verified manually via code trace of MainTabNavigator's Tab.Screen
+config (no unmountOnBlur) and OrdersScreen's param read.
+
+Verified: npm run quality passes end to end -- 164/164 tests (unchanged),
+typecheck clean, lint clean, rc-navigation-audit and rc-forensic-scan both
+pass, boundary/cert:bindings/census:p106/expo-config all clean.
+
+No production mutation of any kind.
+---
+ src/screens/OrdersScreen.tsx | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/src/screens/OrdersScreen.tsx b/src/screens/OrdersScreen.tsx
+index d2e6b74..c0e0d19 100644
+--- a/src/screens/OrdersScreen.tsx
++++ b/src/screens/OrdersScreen.tsx
+@@ -34,6 +34,20 @@ export function OrdersScreen({ navigation, route }: Props) {
+   const [loading, setLoading] = useState(true);
+   const [refreshing, setRefreshing] = useState(false);
+ 
++  useEffect(() => {
++    // Bottom-tab screens stay mounted and keep their route params across tab
++    // switches (no unmountOnBlur here, nor should there be -- it would
++    // discard the rest of this screen's state too). Without clearing it,
++    // this success banner would reappear every single time the buyer
++    // revisits the Orders tab -- even days later, for an order that's long
++    // since shipped -- rather than showing once. Clear it after the render
++    // that displays it, not before.
++    if (checkoutSuccess) {
++      navigation.setParams({ checkoutSuccess: undefined });
++    }
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, [checkoutSuccess]);
++
+   const loadOrders = useCallback(async ({ showLoader = true }: { showLoader?: boolean } = {}) => {
+     if (showLoader) {
+       setLoading(true);
+-- 
+2.43.0
+
+
+From 111e607c249b33feec6c771757bc5012d282071e Mon Sep 17 00:00:00 2001
+From: AUTH-01 Native Convergence <auth01-agent@local>
+Date: Thu, 17 Sep 2026 11:59:33 +0000
+Subject: [PATCH 08/11] fix(session,checkout): mid-session access-revocation
+ blind spot and concurrent-checkout UX
+
+Bugsweep-01 continuation, targeted per mandatory items 2 and 7.
+
+1. Mid-session membership/company revocation left the app blind
+   (item 2: expired session / refresh token failure -- specifically
+   'membership/company access removed during an active session')
+
+   Repro: buyer logs in, is approve

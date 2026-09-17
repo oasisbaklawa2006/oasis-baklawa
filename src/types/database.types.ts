@@ -89,19 +89,24 @@ export type Database = {
         Args: { p_sales_order_value: number };
         Returns: number;
       };
-      submit_b2b_trade_application_v1: {
-        Args: SubmitB2bTradeApplicationArgs;
-        Returns: SubmitB2bTradeApplicationResult[];
+      submit_b2b_access_request_v2: {
+        Args: SubmitB2bAccessRequestArgs;
+        Returns: SubmitB2bAccessRequestResult[];
       };
-      submit_customer_support_ticket_v1: {
+      claim_approved_b2b_access_request_v2: {
+        Args: Record<string, never>;
+        Returns: ClaimApprovedB2bAccessRequestResult[];
+      };
+      submit_customer_support_ticket_v2: {
         Args: {
+          p_idempotency_key: string;
           p_order_id: string;
           p_issue_type: string;
           p_description: string;
           p_product_sku?: string | null;
           p_quantity_affected?: number | null;
         };
-        Returns: string;
+        Returns: SubmitSupportTicketResult[];
       };
       customer_sales_order_commercial_facts_v1: {
         Args: Record<string, never>;
@@ -350,35 +355,30 @@ export interface SubmitCustomerOrderResult {
   is_duplicate_submission: boolean;
 }
 
-export interface SubmitB2bTradeApplicationArgs {
+export interface SubmitB2bAccessRequestArgs {
   p_business_name: string;
-  p_trade_name?: string | null;
-  p_business_type?: string | null;
+  p_contact_name: string;
+  p_contact_email: string;
+  p_contact_phone: string;
   p_gst_number?: string | null;
-  p_expected_volume?: string | null;
-  p_contact_name?: string | null;
-  p_contact_person?: string | null;
-  p_contact_email?: string | null;
-  p_contact_phone?: string | null;
-  p_mobile_number?: string | null;
   p_registered_address?: string | null;
-  p_city?: string | null;
-  p_state?: string | null;
-  p_pincode?: string | null;
-  p_gst_certificate_path?: string | null;
-  p_business_proof_path?: string | null;
-  p_current_brands?: string | null;
   p_preferred_dispatch?: string | null;
   p_preferred_dispatch_other_name?: string | null;
   p_trade_declaration?: boolean;
   p_data_consent?: boolean;
 }
 
-export interface SubmitB2bTradeApplicationResult {
+export interface SubmitB2bAccessRequestResult {
   application_id: string;
   application_status: string;
-  company_id: string;
-  is_duplicate_submission: boolean;
+  duplicate: boolean;
+}
+
+export interface ClaimApprovedB2bAccessRequestResult {
+  application_id: string | null;
+  claimed: boolean;
+  company_id: string | null;
+  already_active: boolean;
 }
 
 export interface CustomerOrderDraftLine {
@@ -405,11 +405,17 @@ export interface CustomerOrderDraft {
 }
 
 export interface SubmitSupportTicketInput {
+  idempotencyKey: string;
   orderId: string;
   issueType: string;
   description: string;
   productSku?: string | null;
   quantityAffected?: number | null;
+}
+
+export interface SubmitSupportTicketResult {
+  ticket_id: string;
+  is_duplicate_submission: boolean;
 }
 
 export interface CustomerCommercialFacts {

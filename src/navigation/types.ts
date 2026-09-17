@@ -24,8 +24,8 @@ export type RootStackParamList = {
   Welcome: undefined;
   Login: undefined;
   Register: undefined;
-  AccessPending: undefined;
-  AccessRejected: undefined;
+  AccessPending: { message?: string } | undefined;
+  AccessRejected: { message?: string } | undefined;
   SessionRecovery: { message: string };
   MainTabs: NavigatorScreenParams<MainTabParamList>;
   ProductDetail: { productId: string };

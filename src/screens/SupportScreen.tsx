@@ -22,6 +22,7 @@ import {
   type CustomerGeneralQueryCategory,
 } from "@/lib/customer-projections";
 import { clearGeneralQueryIdempotencyKey, getGeneralQueryIdempotencyKey } from "@/lib/general-query-idempotency";
+import { clearSupportTicketIdempotencyKey, getSupportTicketIdempotencyKey } from "@/lib/support-ticket-idempotency";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { customerGateway } from "@/services/customerGateway";
 import type { CustomerGeneralQuery, CustomerOrderStatus, CustomerSupportTicket } from "@/types/database.types";
@@ -101,13 +102,20 @@ export function SupportScreen({ navigation }: Props) {
     setSubmittingTicket(true);
     setTicketNotice(null);
     try {
-      await customerGateway.submitTicket({
+      const idempotencyKey = await getSupportTicketIdempotencyKey();
+      const result = await customerGateway.submitTicket({
+        idempotencyKey,
         orderId,
         issueType,
         description: orderDescription.trim(),
       });
+      await clearSupportTicketIdempotencyKey();
       setOrderDescription("");
-      setTicketNotice("Your order support request has been submitted.");
+      setTicketNotice(
+        result.is_duplicate_submission
+          ? "This support request was already received. We have not created a duplicate."
+          : "Your order support request has been submitted."
+      );
       await load();
     } catch (e) {
       setTicketNotice(parseRpcError(e).message);

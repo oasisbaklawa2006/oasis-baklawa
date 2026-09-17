@@ -12,14 +12,14 @@ const SUPPORT_PHONE = "+919999792959";
 const SUPPORT_WHATSAPP =
   "https://wa.me/919891162212?text=Hello%20Oasis%20Baklawa%2C%20I%20have%20submitted%20a%20trade%20access%20request%20and%20would%20like%20help%20with%20approval.";
 
-export function AccessPendingScreen({ navigation }: Props) {
+export function AccessPendingScreen({ navigation, route }: Props) {
   return (
     <Screen title="Access Review" subtitle="Your application is being reviewed">
       <View style={styles.body}>
         <Text style={styles.kicker}>ACCESS REVIEW IN PROGRESS</Text>
         <Text style={styles.copy}>
-          Our team verifies your business identity, GST and supporting documents before assigning your buyer
-          category and confidential price grade.
+          {route.params?.message ??
+            "Our team verifies your business identity, GST and supporting documents before assigning your buyer category and confidential price grade."}
         </Text>
         <View style={styles.card}>
           <Text style={styles.cardTitle}>What happens next</Text>

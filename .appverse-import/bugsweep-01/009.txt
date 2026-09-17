@@ -195,37 +195,37 @@ separate Core branch (auth01-rpc-staff-exclusion-fix, not this repo):
 
 A third, lower-severity occurrence of the identical drift (in the
 support_ticket_set_customer_context() BEFORE INSERT trigger that actually
-+governs submit_customer_support_ticket_v1's authorization) was found and
-+documented but NOT fixed -- it's a write-path attribution edge case, not a
-+data-disclosure defect (order-ownership is independently and correctly
-+enforced by the same trigger), and warrants its own careful pass rather
-+than a rushed edit to a trigger with several unrelated field resets.
-+Recorded as a follow-up recommendation in the matrix doc, along with a
-+second open item: create_payment_gateway_payable_intent_v1 and
-+get_payment_gateway_payable_status_v1 use the same auth_buyer_company_id()
-+helper that was fixed for final-payment-PI, and were not independently
-+re-verified/fixed in this pass.
+governs submit_customer_support_ticket_v1's authorization) was found and
+documented but NOT fixed -- it's a write-path attribution edge case, not a
+data-disclosure defect (order-ownership is independently and correctly
+enforced by the same trigger), and warrants its own careful pass rather
+than a rushed edit to a trigger with several unrelated field resets.
+Recorded as a follow-up recommendation in the matrix doc, along with a
+second open item: create_payment_gateway_payable_intent_v1 and
+get_payment_gateway_payable_status_v1 use the same auth_buyer_company_id()
+helper that was fixed for final-payment-PI, and were not independently
+re-verified/fixed in this pass.
+
+No native app code changed in this commit -- this is documentation of the
+already-complete AUTH-01 implementation (0d22600, 4b96419, 93ca72a).
+
+Verified: npm run quality still passes end to end (unchanged from the
+prior commit -- 160/160 tests, typecheck, lint, boundary/rc-scan/
+rc-navigation/cert:bindings/census:p106/expo-config all clean). No
+production mutation of any kind, in either repository.
+---
+ docs/auth01-rpc-security-matrix.md | 115 +++++++++++++++++++++++++++++
+ 1 file changed, 115 insertions(+)
+ create mode 100644 docs/auth01-rpc-security-matrix.md
+
+diff --git a/docs/auth01-rpc-security-matrix.md b/docs/auth01-rpc-security-matrix.md
+new file mode 100644
+index 0000000..1f5f686
+--- /dev/null
++++ b/docs/auth01-rpc-security-matrix.md
+@@ -0,0 +1,115 @@
++# AUTH-01 Buyer RPC Security Matrix
 +
-+No native app code changed in this commit -- this is documentation of the
-+already-complete AUTH-01 implementation (0d22600, 4b96419, 93ca72a).
-+
-+Verified: npm run quality still passes end to end (unchanged from the
-+prior commit -- 160/160 tests, typecheck, lint, boundary/rc-scan/
-+rc-navigation/cert:bindings/census:p106/expo-config all clean). No
-+production mutation of any kind, in either repository.
-+---
-+ docs/auth01-rpc-security-matrix.md | 115 +++++++++++++++++++++++++++++
-+ 1 file changed, 115 insertions(+)
-+ create mode 100644 docs/auth01-rpc-security-matrix.md
-+
-+diff --git a/docs/auth01-rpc-security-matrix.md b/docs/auth01-rpc-security-matrix.md
-+new file mode 100644
-+index 0000000..1f5f686
-+--- /dev/null
-++++ b/docs/auth01-rpc-security-matrix.md
-+@@ -0,0 +1,115 @@
-++# AUTH-01 Buyer RPC Security Matrix
-++
-++Body-verified against current-main `oasis-supabase-core` SQL (migration
-++chronology respected; superseded definitions ignored). Static analysis —
-++no live database 
++Body-verified against current-main `oasis-supabase-core` SQL (migration
++chronology respected; superseded definitions ignored). Static analysis —
++no live database 

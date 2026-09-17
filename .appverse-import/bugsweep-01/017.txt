@@ -1,0 +1,266 @@
+ote-projections.test.ts src/lib/quote-guards.test.ts src/lib/quote-idempotency.test.ts src/lib/quote-rpc-binding-check.test.ts src/lib/p106-quote-authority.test.ts src/lib/genie-product-resolution.test.ts src/lib/genie-draft-line-commit.test.ts src/lib/payment-gateway-boundary.test.ts src/lib/payment-idempotency.test.ts src/lib/runtime-payment-gateway-binding.test.ts src/lib/buyer-deployment-rpc-allowlist.test.ts src/lib/session-routing.test.ts src/lib/buyer-identity-claim-core.test.ts src/lib/buyer-identity.test.ts src/lib/login-preflight-action.test.ts src/lib/deadlock-regression.test.ts src/lib/draft-utils.test.ts src/lib/buyer-session-refresh-triggers.test.ts src/lib/checkout-submit-error.test.ts scripts/buyer-mobile-certification/revenue-journey.integration.test.mjs src/services/customerGateway.test.ts",
+     "e2e": "playwright test",
+     "e2e:install": "playwright install chromium",
+     "cert:bindings": "node --import tsx scripts/buyer-mobile-certification/verify-bindings.mjs",
+diff --git a/src/lib/support-ticket-idempotency.test.ts b/src/lib/support-ticket-idempotency.test.ts
+new file mode 100644
+index 0000000..2920759
+--- /dev/null
++++ b/src/lib/support-ticket-idempotency.test.ts
+@@ -0,0 +1,29 @@
++import { beforeEach, describe, it } from "node:test";
++import assert from "node:assert/strict";
++import {
++  clearSupportTicketIdempotencyKey,
++  getSupportTicketIdempotencyKey,
++  resetSupportTicketIdempotencyForTests,
++} from "./support-ticket-idempotency";
++
++describe("support ticket idempotency", () => {
++  beforeEach(() => {
++    resetSupportTicketIdempotencyForTests();
++  });
++
++  it("reuses one key across lost-response retries -- this is the client half of the fix for " +
++    "Core commit de640c6 (submit_customer_support_ticket_v1 previously had no idempotency " +
++    "protection at all; a retry after a dropped/timed-out response created a genuine duplicate " +
++    "ticket)", async () => {
++    const first = await getSupportTicketIdempotencyKey();
++    assert.match(first, /^[0-9a-f-]{36}$/i);
++    assert.equal(await getSupportTicketIdempotencyKey(), first);
++  });
++
++  it("rotates only after Core acknowledges the submission", async () => {
++    const first = await getSupportTicketIdempotencyKey();
++    await clearSupportTicketIdempotencyKey();
++    const second = await getSupportTicketIdempotencyKey();
++    assert.notEqual(first, second);
++  });
++});
+diff --git a/src/lib/support-ticket-idempotency.ts b/src/lib/support-ticket-idempotency.ts
+new file mode 100644
+index 0000000..f488738
+--- /dev/null
++++ b/src/lib/support-ticket-idempotency.ts
+@@ -0,0 +1,43 @@
++import AsyncStorage from "@react-native-async-storage/async-storage";
++import { createIdempotencyKey } from "@/lib/idempotency";
++
++const STORAGE_KEY = "oasis_buyer_support_ticket_idempotency_v1";
++
++let fallbackKey: string | null = null;
++
++/**
++ * Returns a stable key so a lost/timed-out ticket-submission response can be
++ * retried safely without creating a duplicate ticket. Companion to
++ * general-query-idempotency.ts, required by Core's
++ * submit_customer_support_ticket_v1(p_idempotency_key, ...) -- see Core
++ * commit de640c6 (branch core-support-ticket-idempotency), which added
++ * server-authoritative idempotency to a submission path that previously had
++ * none at all beyond this app's own disabled-while-submitting button.
++ */
++export async function getSupportTicketIdempotencyKey(): Promise<string> {
++  try {
++    const existing = await AsyncStorage.getItem(STORAGE_KEY);
++    if (existing && existing.trim().length > 0) return existing;
++    const generated = createIdempotencyKey();
++    await AsyncStorage.setItem(STORAGE_KEY, generated);
++    return generated;
++  } catch {
++    fallbackKey ??= createIdempotencyKey();
++    return fallbackKey;
++  }
++}
++
++/** Clears the ticket retry key once Core acknowledges the submission. */
++export async function clearSupportTicketIdempotencyKey(): Promise<void> {
++  fallbackKey = null;
++  try {
++    await AsyncStorage.removeItem(STORAGE_KEY);
++  } catch {
++    // Best-effort cleanup.
++  }
++}
++
++/** Test-only: reset in-memory fallback between isolated test cases. */
++export function resetSupportTicketIdempotencyForTests(): void {
++  fallbackKey = null;
++}
+diff --git a/src/screens/SupportScreen.tsx b/src/screens/SupportScreen.tsx
+index e5759fb..9e7fe10 100644
+--- a/src/screens/SupportScreen.tsx
++++ b/src/screens/SupportScreen.tsx
+@@ -22,6 +22,7 @@ import {
+   type CustomerGeneralQueryCategory,
+ } from "@/lib/customer-projections";
+ import { clearGeneralQueryIdempotencyKey, getGeneralQueryIdempotencyKey } from "@/lib/general-query-idempotency";
++import { clearSupportTicketIdempotencyKey, getSupportTicketIdempotencyKey } from "@/lib/support-ticket-idempotency";
+ import { parseRpcError } from "@/lib/rpc-errors";
+ import { customerGateway } from "@/services/customerGateway";
+ import type { CustomerGeneralQuery, CustomerOrderStatus, CustomerSupportTicket } from "@/types/database.types";
+@@ -101,13 +102,20 @@ export function SupportScreen({ navigation }: Props) {
+     setSubmittingTicket(true);
+     setTicketNotice(null);
+     try {
+-      await customerGateway.submitTicket({
++      const idempotencyKey = await getSupportTicketIdempotencyKey();
++      const result = await customerGateway.submitTicket({
++        idempotencyKey,
+         orderId,
+         issueType,
+         description: orderDescription.trim(),
+       });
++      await clearSupportTicketIdempotencyKey();
+       setOrderDescription("");
+-      setTicketNotice("Your order support request has been submitted.");
++      setTicketNotice(
++        result.is_duplicate_submission
++          ? "This support request was already received. We have not created a duplicate."
++          : "Your order support request has been submitted."
++      );
+       await load();
+     } catch (e) {
+       setTicketNotice(parseRpcError(e).message);
+diff --git a/src/services/customerGateway.ts b/src/services/customerGateway.ts
+index a98f53b..a8feaeb 100644
+--- a/src/services/customerGateway.ts
++++ b/src/services/customerGateway.ts
+@@ -46,6 +46,7 @@ import type {
+   SubmitCustomerGeneralQueryInput,
+   SubmitCustomerGeneralQueryResult,
+   SubmitSupportTicketInput,
++  SubmitSupportTicketResult,
+ } from "@/types/database.types";
+ import type {
+   CreatePaymentGatewayIntentInput,
+@@ -96,16 +97,23 @@ export const customerGateway = {
+       .map(normalizeCustomerGeneralQuery)
+       .filter((query): query is CustomerGeneralQuery => Boolean(query));
+   },
+-  submitTicket: (input: SubmitSupportTicketInput) => {
++  submitTicket: (input: SubmitSupportTicketInput): Promise<SubmitSupportTicketResult> => {
+     if (!input.orderId.trim()) {
+       return Promise.reject(new Error("Select an order before submitting order support."));
+     }
+     return callRpc("submit_customer_support_ticket_v1", {
++      p_idempotency_key: input.idempotencyKey,
+       p_order_id: input.orderId,
+       p_issue_type: canonicalSupportIssueType(input.issueType),
+       p_description: input.description,
+       p_product_sku: input.productSku ?? null,
+       p_quantity_affected: input.quantityAffected ?? null,
++    }).then((rows) => {
++      const result = rows?.[0];
++      if (!result) {
++        throw new Error("Ticket submission did not return a result. Please try again.");
++      }
++      return result;
+     });
+   },
+   submitGeneralQuery: async (input: SubmitCustomerGeneralQueryInput): Promise<SubmitCustomerGeneralQueryResult> => {
+diff --git a/src/types/database.types.ts b/src/types/database.types.ts
+index 9222c05..fe9e671 100644
+--- a/src/types/database.types.ts
++++ b/src/types/database.types.ts
+@@ -99,13 +99,14 @@ export type Database = {
+       };
+       submit_customer_support_ticket_v1: {
+         Args: {
++          p_idempotency_key: string;
+           p_order_id: string;
+           p_issue_type: string;
+           p_description: string;
+           p_product_sku?: string | null;
+           p_quantity_affected?: number | null;
+         };
+-        Returns: string;
++        Returns: SubmitSupportTicketResult[];
+       };
+       customer_sales_order_commercial_facts_v1: {
+         Args: Record<string, never>;
+@@ -404,6 +405,7 @@ export interface CustomerOrderDraft {
+ }
+ 
+ export interface SubmitSupportTicketInput {
++  idempotencyKey: string;
+   orderId: string;
+   issueType: string;
+   description: string;
+@@ -411,6 +413,11 @@ export interface SubmitSupportTicketInput {
+   quantityAffected?: number | null;
+ }
+ 
++export interface SubmitSupportTicketResult {
++  ticket_id: string;
++  is_duplicate_submission: boolean;
++}
++
+ export interface CustomerCommercialFacts {
+   order_id: string;
+   order_number: string;
+-- 
+2.43.0
+
+
+From d671da8a4971a8b0cb8cd3746af75fac74be4024 Mon Sep 17 00:00:00 2001
+From: AUTH-01 Native Convergence <auth01-agent@local>
+Date: Thu, 17 Sep 2026 22:02:59 +0000
+Subject: [PATCH 11/11] fix(support,genie): call v2 ticket RPC, feature-gate
+ ai-order-parse
+
+Corrects two rollout issues per governed-release review.
+
+1. Switch ticket submission from v1 to v2
+
+   Core's rollout architecture was corrected (backward-compatible v1/v2,
+   not a breaking v1 signature change -- see branch
+   support-ticket-idempotency-v2). This app now calls
+   submit_customer_support_ticket_v2 instead of v1: database.types.ts,
+   customerGateway.ts, buyer-deployment-rpc-allowlist.ts, and
+   verify-contract-boundary.mjs all updated together (boundary verify
+   passes). support-ticket-idempotency.ts/.test.ts comments updated to
+   reference the current v2 migration instead of the superseded
+   single-version approach.
+
+2. Feature-gate Oasis Genie order parsing (all four modes)
+
+   Production inspection established that tcxvcatsqqertcnycuop (the exact
+   Supabase project this app's own supabaseUrl points at) has no deployed
+   Edge Function named ai-order-parse, and it exists in source in none of
+   the three governed repositories. Every Genie parse mode -- text, audio,
+   image, document -- funnels through the same invokeGenieOrderParse()
+   call to that one slug. Before this fix, only 'audio' had an honest
+   'not yet available' message; 'text' and 'image'/'document' looked live
+   (enabled button, no warning) but would fail at runtime the moment a
+   buyer actually tried them.
+
+   Classified as deferred, not launch-enabled, for this pass: designing,
+   sourcing, and certifying a real ai-order-parse function (authenticated
+   identity, server-derived company authority, MIME/size validation,
+   defined retention, verify_jwt) is new feature work far beyond a
+   bugsweep, and the instructions are explicit that a fabricated fallback
+   parser is not an acceptable alternative.
+
+   - Add genie-parse-availability.ts: a single zero-dependency
+     GENIE_PARSE_ENABLED = false constant (no supabase, no react-native
+     import), so it's directly unit-testable and importable by the actual
+     network chokepoint, not just the UI screen.
+   - genie-order-parse.ts's invokeGenieOrderParse() now checks this flag
+     and throws before ever calling supabase.functions.invoke(
+     'ai-order-parse', ...) -- enforcement at the chokepoint every mode
+     shares, not only at the screen level. A future call site that
+     imports invokeGenieOrderParse directly, bypassing AiOrderScreen,
+     is protected too.
+   - AiOrderScreen.tsx: all four mode tabs now show an explicit
+     unavailable message (previously only audio did); the Parse/Choose
+     button is disabled for every mode; the text-entry TextInput itself is
+     replaced by the unavailable message rather than accepting input that
+     could never be parsed.
+
+Add genie-parse-availability.test.ts: proves the gate is off, with the
+full evidence trail in the assertion description -- the required
+regression proving the deferred feature cannot call production.
+
+Verified: npm run quality passes end to end -- 173/173 tests (1 new),
+typecheck clean, lint clean, boundary/rc-scan/rc-navigation/cert:bindings/
+census:p106/expo-config all pass. Diff 

@@ -1,0 +1,122 @@
+ { GENIE_PARSE_ENABLED } from "@/lib/genie-parse-availability";
+ import { createIdempotencyKey } from "@/lib/idempotency";
+ import {
+   applyGenieCandidateSelection,
+@@ -26,6 +27,13 @@ import { colors, spacing, typography, touchTarget } from "@/theme";
+ type Props = NativeStackScreenProps<RootStackParamList, "AiOrder">;
+ type InputMode = "text" | "audio" | "image" | "document";
+ 
++// Oasis Genie parsing (all four modes -- text, audio, image, document) is
++// gated off via GENIE_PARSE_ENABLED (genie-parse-availability.ts) -- see
++// that module for the full evidence and rationale. Every mode ultimately
++// calls invokeGenieOrderParse(), which enforces the same flag as its own
++// chokepoint before ever reaching the network; this screen also disables
++// its own UI so a buyer never sees an apparently-live control for it.
++
+ interface ParsedLine {
+   productName: string;
+   quantity: number;
+@@ -72,6 +80,18 @@ export function AiOrderScreen({ navigation }: Props) {
+   );
+ 
+   async function parseOrder() {
++    if (!GENIE_PARSE_ENABLED) {
++      // Defensive: the Parse button is already disabled whenever this flag
++      // is false (see the OasisButton disabled prop below), so this branch
++      // should be unreachable from the UI. It exists so that even a
++      // programmatic/future call path into parseOrder() cannot reach
++      // invokeGenieOrderParse() and its call to a production edge function
++      // that does not exist.
++      setError(
++        "Oasis Genie order parsing is not yet available on this build. Add items from the catalogue instead."
++      );
++      return;
++    }
+     if (mode === "audio") {
+       setError(
+         "Voice ordering requires a verified ai-order-parse audio contract. Hindi, English, and Hinglish are supported once Core certifies the edge function."
+@@ -180,13 +200,17 @@ export function AiOrderScreen({ navigation }: Props) {
+     }
+   }
+ 
+-  const modeUnavailableCopy: Partial<Record<InputMode, string>> = {
++  const modeUnavailableCopy: Record<InputMode, string> = {
++    text: "Oasis Genie order parsing (type-to-order) is not yet available on this build. Add items from the catalogue instead.",
+     audio:
+       "Voice ordering requires a verified ai-order-parse audio contract. Hindi, English, and Hinglish are supported once Core certifies the edge function.",
++    image: "Photo/PO parsing is not yet available on this build. Add items from the catalogue instead.",
++    document: "PDF/Excel/PO parsing is not yet available on this build. Add items from the catalogue instead.",
+   };
+ 
+-  const parseLabel =
+-    mode === "text"
++  const parseLabel = !GENIE_PARSE_ENABLED
++    ? "Not yet available"
++    : mode === "text"
+       ? "Parse with Oasis Genie"
+       : mode === "image"
+         ? "Choose PO photo"
+@@ -216,7 +240,7 @@ export function AiOrderScreen({ navigation }: Props) {
+           {catalogueLoading ? <LoadingState message="Loading governed catalogue for alias resolution…" /> : null}
+           {catalogueError ? <ErrorState message={catalogueError} onRetry={() => void loadCatalogue()} /> : null}
+ 
+-          {mode === "text" ? (
++          {mode === "text" && GENIE_PARSE_ENABLED ? (
+             <TextInput
+               style={styles.textArea}
+               multiline
+@@ -224,24 +248,16 @@ export function AiOrderScreen({ navigation }: Props) {
+               value={text}
+               onChangeText={setText}
+             />
+-          ) : mode === "audio" ? (
+-            <View style={styles.unavailable}>
+-              <Text style={styles.unavailableText}>{modeUnavailableCopy.audio}</Text>
+-            </View>
+           ) : (
+             <View style={styles.unavailable}>
+-              <Text style={styles.unavailableText}>
+-                {mode === "image"
+-                  ? "Select a PO photo. Oasis Genie sends the image to the governed ai-order-parse edge function and resolves products against the published catalogue."
+-                  : "Select a PDF, Excel, CSV, or text PO file. Parsing fails closed when the edge contract rejects the document."}
+-              </Text>
++              <Text style={styles.unavailableText}>{modeUnavailableCopy[mode]}</Text>
+             </View>
+           )}
+ 
+           <OasisButton
+             label={parsing ? "Parsing…" : parseLabel}
+             onPress={() => void parseOrder()}
+-            disabled={parsing || mode === "audio" || catalogueLoading || Boolean(catalogueError)}
++            disabled={!GENIE_PARSE_ENABLED || parsing || mode === "audio" || catalogueLoading || Boolean(catalogueError)}
+             loading={parsing}
+           />
+ 
+diff --git a/src/services/customerGateway.ts b/src/services/customerGateway.ts
+index a8feaeb..446b999 100644
+--- a/src/services/customerGateway.ts
++++ b/src/services/customerGateway.ts
+@@ -101,7 +101,7 @@ export const customerGateway = {
+     if (!input.orderId.trim()) {
+       return Promise.reject(new Error("Select an order before submitting order support."));
+     }
+-    return callRpc("submit_customer_support_ticket_v1", {
++    return callRpc("submit_customer_support_ticket_v2", {
+       p_idempotency_key: input.idempotencyKey,
+       p_order_id: input.orderId,
+       p_issue_type: canonicalSupportIssueType(input.issueType),
+diff --git a/src/types/database.types.ts b/src/types/database.types.ts
+index fe9e671..1377089 100644
+--- a/src/types/database.types.ts
++++ b/src/types/database.types.ts
+@@ -97,7 +97,7 @@ export type Database = {
+         Args: Record<string, never>;
+         Returns: ClaimApprovedB2bAccessRequestResult[];
+       };
+-      submit_customer_support_ticket_v1: {
++      submit_customer_support_ticket_v2: {
+         Args: {
+           p_idempotency_key: string;
+           p_order_id: string;
+-- 
+2.43.0

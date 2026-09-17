@@ -292,4 +292,5 @@ index c83c762..82e23bf 100644
            <Text style={styles.cardTitle}>What happens next</Text>
 diff --git a/src/screens/AccessRejectedScreen.tsx b/src/screens/AccessRejectedScreen.tsx
 index 0d98ddb..0bc39df 100644
---- a/src/screens/A
+--- a/src/screens/AccessRejectedScreen.tsx
++++ b/src/screens/A

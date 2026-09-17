@@ -11,7 +11,7 @@ import { shouldRefreshOnAppState, shouldRefreshOnAuthEvent } from "@/lib/buyer-s
 interface BuyerSessionContextValue {
   snapshot: BuyerSessionSnapshot | null;
   loading: boolean;
-  refresh: () => Promise<BuyerSessionSnapshot>;
+  refresh: (options?: { force?: boolean }) => Promise<BuyerSessionSnapshot>;
   isApprovedBuyer: boolean;
   isAuthenticated: boolean;
   state: BuyerEligibilityState;
@@ -36,8 +36,8 @@ export function BuyerSessionProvider({ children }: { children: React.ReactNode }
   // redundant parallel RPC round-trips -- a real "refresh storm" risk once
   // a second trigger source (AppState) was added alongside the existing
   // auth-event listener.
-  const refresh = useCallback(async () => {
-    if (inFlightRefreshRef.current) {
+  const refresh = useCallback(async (options?: { force?: boolean }) => {
+    if (inFlightRefreshRef.current && !options?.force) {
       return inFlightRefreshRef.current;
     }
     const requestId = ++requestIdRef.current;
@@ -55,8 +55,8 @@ export function BuyerSessionProvider({ children }: { children: React.ReactNode }
       } finally {
         if (requestId === requestIdRef.current) {
           setLoading(false);
+          inFlightRefreshRef.current = null;
         }
-        inFlightRefreshRef.current = null;
       }
     })();
     inFlightRefreshRef.current = promise;
@@ -65,14 +65,28 @@ export function BuyerSessionProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     refresh();
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
       if (!shouldRefreshOnAuthEvent(event)) {
         return;
       }
       if (event === "SIGNED_OUT") {
         lastUserIdRef.current = null;
+        // Fail closed immediately while the forced post-transition refresh
+        // reconciles authoritative session state. The request-id bump inside
+        // refresh({ force: true }) prevents any older in-flight request from
+        // restoring the previous buyer snapshot after sign-out.
+        setSnapshot({
+          state: "unauthenticated",
+          companyId: null,
+          company: null,
+          message: null,
+          userId: null,
+        });
       }
-      await refresh();
+      // Keep Supabase's auth notification callback synchronous/non-blocking.
+      // Auth transitions must bypass AppState/request coalescing because an
+      // older refresh may have captured the previous identity.
+      void refresh({ force: true });
     });
 
     // Business-data changes (staff freezing a company, de-approving a

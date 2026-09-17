@@ -1,0 +1,231 @@
+["state"][] = ["pending", "rejected", "unknown", "employee", "ambiguous"];
++    for (const state of nonApproved) {
++      const action = decideLoginAction(preflight(state, false));
++      assert.notEqual(action.type, "send_otp", `state "${state}" must never produce send_otp`);
++    }
++  });
++
++  it("PENDING: navigates to AccessPending, no OTP", () => {
++    const action = decideLoginAction(preflight("pending", false, "under review"));
++    assert.deepEqual(action, { type: "navigate", screen: "AccessPending", message: "under review" });
++  });
++
++  it("REJECTED: navigates to AccessRejected, no OTP", () => {
++    const action = decideLoginAction(preflight("rejected", false, "not approved"));
++    assert.deepEqual(action, { type: "navigate", screen: "AccessRejected", message: "not approved" });
++  });
++
++  it("UNKNOWN: navigates to Register (Request B2B Access), no OTP", () => {
++    const action = decideLoginAction(preflight("unknown", false));
++    assert.deepEqual(action, { type: "navigate", screen: "Register" });
++  });
++
++  it("EMPLOYEE: blocks inline with Admin Login instruction — no Buyer OTP, no Buyer session, " +
++    "no Buyer membership. The destination offered is the existing Admin Login surface " +
++    "(work email + password, standard Supabase auth), never a Staff OTP flow, which this " +
++    "app does not and must not implement", () => {
++    const action = decideLoginAction(preflight("employee", false, "belongs to an Oasis employee account"));
++    assert.deepEqual(action, { type: "inline_block", state: "employee", message: "belongs to an Oasis employee account" });
++    // Structurally: this action type is never "send_otp" and never "navigate"
++    // to any Buyer screen (Dashboard, Register, AccessPending, AccessRejected)
++    // — it cannot create a Buyer session or membership because the OTP
++    // transport (sendMsg91Otp) is simply never invoked for this action type.
++    assert.notEqual(action.type, "send_otp");
++    assert.notEqual(action.type, "navigate");
++  });
++
++  it("AMBIGUOUS: fails closed inline with a support action, no OTP", () => {
++    const action = decideLoginAction(preflight("ambiguous", false, "conflicting records"));
++    assert.deepEqual(action, { type: "inline_block", state: "ambiguous", message: "conflicting records" });
++  });
++
++  it("defers entirely to allowOtp rather than re-deriving eligibility from state — if the " +
++    "gateway ever sent allowOtp:true for a non-'approved' state, this function would still " +
++    "send OTP (no client-side eligibility reconstruction), matching the contract that the " +
++    "gateway alone is authoritative", () => {
++    const action = decideLoginAction(preflight("pending", true));
++    assert.deepEqual(action, { type: "send_otp" });
++  });
++});
+diff --git a/src/lib/login-preflight-action.ts b/src/lib/login-preflight-action.ts
+new file mode 100644
+index 0000000..d8b80fe
+--- /dev/null
++++ b/src/lib/login-preflight-action.ts
+@@ -0,0 +1,43 @@
++// Pure decision logic for what LoginScreen does with a buyer-login-gateway
++// preflight result, extracted specifically so the critical invariant --
++// OTP is requested for APPROVED and ONLY APPROVED -- can be asserted directly
++// without rendering the screen (no React Native Testing Library in this repo;
++// this is the smaller, dependency-free alternative). LoginScreen.tsx calls
++// this and executes the returned action; it contains no logic of its own
++// beyond what this function decides.
++import type { BuyerPreflightResult, BuyerPreflightState } from "@/lib/buyer-preflight";
++
++export type LoginPreflightAction =
++  | { type: "send_otp" }
++  | { type: "navigate"; screen: "AccessPending" | "AccessRejected" | "Register"; message?: string }
++  | { type: "inline_block"; state: BuyerPreflightState; message: string };
++
++/**
++ * The single critical invariant this app enforces: sendOTP is only ever
++ * reachable for state === "approved" (equivalently, allowOtp === true, which
++ * the gateway sets exclusively for "approved"). Every other state is routed
++ * away or blocked inline -- none of them reach the OTP transport.
++ */
++export function decideLoginAction(preflight: BuyerPreflightResult): LoginPreflightAction {
++  if (preflight.allowOtp) {
++    return { type: "send_otp" };
++  }
++  if (preflight.state === "pending") {
++    return { type: "navigate", screen: "AccessPending", message: preflight.message };
++  }
++  if (preflight.state === "rejected") {
++    return { type: "navigate", screen: "AccessRejected", message: preflight.message };
++  }
++  if (preflight.state === "unknown") {
++    return { type: "navigate", screen: "Register" };
++  }
++  // employee: this Buyer App has no staff authentication of its own — Oasis
++  // employees (admins, management, sales, accounts, dispatch, factory,
++  // operations, etc.) authenticate exclusively through the separate Admin
++  // Login surface (registered work email + password, standard Supabase
++  // email/password session), never through Buyer OTP. This function only
++  // signals the block; LoginScreen shows the Admin Login instruction inline.
++  // ambiguous: no dedicated destination either — fail closed inline with a
++  // support action, matching Central's own inline (non-navigating) treatment.
++  return { type: "inline_block", state: preflight.state, message: preflight.message };
++}
+diff --git a/src/screens/LoginScreen.tsx b/src/screens/LoginScreen.tsx
+index 83cccbb..c974da4 100644
+--- a/src/screens/LoginScreen.tsx
++++ b/src/screens/LoginScreen.tsx
+@@ -6,6 +6,7 @@ import { Screen } from "@/components/Screen";
+ import { useBuyerSession } from "@/context/BuyerSessionContext";
+ import { routeFromBuyerSnapshot } from "@/lib/session-routing";
+ import { invokeBuyerPreflight, type BuyerPreflightChannel, type BuyerPreflightState } from "@/lib/buyer-preflight";
++import { decideLoginAction } from "@/lib/login-preflight-action";
+ import { isEmailIdentifier, normalizeEmail, normalizePhone } from "@/lib/buyer-identity";
+ import { sendMsg91Otp, verifyMsg91Otp, retryMsg91Otp } from "@/lib/msg91-otp-widget";
+ import { bridgeMsg91SessionAndClaim } from "@/lib/buyer-session-bridge";
+@@ -75,26 +76,19 @@ export function LoginScreen({ navigation }: Props) {
+       // Preflight is authoritative and MUST run before any OTP is requested.
+       // No eligibility rule is reconstructed on-device.
+       const preflight = await invokeBuyerPreflight(targetChannel, normalized, attemptId);
+-      if (!preflight.allowOtp) {
++      const action = decideLoginAction(preflight);
++      if (action.type === "navigate") {
+         setBusy(false);
+-        if (preflight.state === "pending") {
+-          navigation.replace("AccessPending", { message: preflight.message });
+-          return;
+-        }
+-        if (preflight.state === "rejected") {
+-          navigation.replace("AccessRejected", { message: preflight.message });
+-          return;
+-        }
+-        if (preflight.state === "unknown") {
+-          navigation.navigate("Register");
+-          return;
+-        }
+-        // employee / ambiguous: no dedicated native destination — fail closed
+-        // with an inline message and a support action (matches Central).
+-        setBlockedState(preflight.state);
+-        setError(preflight.message);
++        navigation.replace(action.screen, action.screen === "Register" ? undefined : { message: action.message });
+         return;
+       }
++      if (action.type === "inline_block") {
++        setBusy(false);
++        setBlockedState(action.state);
++        setError(action.message);
++        return;
++      }
++      // action.type === "send_otp" — the ONLY path that reaches MSG91.
+ 
+       const sendResult = await sendMsg91Otp(normalized);
+       if (sendResult.invisibleVerified && sendResult.accessToken) {
+@@ -230,8 +224,8 @@ export function LoginScreen({ navigation }: Props) {
+           <Text style={styles.error}>{error}</Text>
+           {blockedState === "employee" && (
+             <Text style={styles.errorHint}>
+-              Employees are not part of the Buyer App. Please use the staff admin login, or contact Oasis support for
+-              the link.
++              This identifier belongs to an Oasis employee account. Employees authenticate through Admin Login
++              (registered work email and password), not the Buyer App.
+             </Text>
+           )}
+           {blockedState === "ambiguous" && (
+-- 
+2.43.0
+
+
+From 48893a71372d47285506eb0c621d3aae82ba9fd8 Mon Sep 17 00:00:00 2001
+From: AUTH-01 Native Convergence <auth01-agent@local>
+Date: Thu, 17 Sep 2026 02:18:46 +0000
+Subject: [PATCH 04/11] test(auth): complete buyer RPC security certification
+
+Add docs/auth01-rpc-security-matrix.md: the complete 36/36 body-verified
+Buyer RPC security matrix for AUTH-01, closing the evidence gap from the
+prior certification commit (93ca72a), which had only 9/36 RPCs body-read
+and the rest grant-verified only.
+
+All 36 entries in buyer-deployment-rpc-allowlist.ts / verify-contract-
+boundary.mjs are now individually classified (PUBLIC SAFE / PRE-LOGIN
+PUBLIC INTAKE / AUTHENTICATED BUYER / BUYER + STAFF / INTERNAL ONLY) with
+direct evidence: exact migration file, company-derivation mechanism,
+cross-company protection, and frozen/inactive handling for each.
+
+Two real Core defects were found during this body audit and fixed on a
+separate Core branch (auth01-rpc-staff-exclusion-fix, not this repo):
+
+- customer_order_status_v1 / customer_order_items_v1 /
+  customer_support_tickets_v1 used an inline eligibility gate with no role
+  filter and no staff exclusion, unlike the canonical
+  customer_buyer_eligible_company_id() helper introduced later for exactly
+  this family. Core commit 8a81780 fixes all three to call the canonical
+  helper, plus a pgTAP regression (not run -- no live Postgres in this
+  sandbox).
+- get_sales_order_pi_final_payment_request_v1 and its three governing RLS
+  policies used the weaker auth_buyer_company_id() helper (no
+  approved/status/frozen check), letting a buyer whose company was later
+  frozen still read final-payment-PI details for their own orders. Core
+  commit 5de4246 fixes this using the same canonical-helper swap, plus a
+  pgTAP regression (also not run).
+
+A third, lower-severity occurrence of the identical drift (in the
+support_ticket_set_customer_context() BEFORE INSERT trigger that actually
++governs submit_customer_support_ticket_v1's authorization) was found and
++documented but NOT fixed -- it's a write-path attribution edge case, not a
++data-disclosure defect (order-ownership is independently and correctly
++enforced by the same trigger), and warrants its own careful pass rather
++than a rushed edit to a trigger with several unrelated field resets.
++Recorded as a follow-up recommendation in the matrix doc, along with a
++second open item: create_payment_gateway_payable_intent_v1 and
++get_payment_gateway_payable_status_v1 use the same auth_buyer_company_id()
++helper that was fixed for final-payment-PI, and were not independently
++re-verified/fixed in this pass.
++
++No native app code changed in this commit -- this is documentation of the
++already-complete AUTH-01 implementation (0d22600, 4b96419, 93ca72a).
++
++Verified: npm run quality still passes end to end (unchanged from the
++prior commit -- 160/160 tests, typecheck, lint, boundary/rc-scan/
++rc-navigation/cert:bindings/census:p106/expo-config all clean). No
++production mutation of any kind, in either repository.
++---
++ docs/auth01-rpc-security-matrix.md | 115 +++++++++++++++++++++++++++++
++ 1 file changed, 115 insertions(+)
++ create mode 100644 docs/auth01-rpc-security-matrix.md
++
++diff --git a/docs/auth01-rpc-security-matrix.md b/docs/auth01-rpc-security-matrix.md
++new file mode 100644
++index 0000000..1f5f686
++--- /dev/null
+++++ b/docs/auth01-rpc-security-matrix.md
++@@ -0,0 +1,115 @@
+++# AUTH-01 Buyer RPC Security Matrix
+++
+++Body-verified against current-main `oasis-supabase-core` SQL (migration
+++chronology respected; superseded definitions ignored). Static analysis —
+++no live database 

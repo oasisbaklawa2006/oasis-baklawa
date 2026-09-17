@@ -1,0 +1,243 @@
+cing.lg },
++  link: {
++    color: colors.action,
++    textAlign: "center",
++    marginTop: spacing.lg,
++    fontSize: typography.sizeSm,
++    fontFamily: typography.fontFamilySansMedium,
++  },
+ });
+diff --git a/src/types/database.types.ts b/src/types/database.types.ts
+index ded64f6..9222c05 100644
+--- a/src/types/database.types.ts
++++ b/src/types/database.types.ts
+@@ -89,9 +89,13 @@ export type Database = {
+         Args: { p_sales_order_value: number };
+         Returns: number;
+       };
+-      submit_b2b_trade_application_v1: {
+-        Args: SubmitB2bTradeApplicationArgs;
+-        Returns: SubmitB2bTradeApplicationResult[];
++      submit_b2b_access_request_v2: {
++        Args: SubmitB2bAccessRequestArgs;
++        Returns: SubmitB2bAccessRequestResult[];
++      };
++      claim_approved_b2b_access_request_v2: {
++        Args: Record<string, never>;
++        Returns: ClaimApprovedB2bAccessRequestResult[];
+       };
+       submit_customer_support_ticket_v1: {
+         Args: {
+@@ -350,35 +354,30 @@ export interface SubmitCustomerOrderResult {
+   is_duplicate_submission: boolean;
+ }
+ 
+-export interface SubmitB2bTradeApplicationArgs {
++export interface SubmitB2bAccessRequestArgs {
+   p_business_name: string;
+-  p_trade_name?: string | null;
+-  p_business_type?: string | null;
++  p_contact_name: string;
++  p_contact_email: string;
++  p_contact_phone: string;
+   p_gst_number?: string | null;
+-  p_expected_volume?: string | null;
+-  p_contact_name?: string | null;
+-  p_contact_person?: string | null;
+-  p_contact_email?: string | null;
+-  p_contact_phone?: string | null;
+-  p_mobile_number?: string | null;
+   p_registered_address?: string | null;
+-  p_city?: string | null;
+-  p_state?: string | null;
+-  p_pincode?: string | null;
+-  p_gst_certificate_path?: string | null;
+-  p_business_proof_path?: string | null;
+-  p_current_brands?: string | null;
+   p_preferred_dispatch?: string | null;
+   p_preferred_dispatch_other_name?: string | null;
+   p_trade_declaration?: boolean;
+   p_data_consent?: boolean;
+ }
+ 
+-export interface SubmitB2bTradeApplicationResult {
++export interface SubmitB2bAccessRequestResult {
+   application_id: string;
+   application_status: string;
+-  company_id: string;
+-  is_duplicate_submission: boolean;
++  duplicate: boolean;
++}
++
++export interface ClaimApprovedB2bAccessRequestResult {
++  application_id: string | null;
++  claimed: boolean;
++  company_id: string | null;
++  already_active: boolean;
+ }
+ 
+ export interface CustomerOrderDraftLine {
+diff --git a/src/types/msg91-sendotp-react-native.d.ts b/src/types/msg91-sendotp-react-native.d.ts
+new file mode 100644
+index 0000000..ee33a55
+--- /dev/null
++++ b/src/types/msg91-sendotp-react-native.d.ts
+@@ -0,0 +1,17 @@
++// TYPE-CHECKING SHIM ONLY — routed here via tsconfig.json "paths" for the
++// exact specifier "@msg91comm/sendotp-react-native". At runtime, Metro/Babel
++// resolves the real package from node_modules as normal (tsconfig "paths" is
++// a `tsc`-only mapping and does not affect the bundler), so this has no
++// effect on the actual app. It exists purely because the package ships its
++// .tsx source as the package entry (no separate compiled .d.ts), and that
++// source doesn't typecheck cleanly under this project's strict tsconfig —
++// a pre-existing issue in the package itself, not ours to fix. Our own usage
++// of it lives in src/lib/msg91-otp-widget.ts, typed against the shape below.
++export const OTPWidget: {
++  initializeWidget: (widgetId: string, tokenAuth: string) => void;
++  sendOTP: (data: { identifier: string }) => Promise<unknown>;
++  verifyOTP: (data: { reqId: string; otp: string }) => Promise<unknown>;
++  retryOTP: (data: { reqId: string; retryChannel?: number }) => Promise<unknown>;
++};
++export const DefaultWidget: unknown;
++export const BiometricAuth: unknown;
+diff --git a/tsconfig.json b/tsconfig.json
+index 3cd8ec9..40978cc 100644
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -2,10 +2,13 @@
+   "extends": "expo/tsconfig.base",
+   "compilerOptions": {
+     "strict": true,
++    "skipLibCheck": true,
+     "baseUrl": ".",
+     "paths": {
+-      "@/*": ["src/*"]
++      "@/*": ["src/*"],
++      "@msg91comm/sendotp-react-native": ["src/types/msg91-sendotp-react-native.d.ts"]
+     }
+   },
+-  "include": ["**/*.ts", "**/*.tsx"]
++  "include": ["**/*.ts", "**/*.tsx"],
++  "exclude": ["node_modules"]
+ }
+-- 
+2.43.0
+
+
+From 4b96419100bc6fa5d3bfc368e0c2577f0ed241dc Mon Sep 17 00:00:00 2001
+From: AUTH-01 Native Convergence <auth01-agent@local>
+Date: Wed, 16 Sep 2026 20:05:03 +0000
+Subject: [PATCH 02/11] test(auth): certify buyer identity and session routing
+
+- Add session-routing.test.ts: structural regression for the historical
+  UAT deadlock. Directly asserts routeFromBuyerSnapshot() never navigates
+  to Register for ANY post-auth state (approved_buyer, no_membership,
+  backend_failure, unauthenticated) -- an approved buyer whose session
+  resolves oddly can no longer be routed back into the application form,
+  which is what risked the duplicate/conflicted-application deadlock.
+- Add buyer-identity-claim-core.ts: split the pure claim-outcome logic
+  (row validation, normalization, the fail-closed assertApprovedB2bClaimBound
+  guard) out of buyer-identity-claim.ts, which imports @/lib/supabase and
+  therefore react-native at module scope -- importing it directly from a
+  plain node:test file fails (esbuild cannot parse react-native/index.js
+  outside Metro). This mirrors the existing convention in rpc.test.ts,
+  which also avoids importing rpc.ts's runtime implementation. buyer-
+  identity-claim.ts now re-exports the core module and adds only the
+  actual RPC call / session-wait IO on top -- no behavior change.
+- Add buyer-identity-claim-core.test.ts: covers assertApprovedB2bClaimBound
+  fail-closed behavior directly -- the claim-layer half of the deadlock
+  guard (a brand-new approved identity that the claim RPC didn't actually
+  bind must throw, never silently fall through as unapproved).
+- Add buyer-identity.test.ts: normalization coverage (email recognition,
+  phone variant collapsing to a single last10/e164 form, empty-input
+  safety) for the functions buyer-preflight.ts and msg91-otp-widget.ts
+  both depend on for correct identifier matching against Core.
+- Wire all three into package.json's test script.
+
+Verified: npm run quality passes end to end -- 144/144 tests (130
+pre-existing + 14 new), typecheck clean, lint clean, boundary/rc-scan/
+rc-navigation/cert:bindings/census:p106/expo-config all pass. No production
+mutation.
+---
+ package.json                              |  2 +-
+ src/lib/buyer-identity-claim-core.test.ts | 40 +++++++++++
+ src/lib/buyer-identity-claim-core.ts      | 73 +++++++++++++++++++
+ src/lib/buyer-identity-claim.ts           | 85 +++++------------------
+ src/lib/buyer-identity.test.ts            | 33 +++++++++
+ src/lib/session-routing.test.ts           | 77 ++++++++++++++++++++
+ 6 files changed, 241 insertions(+), 69 deletions(-)
+ create mode 100644 src/lib/buyer-identity-claim-core.test.ts
+ create mode 100644 src/lib/buyer-identity-claim-core.ts
+ create mode 100644 src/lib/buyer-identity.test.ts
+ create mode 100644 src/lib/session-routing.test.ts
+
+diff --git a/package.json b/package.json
+index 5fde8b5..6ed1bf3 100644
+--- a/package.json
++++ b/package.json
+@@ -10,7 +10,7 @@
+     "web": "expo start --web",
+     "typecheck": "tsc --noEmit",
+     "lint": "eslint . --max-warnings 0",
+-    "test": "node --import tsx --test src/lib/checkout-idempotency.test.ts src/lib/checkout-submit-guards.test.ts src/lib/rpc-errors.test.ts src/lib/rpc.test.ts src/lib/order-stages.test.ts src/theme/layout.test.ts src/lib/golden-journey.test.ts src/lib/customer-projections.test.ts src/lib/product-publication.test.ts src/lib/buyer-commercial-validation.test.ts src/lib/buyer-communication-log.test.ts src/lib/general-query-idempotency.test.ts src/lib/quote-projections.test.ts src/lib/quote-guards.test.ts src/lib/quote-idempotency.test.ts src/lib/quote-rpc-binding-check.test.ts src/lib/p106-quote-authority.test.ts src/lib/genie-product-resolution.test.ts src/lib/genie-draft-line-commit.test.ts src/lib/payment-gateway-boundary.test.ts src/lib/payment-idempotency.test.ts src/lib/runtime-payment-gateway-binding.test.ts src/lib/buyer-deployment-rpc-allowlist.test.ts scripts/buyer-mobile-certification/revenue-journey.integration.test.mjs src/services/customerGateway.test.ts",
++    "test": "node --import tsx --test src/lib/checkout-idempotency.test.ts src/lib/checkout-submit-guards.test.ts src/lib/rpc-errors.test.ts src/lib/rpc.test.ts src/lib/order-stages.test.ts src/theme/layout.test.ts src/lib/golden-journey.test.ts src/lib/customer-projections.test.ts src/lib/product-publication.test.ts src/lib/buyer-commercial-validation.test.ts src/lib/buyer-communication-log.test.ts src/lib/general-query-idempotency.test.ts src/lib/quote-projections.test.ts src/lib/quote-guards.test.ts src/lib/quote-idempotency.test.ts src/lib/quote-rpc-binding-check.test.ts src/lib/p106-quote-authority.test.ts src/lib/genie-product-resolution.test.ts src/lib/genie-draft-line-commit.test.ts src/lib/payment-gateway-boundary.test.ts src/lib/payment-idempotency.test.ts src/lib/runtime-payment-gateway-binding.test.ts src/lib/buyer-deployment-rpc-allowlist.test.ts src/lib/session-routing.test.ts src/lib/buyer-identity-claim-core.test.ts src/lib/buyer-identity.test.ts scripts/buyer-mobile-certification/revenue-journey.integration.test.mjs src/services/customerGateway.test.ts",
+     "e2e": "playwright test",
+     "e2e:install": "playwright install chromium",
+     "cert:bindings": "node --import tsx scripts/buyer-mobile-certification/verify-bindings.mjs",
+diff --git a/src/lib/buyer-identity-claim-core.test.ts b/src/lib/buyer-identity-claim-core.test.ts
+new file mode 100644
+index 0000000..5225e64
+--- /dev/null
++++ b/src/lib/buyer-identity-claim-core.test.ts
+@@ -0,0 +1,40 @@
++import { describe, it } from "node:test";
++import assert from "node:assert/strict";
++import { assertApprovedB2bClaimBound, type ApprovedB2bIdentityClaimOutcome } from "./buyer-identity-claim-core";
++
++function outcome(overrides: Partial<ApprovedB2bIdentityClaimOutcome> = {}): ApprovedB2bIdentityClaimOutcome {
++  return {
++    applicationId: null,
++    companyId: null,
++    claimed: false,
++    alreadyActive: false,
++    ...overrides,
++  };
++}
++
++describe("assertApprovedB2bClaimBound", () => {
++  it("does not throw when requireBound is false, regardless of outcome", () => {
++    assert.doesNotThrow(() => assertApprovedB2bClaimBound(outcome(), false));
++  });
++
++  it("does not throw when the identity was freshly claimed", () => {
++    assert.doesNotThrow(() =>
++      assertApprovedB2bClaimBound(outcome({ claimed: true, applicationId: "app-1", companyId: "co-1" }), true)
++    );
++  });
++
++  it("does not throw when membership was already active (legacy-bound replay)", () => {
++    assert.doesNotThrow(() =>
++      assertApprovedB2bClaimBound(outcome({ alreadyActive: true, companyId: "co-1" }), true)
++    );
++  });
++
++  it("throws (fail closed) when a fresh identity was signalled bound but the claim returned no-match — " +
++    "this is the deadlock guard: a brand-new approved identity must never silently fall through as " +
++    "if unauthenticated/no-application", () => {
++    assert.throws(
++      () => assertApprovedB2bClaimBound(outcome(), true),
++      /APPROVED_B2B_IDENTITY_CLAIM_FAILED:bind_failed/
++    );
++  });
++});
+diff --git a/src/lib/buyer-identity-claim-core.ts b/src/lib/buyer-identity-claim-core.ts
+new file mode 100644
+index 0000000..8de261f
+--- /dev/null
++++ b/src/lib/buyer-identity-claim-core.ts
+@@ -0,0 +1,73 @@
++// Pure logic for the Buyer identity claim outcome, split out from
++// buyer-identity-claim.ts specifically so it can be unit tested without
++// pulling in @/lib/supabase (and transitively react-native) at module load
++// time — matching this repo's existing test convention (see rpc.test.ts,
++// which type-checks callRpc without importing its runtime implemen

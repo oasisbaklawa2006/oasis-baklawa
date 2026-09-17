@@ -1,0 +1,295 @@
+This is the SAME governed classification Central's web
++// Buyer login uses — the native app is another client of it, not a second
++// authority. Never reconstruct eligibility rules on-device: the gateway result
++// is authoritative and must be checked before any OTP is requested.
++import { supabase } from "@/lib/supabase";
++
++export type BuyerPreflightChannel = "mobile" | "email";
++
++export type BuyerPreflightState =
++  | "approved"
++  | "pending"
++  | "employee"
++  | "rejected"
++  | "unknown"
++  | "ambiguous";
++
++export interface BuyerPreflightResult {
++  state: BuyerPreflightState;
++  allowOtp: boolean;
++  message: string;
++}
++
++interface RawPreflightResponse {
++  ok?: boolean;
++  state?: BuyerPreflightState;
++  allowOtp?: boolean;
++  message?: string;
++  error?: string;
++}
++
++/**
++ * Calls buyer-login-gateway in `mode: "preflight"`. Must run BEFORE any OTP is
++ * requested for either channel. Fails closed (ambiguous) on any transport or
++ * parsing failure — never silently allows OTP when the gateway can't be reached.
++ */
++export async function invokeBuyerPreflight(
++  channel: BuyerPreflightChannel,
++  identifier: string,
++  attemptId: string
++): Promise<BuyerPreflightResult> {
++  try {
++    const { data, error } = await supabase.functions.invoke("buyer-login-gateway", {
++      body: { mode: "preflight", channel, identifier, attemptId },
++    });
++    if (error) throw error;
++    const raw = (data ?? {}) as RawPreflightResponse;
++    if (!raw.ok || !raw.state) {
++      return {
++        state: "ambiguous",
++        allowOtp: false,
++        message: raw.message ?? "We couldn't verify this account right now. Please contact Oasis support.",
++      };
++    }
++    return {
++      state: raw.state,
++      allowOtp: Boolean(raw.allowOtp),
++      message: raw.message ?? "",
++    };
++  } catch {
++    return {
++      state: "ambiguous",
++      allowOtp: false,
++      message: "We couldn't verify this account right now. Please contact Oasis support.",
++    };
++  }
++}
+diff --git a/src/lib/buyer-session-bridge.ts b/src/lib/buyer-session-bridge.ts
+new file mode 100644
+index 0000000..704a60d
+--- /dev/null
++++ b/src/lib/buyer-session-bridge.ts
+@@ -0,0 +1,71 @@
++// Bridges an MSG91-verified access-token to the canonical Supabase Buyer
++// session, ported from Oasis-Baklawa-Central's verifiedProviderSession
++// (src/pages/BuyerLogin.tsx). Both channels go through Central's existing
++// edge functions (msg91-otp, msg91-email-session) for server-side provider
++// re-verification, then the SAME supabase.auth.verifyOtp({token_hash,
++// type:"email"}) call Central uses to mint the session — this is not a new,
++// parallel auth mechanism.
++import { supabase } from "@/lib/supabase";
++import {
++  claimApprovedB2bIdentity,
++  assertApprovedB2bClaimBound,
++  type ApprovedB2bIdentityClaimOutcome,
++} from "@/lib/buyer-identity-claim";
++
++export type BuyerLoginChannel = "mobile" | "email";
++
++export interface BuyerSessionBridgeResult {
++  userId: string;
++  claim: ApprovedB2bIdentityClaimOutcome;
++}
++
++interface EdgeBridgeResponse {
++  ok?: boolean;
++  error?: string;
++  reason?: string;
++  token_hash?: string;
++  user_id?: string;
++  email?: string;
++  phone?: string;
++  verified_email?: string;
++  is_new?: boolean;
++  approved_b2b_pending_claim?: boolean;
++}
++
++/**
++ * Exchanges a provider-verified MSG91 access-token for a canonical Supabase
++ * session, then claims Buyer membership. Throws on any failure — callers
++ * must not assume partial success.
++ */
++export async function bridgeMsg91SessionAndClaim(
++  channel: BuyerLoginChannel,
++  accessToken: string,
++  identifier: string,
++  attemptId: string
++): Promise<BuyerSessionBridgeResult> {
++  const edgeFunction = channel === "mobile" ? "msg91-otp" : "msg91-email-session";
++  const body =
++    channel === "mobile"
++      ? { mode: "verify_widget", accessToken, phone: identifier, attemptId }
++      : { accessToken, email: identifier, attemptId };
++
++  const { data, error } = await supabase.functions.invoke(edgeFunction, { body });
++  if (error) throw new Error(error.message || "provider_verification_failed");
++
++  const verifyRes = (data ?? {}) as EdgeBridgeResponse;
++  if (!verifyRes.ok) throw new Error(verifyRes.error || verifyRes.reason || "provider_verification_failed");
++  if (!verifyRes.token_hash || !verifyRes.user_id) throw new Error("session_token_missing");
++
++  const { data: sessionData, error: sessionError } = await supabase.auth.verifyOtp({
++    token_hash: verifyRes.token_hash,
++    type: "email",
++  });
++  if (sessionError || !sessionData.user) {
++    throw new Error(sessionError?.message || "session_create_failed");
++  }
++
++  const claim = await claimApprovedB2bIdentity();
++  assertApprovedB2bClaimBound(claim, Boolean(verifyRes.approved_b2b_pending_claim));
++
++  return { userId: sessionData.user.id, claim };
++}
+diff --git a/src/lib/msg91-otp-widget.ts b/src/lib/msg91-otp-widget.ts
+new file mode 100644
+index 0000000..f924269
+--- /dev/null
++++ b/src/lib/msg91-otp-widget.ts
+@@ -0,0 +1,79 @@
++// Native MSG91 OTP transport using the official @msg91comm/sendotp-react-native
++// SDK (Mobile Integration widget). This is the smallest secure Expo-compatible
++// path found for native OTP: no provider secret is ever embedded here — only
++// the same class of client-safe widgetId/tokenAuth pair Central already embeds
++// in its own web bundle (src/pages/BuyerLogin.tsx: MSG91_WIDGET_ID /
++// MSG91_TOKEN_AUTH). Provider verification of the resulting access-token stays
++// server-side in msg91-otp / msg91-email-session (Central edge functions) —
++// this module never talks to MSG91's privileged REST API directly.
++import { OTPWidget } from "@msg91comm/sendotp-react-native";
++
++// TODO(deployment): these must be the Buyer App's OWN MSG91 widget
++// credentials with "Mobile Integration" enabled in the MSG91 dashboard — they
++// are NOT the same widget Central's web login uses. Populate from the MSG91
++// account before this ships; do not reuse Central's MSG91_WIDGET_ID /
++// MSG91_TOKEN_AUTH, which is scoped to the web widget.
++const MSG91_NATIVE_WIDGET_ID = process.env.EXPO_PUBLIC_MSG91_WIDGET_ID ?? "";
++const MSG91_NATIVE_TOKEN_AUTH = process.env.EXPO_PUBLIC_MSG91_TOKEN_AUTH ?? "";
++
++let initialized = false;
++
++export function ensureMsg91WidgetInitialized(): void {
++  if (initialized) return;
++  if (!MSG91_NATIVE_WIDGET_ID || !MSG91_NATIVE_TOKEN_AUTH) {
++    throw new Error("msg91_widget_not_configured");
++  }
++  OTPWidget.initializeWidget(MSG91_NATIVE_WIDGET_ID, MSG91_NATIVE_TOKEN_AUTH);
++  initialized = true;
++}
++
++export interface Msg91SendResult {
++  accessToken: string | null;
++  reqId: string | null;
++  invisibleVerified: boolean;
++}
++
++/** identifier: E.164-ish digits without '+' for mobile (e.g. "9198XXXXXXXX"), or a bare email. */
++export async function sendMsg91Otp(identifier: string): Promise<Msg91SendResult> {
++  ensureMsg91WidgetInitialized();
++  const response = (await OTPWidget.sendOTP({ identifier })) as {
++    type?: string;
++    message?: string;
++    "access-token"?: string;
++    invisibleVerified?: boolean;
++  };
++  if (response?.type !== "success") {
++    throw new Error(response?.message || "msg91_send_failed");
++  }
++  if (response.invisibleVerified && response["access-token"]) {
++    return { accessToken: response["access-token"], reqId: null, invisibleVerified: true };
++  }
++  // Normal flow: `message` carries the reqId used for verifyOTP/retryOTP.
++  return { accessToken: null, reqId: response.message ?? null, invisibleVerified: false };
++}
++
++export async function verifyMsg91Otp(reqId: string, otp: string): Promise<string> {
++  ensureMsg91WidgetInitialized();
++  const response = (await OTPWidget.verifyOTP({ reqId, otp })) as { type?: string; message?: string };
++  if (response?.type !== "success" || !response.message) {
++    throw new Error(response?.message || "msg91_verify_failed");
++  }
++  // On success `message` carries the provider access-token (same contract as
++  // Central's widget bridge — see extractMsg91AccessToken in BuyerLogin.tsx).
++  return response.message;
++}
++
++export type Msg91RetryChannel = "SMS-11" | "VOICE-4" | "EMAIL-3" | "WHATSAPP-12";
++
++export async function retryMsg91Otp(reqId: string, channel?: Msg91RetryChannel): Promise<void> {
++  ensureMsg91WidgetInitialized();
++  const body: { reqId: string; retryChannel?: number } = { reqId };
++  if (channel) {
++    const code = Number(channel.split("-")[1]);
++    if (!Number.isNaN(code)) body.retryChannel = code;
++  }
++  const response = (await OTPWidget.retryOTP(body)) as { type?: string; message?: string };
++  if (response?.type !== "success") {
++    throw new Error(response?.message || "msg91_retry_failed");
++  }
++}
+diff --git a/src/lib/session-routing.ts b/src/lib/session-routing.ts
+index b62ae21..6294891 100644
+--- a/src/lib/session-routing.ts
++++ b/src/lib/session-routing.ts
+@@ -16,15 +16,13 @@ export function routeFromBuyerSnapshot(
+     case "approved_buyer":
+       navigation.replace("MainTabs", { screen: "Dashboard" });
+       break;
+-    case "application_pending":
+-      navigation.replace("AccessPending");
+-      break;
+-    case "rejected_ineligible":
+-      navigation.replace("AccessRejected");
+-      break;
+-    case "no_application":
+-      navigation.replace("Register");
+-      break;
++    // PENDING / REJECTED / UNKNOWN are pre-auth states owned by the
++    // buyer-login-gateway preflight — a session should never resolve to them.
++    // "no_membership" is the fail-closed catch when that invariant doesn't
++    // hold (e.g. backend state changed after login); it routes to recovery,
++    // never back to Register, so an approved-then-desynced buyer is never
++    // sent to reapply (the historical UAT deadlock).
++    case "no_membership":
+     case "backend_failure":
+       navigation.replace("SessionRecovery", {
+         message: snapshot.message ?? "We could not verify your session. Check your connection and try again.",
+diff --git a/src/navigation/types.ts b/src/navigation/types.ts
+index 4e93525..fe2d2cc 100644
+--- a/src/navigation/types.ts
++++ b/src/navigation/types.ts
+@@ -24,8 +24,8 @@ export type RootStackParamList = {
+   Welcome: undefined;
+   Login: undefined;
+   Register: undefined;
+-  AccessPending: undefined;
+-  AccessRejected: undefined;
++  AccessPending: { message?: string } | undefined;
++  AccessRejected: { message?: string } | undefined;
+   SessionRecovery: { message: string };
+   MainTabs: NavigatorScreenParams<MainTabParamList>;
+   ProductDetail: { productId: string };
+diff --git a/src/screens/AccessPendingScreen.tsx b/src/screens/AccessPendingScreen.tsx
+index c83c762..82e23bf 100644
+--- a/src/screens/AccessPendingScreen.tsx
++++ b/src/screens/AccessPendingScreen.tsx
+@@ -12,14 +12,14 @@ const SUPPORT_PHONE = "+919999792959";
+ const SUPPORT_WHATSAPP =
+   "https://wa.me/919891162212?text=Hello%20Oasis%20Baklawa%2C%20I%20have%20submitted%20a%20trade%20access%20request%20and%20would%20like%20help%20with%20approval.";
+ 
+-export function AccessPendingScreen({ navigation }: Props) {
++export function AccessPendingScreen({ navigation, route }: Props) {
+   return (
+     <Screen title="Access Review" subtitle="Your application is being reviewed">
+       <View style={styles.body}>
+         <Text style={styles.kicker}>ACCESS REVIEW IN PROGRESS</Text>
+         <Text style={styles.copy}>
+-          Our team verifies your business identity, GST and supporting documents before assigning your buyer
+-          category and confidential price grade.
++          {route.params?.message ??
++            "Our team verifies your business identity, GST and supporting documents before assigning your buyer category and confidential price grade."}
+         </Text>
+         <View style={styles.card}>
+           <Text style={styles.cardTitle}>What happens next</Text>
+diff --git a/src/screens/AccessRejectedScreen.tsx b/src/screens/AccessRejectedScreen.tsx
+index 0d98ddb..0bc39df 100644
+--- a/src/screens/A

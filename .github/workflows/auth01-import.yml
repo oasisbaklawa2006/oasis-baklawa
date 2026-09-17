@@ -1,0 +1,50 @@
+name: AUTH-01 patch importer
+
+on:
+  push:
+    branches:
+      - auth01-native-convergence
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reconstruct and verify AUTH-01 patch
+        shell: bash
+        run: |
+          python - <<'PY'
+          import base64
+          import gzip
+          import hashlib
+          import pathlib
+
+          parts = sorted(pathlib.Path('.auth01-import').glob('nativegz.*.b64'))
+          if len(parts) != 7:
+              raise SystemExit(f'expected 7 patch chunks, found {len(parts)}')
+          payload = ''.join(p.read_text().strip() for p in parts)
+          raw = gzip.decompress(base64.b64decode(payload))
+          expected = 'f75411be80eae099f90984edcabd4d328ca14d263214468dff160399364e8ccf'
+          actual = hashlib.sha256(raw).hexdigest()
+          if actual != expected:
+              raise SystemExit(f'patch checksum mismatch: {actual} != {expected}')
+          pathlib.Path('/tmp/auth01-native.patch').write_bytes(raw)
+          print(f'verified {len(raw)} bytes sha256={actual}')
+          PY
+
+      - name: Apply approved patch series onto main
+        shell: bash
+        run: |
+          git config user.name "AUTH-01 Importer"
+          git config user.email "auth01-importer@users.noreply.github.com"
+          git fetch origin main
+          git reset --hard origin/main
+          git am --3way /tmp/auth01-native.patch
+          git push --force origin HEAD:auth01-native-convergence

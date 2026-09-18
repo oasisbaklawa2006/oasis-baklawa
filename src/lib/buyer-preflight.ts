@@ -55,7 +55,11 @@ export async function invokeBuyerPreflight(
     return {
       state: raw.state,
       allowOtp: Boolean(raw.allowOtp),
-      message: raw.message ?? "",
+      message:
+        raw.message ??
+        (raw.allowOtp
+          ? ""
+          : "We couldn't verify this account right now. Please contact Oasis support."),
     };
   } catch {
     return {

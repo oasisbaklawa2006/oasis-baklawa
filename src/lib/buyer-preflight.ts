@@ -22,11 +22,71 @@ export interface BuyerPreflightResult {
 }
 
 interface RawPreflightResponse {
-  ok?: boolean;
-  state?: BuyerPreflightState;
-  allowOtp?: boolean;
-  message?: string;
-  error?: string;
+  ok?: unknown;
+  state?: unknown;
+  allowOtp?: unknown;
+  message?: unknown;
+  error?: unknown;
+}
+
+const BUYER_PREFLIGHT_STATES = new Set<BuyerPreflightState>([
+  "approved",
+  "pending",
+  "employee",
+  "rejected",
+  "unknown",
+  "ambiguous",
+]);
+
+const PREFLIGHT_FAILURE_MESSAGE =
+  "We couldn't verify this account right now. Please contact Oasis support.";
+
+function isBuyerPreflightState(value: unknown): value is BuyerPreflightState {
+  return typeof value === "string" && BUYER_PREFLIGHT_STATES.has(value as BuyerPreflightState);
+}
+
+function failClosedPreflight(message?: unknown): BuyerPreflightResult {
+  return {
+    state: "ambiguous",
+    allowOtp: false,
+    message: typeof message === "string" && message.trim() ? message : PREFLIGHT_FAILURE_MESSAGE,
+  };
+}
+
+/**
+ * Converts untrusted gateway JSON into the only preflight shape LoginScreen is
+ * allowed to consume. OTP permission is valid iff the state is exactly
+ * "approved"; every malformed or contradictory combination fails closed.
+ */
+export function normalizeBuyerPreflightResponse(data: unknown): BuyerPreflightResult {
+  const raw =
+    data !== null && typeof data === "object"
+      ? (data as RawPreflightResponse)
+      : ({} as RawPreflightResponse);
+
+  if (
+    raw.ok !== true ||
+    !isBuyerPreflightState(raw.state) ||
+    typeof raw.allowOtp !== "boolean"
+  ) {
+    return failClosedPreflight(raw.message);
+  }
+
+  const shouldAllowOtp = raw.state === "approved";
+  if (raw.allowOtp !== shouldAllowOtp) {
+    return failClosedPreflight(raw.message);
+  }
+
+  return {
+    state: raw.state,
+    allowOtp: raw.allowOtp,
+    message:
+      typeof raw.message === "string"
+        ? raw.message
+        : raw.allowOtp
+          ? ""
+          : PREFLIGHT_FAILURE_MESSAGE,
+  };
 }
 
 /**
@@ -44,28 +104,8 @@ export async function invokeBuyerPreflight(
       body: { mode: "preflight", channel, identifier, attemptId },
     });
     if (error) throw error;
-    const raw = (data ?? {}) as RawPreflightResponse;
-    if (!raw.ok || !raw.state) {
-      return {
-        state: "ambiguous",
-        allowOtp: false,
-        message: raw.message ?? "We couldn't verify this account right now. Please contact Oasis support.",
-      };
-    }
-    return {
-      state: raw.state,
-      allowOtp: Boolean(raw.allowOtp),
-      message:
-        raw.message ??
-        (raw.allowOtp
-          ? ""
-          : "We couldn't verify this account right now. Please contact Oasis support."),
-    };
+    return normalizeBuyerPreflightResponse(data);
   } catch {
-    return {
-      state: "ambiguous",
-      allowOtp: false,
-      message: "We couldn't verify this account right now. Please contact Oasis support.",
-    };
+    return failClosedPreflight();
   }
 }

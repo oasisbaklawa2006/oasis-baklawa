@@ -22,7 +22,11 @@ import {
   type CustomerGeneralQueryCategory,
 } from "@/lib/customer-projections";
 import { clearGeneralQueryIdempotencyKey, getGeneralQueryIdempotencyKey } from "@/lib/general-query-idempotency";
-import { clearSupportTicketIdempotencyKey, getSupportTicketIdempotencyKey } from "@/lib/support-ticket-idempotency";
+import {
+  buildSupportTicketPayloadFingerprint,
+  clearSupportTicketIdempotencyKey,
+  getSupportTicketIdempotencyKey,
+} from "@/lib/support-ticket-idempotency";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { customerGateway } from "@/services/customerGateway";
 import type { CustomerGeneralQuery, CustomerOrderStatus, CustomerSupportTicket } from "@/types/database.types";
@@ -102,12 +106,18 @@ export function SupportScreen({ navigation }: Props) {
     setSubmittingTicket(true);
     setTicketNotice(null);
     try {
-      const idempotencyKey = await getSupportTicketIdempotencyKey();
+      const description = orderDescription.trim();
+      const fingerprint = buildSupportTicketPayloadFingerprint({
+        orderId,
+        issueType,
+        description,
+      });
+      const idempotencyKey = await getSupportTicketIdempotencyKey(fingerprint);
       const result = await customerGateway.submitTicket({
         idempotencyKey,
         orderId,
         issueType,
-        description: orderDescription.trim(),
+        description,
       });
       await clearSupportTicketIdempotencyKey();
       setOrderDescription("");

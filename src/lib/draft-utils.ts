@@ -80,3 +80,26 @@ export function nextValidQuantity(current: number, moq: number, increment: numbe
   }
   return candidate;
 }
+
+/**
+ * Finds the existing draft-cart quantity for a product, if any.
+ *
+ * add_customer_order_draft_line_v1 (Core) is an UPSERT that REPLACES the
+ * line's quantity (`ON CONFLICT ... DO UPDATE SET quantity =
+ * excluded.quantity`), not an increment -- by design, matching how the
+ * quantity stepper is meant to represent the final total for that product,
+ * not a delta to add. A screen that re-initializes its quantity input from
+ * scratch (e.g. a hardcoded MOQ default) every time it's opened, rather
+ * than from this, will silently overwrite -- not add to -- whatever
+ * quantity is already in the draft for that product the next time the
+ * buyer submits. ProductDetailScreen uses this to pre-fill its stepper
+ * from the existing line and label the action "Update cart" instead of
+ * "Add to cart" when one exists.
+ */
+export function findDraftLineQuantity(
+  draft: CustomerOrderDraft | null,
+  productId: string
+): number | null {
+  const line = draft?.lines.find((l) => l.product_id === productId);
+  return line ? line.quantity : null;
+}

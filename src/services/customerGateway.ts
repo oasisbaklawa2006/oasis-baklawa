@@ -46,6 +46,7 @@ import type {
   SubmitCustomerGeneralQueryInput,
   SubmitCustomerGeneralQueryResult,
   SubmitSupportTicketInput,
+  SubmitSupportTicketResult,
 } from "@/types/database.types";
 import type {
   CreatePaymentGatewayIntentInput,
@@ -96,16 +97,23 @@ export const customerGateway = {
       .map(normalizeCustomerGeneralQuery)
       .filter((query): query is CustomerGeneralQuery => Boolean(query));
   },
-  submitTicket: (input: SubmitSupportTicketInput) => {
+  submitTicket: (input: SubmitSupportTicketInput): Promise<SubmitSupportTicketResult> => {
     if (!input.orderId.trim()) {
       return Promise.reject(new Error("Select an order before submitting order support."));
     }
-    return callRpc("submit_customer_support_ticket_v1", {
+    return callRpc("submit_customer_support_ticket_v2", {
+      p_idempotency_key: input.idempotencyKey,
       p_order_id: input.orderId,
       p_issue_type: canonicalSupportIssueType(input.issueType),
       p_description: input.description,
       p_product_sku: input.productSku ?? null,
       p_quantity_affected: input.quantityAffected ?? null,
+    }).then((rows) => {
+      const result = rows?.[0];
+      if (!result) {
+        throw new Error("Ticket submission did not return a result. Please try again.");
+      }
+      return result;
     });
   },
   submitGeneralQuery: async (input: SubmitCustomerGeneralQueryInput): Promise<SubmitCustomerGeneralQueryResult> => {

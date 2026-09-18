@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
@@ -8,9 +8,9 @@ import { ProductImage } from "@/components/ProductImage";
 import { Screen } from "@/components/Screen";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
-import { addCustomerOrderDraftLine } from "@/lib/api/draft";
+import { addCustomerOrderDraftLine, getCustomerOrderDraft } from "@/lib/api/draft";
 import { defaultOrderQuantity, resolveCommercialRules, validateOrderQuantity } from "@/lib/buyer-commercial-validation";
-import { nextValidQuantity } from "@/lib/draft-utils";
+import { findDraftLineQuantity, nextValidQuantity } from "@/lib/draft-utils";
 import { clearQuoteRequestIdempotencyKey, getQuoteRequestIdempotencyKey, type ResolvedQuoteIdempotency } from "@/lib/quote-idempotency";
 import { isQuoteRequestEnabled } from "@/lib/quote-guards";
 import { parseRpcError } from "@/lib/rpc-errors";
@@ -43,15 +43,44 @@ export function ProductDetailScreen({ navigation, route }: Props) {
   const [requestKey, setRequestKey] = useState<ResolvedQuoteIdempotency | null>(null);
   const [favouriteBusy, setFavouriteBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [existingCartQuantity, setExistingCartQuantity] = useState<number | null>(null);
+  const loadGenerationRef = useRef(0);
 
   const load = useCallback(async () => {
+    const generation = ++loadGenerationRef.current;
     setLoading(true);
     setError(null);
     try {
       const catalogue = await fetchCatalogue({ includeBuyerPrices: isApprovedBuyer });
       const match = catalogue.find((p) => p.product_id === productId) ?? null;
+      if (generation !== loadGenerationRef.current) return;
+
+      let inCartQuantity: number | null = null;
+      if (match && isApprovedBuyer) {
+        // Without this, quantity always resets to the MOQ default, and
+        // add_customer_order_draft_line_v1's ON CONFLICT DO UPDATE SET
+        // quantity = excluded.quantity REPLACES (not adds to) the existing
+        // line -- so tapping "Add to cart" again with a different quantity
+        // than what's already in the draft silently overwrites, not
+        // increments, the cart total for this product. Pre-filling the
+        // stepper with what's already there, and labelling the action
+        // "Update cart" in that case, makes the RPC's actual replace
+        // semantics match what the screen shows and what the button says.
+        try {
+          const draft = await getCustomerOrderDraft();
+          inCartQuantity = findDraftLineQuantity(draft, productId);
+        } catch {
+          // Non-fatal: worst case the stepper falls back to the MOQ default
+          // below, same as before this fix.
+        }
+      }
+
+      if (generation !== loadGenerationRef.current) return;
       setProduct(match);
-      if (match) {
+      setExistingCartQuantity(inCartQuantity);
+      if (inCartQuantity !== null) {
+        setQuantity(inCartQuantity);
+      } else if (match) {
         const moq = defaultOrderQuantity(match.price);
         if (moq !== null) {
           setQuantity(moq);
@@ -59,9 +88,13 @@ export function ProductDetailScreen({ navigation, route }: Props) {
       }
       if (!match) setError("Product not found in the published catalogue.");
     } catch (e) {
-      setError(parseRpcError(e).message);
+      if (generation === loadGenerationRef.current) {
+        setError(parseRpcError(e).message);
+      }
     } finally {
-      setLoading(false);
+      if (generation === loadGenerationRef.current) {
+        setLoading(false);
+      }
     }
   }, [productId, isApprovedBuyer]);
 
@@ -132,7 +165,8 @@ export function ProductDetailScreen({ navigation, route }: Props) {
     setNotice(null);
     try {
       await addCustomerOrderDraftLine(product.product_id, quantity);
-      setNotice("Added to your draft cart.");
+      setExistingCartQuantity(quantity);
+      setNotice(existingCartQuantity !== null ? "Updated your draft cart." : "Added to your draft cart.");
     } catch (e) {
       setNotice(parseRpcError(e).message);
     } finally {
@@ -153,7 +187,11 @@ export function ProductDetailScreen({ navigation, route }: Props) {
   }
 
   return (
-    <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
+    <BuyerGate
+      onLogin={() => navigation.navigate("Login")}
+      onRegister={() => navigation.navigate("Register")}
+      requireApprovedBuyer={false}
+    >
       <Screen title="Product" subtitle={product?.sku ?? ""}>
         {loading ? (
           <LoadingState message="Loading product…" />
@@ -182,7 +220,14 @@ export function ProductDetailScreen({ navigation, route }: Props) {
                 {priceLabel} / {product.price?.uom}
               </Text>
             ) : (
-              <Text style={styles.unavailable}>{commercial.message ?? "Buyer pricing unavailable"}</Text>
+              <View>
+                <Text style={styles.unavailable}>{commercial.message ?? "Buyer pricing unavailable"}</Text>
+                {!isApprovedBuyer ? (
+                  <TouchableOpacity onPress={() => navigation.navigate("Login")} accessibilityRole="button">
+                    <Text style={styles.loginPrompt}>Log in as an approved buyer to see pricing</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
             )}
             {product.short_description ? <Text style={styles.description}>{product.short_description}</Text> : null}
             {product.long_description ? <Text style={styles.description}>{product.long_description}</Text> : null}
@@ -193,7 +238,11 @@ export function ProductDetailScreen({ navigation, route }: Props) {
             ) : null}
 
             {canOrder ? (
-            <View style={styles.stepper}>
+            <>
+              {existingCartQuantity !== null ? (
+                <Text style={styles.inCartNote}>Already in your cart: {existingCartQuantity}</Text>
+              ) : null}
+              <View style={styles.stepper}>
               <TouchableOpacity
                 style={styles.stepBtn}
                 onPress={() => setQuantity((q) => nextValidQuantity(q, moq, increment, -1))}
@@ -212,7 +261,8 @@ export function ProductDetailScreen({ navigation, route }: Props) {
                 <Text style={styles.stepBtnText}>+</Text>
               </TouchableOpacity>
               <Text style={styles.moq}>MOQ {moq}</Text>
-            </View>
+              </View>
+            </>
             ) : null}
 
             <TouchableOpacity
@@ -221,7 +271,9 @@ export function ProductDetailScreen({ navigation, route }: Props) {
               onPress={addToCart}
               accessibilityRole="button"
             >
-              <Text style={styles.buttonText}>{adding ? "Adding…" : "Add to cart"}</Text>
+              <Text style={styles.buttonText}>
+                {adding ? "Saving…" : existingCartQuantity !== null ? "Update cart" : "Add to cart"}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.secondaryButton, !quoteRequestEnabled && styles.buttonDisabled]}
@@ -252,9 +304,21 @@ const styles = StyleSheet.create({
   meta: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textMuted },
   price: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeLg, color: colors.action },
   unavailable: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeMd, color: colors.textMuted },
+  loginPrompt: {
+    fontFamily: typography.fontFamilySansSemiBold,
+    fontSize: typography.sizeSm,
+    color: colors.action,
+    marginTop: 4,
+  },
   description: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeMd, lineHeight: 22, color: colors.textSecondary },
   fact: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textSecondary },
   stepper: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: spacing.md },
+  inCartNote: {
+    fontFamily: typography.fontFamilySansMedium,
+    fontSize: typography.sizeXs,
+    color: colors.textMuted,
+    marginTop: spacing.sm,
+  },
   stepBtn: {
     width: 44,
     height: 44,

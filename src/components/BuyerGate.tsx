@@ -51,7 +51,7 @@ export function BuyerGate({ children, onLogin, onRegister, requireApprovedBuyer 
           <Text style={styles.buttonText}>Log In</Text>
         </TouchableOpacity>
       ) : null}
-      {(snapshot?.state === "no_application" || snapshot?.state === "unauthenticated") && onRegister ? (
+      {snapshot?.state === "unauthenticated" && onRegister ? (
         <TouchableOpacity
           style={styles.secondaryButton}
           onPress={onRegister}

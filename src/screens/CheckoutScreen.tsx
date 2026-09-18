@@ -14,6 +14,7 @@ import { validateDraftLinesAgainstPrices } from "@/lib/buyer-commercial-validati
 import { clearCheckoutIdempotencyKey, resolveCheckoutIdempotencyKey } from "@/lib/checkout-idempotency";
 import { formatAdvanceDisplay, isCheckoutSubmitEnabled, type AdvanceLoadState } from "@/lib/checkout-submit-guards";
 import { parseRpcError } from "@/lib/rpc-errors";
+import { classifyCheckoutSubmitError } from "@/lib/checkout-submit-error";
 import type { BuyerProductPrice, CustomerOrderDraft } from "@/types/database.types";
 import { colors, spacing, typography } from "@/theme";
 
@@ -28,6 +29,7 @@ export function CheckoutScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [draftAlreadySubmittedElsewhere, setDraftAlreadySubmittedElsewhere] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
   const [keyPersisted, setKeyPersisted] = useState(false);
   const [keyReady, setKeyReady] = useState(false);
@@ -37,6 +39,7 @@ export function CheckoutScreen({ navigation }: Props) {
     setLoading(true);
     setKeyReady(false);
     setError(null);
+    setDraftAlreadySubmittedElsewhere(false);
     setPersistenceError(null);
     setAdvanceState({ status: "loading" });
 
@@ -116,6 +119,7 @@ export function CheckoutScreen({ navigation }: Props) {
     submitInFlightRef.current = true;
     setSubmitting(true);
     setError(null);
+    setDraftAlreadySubmittedElsewhere(false);
     try {
       const result = await submitCustomerOrder(idempotencyKey);
       try {
@@ -135,7 +139,9 @@ export function CheckoutScreen({ navigation }: Props) {
         },
       });
     } catch (e) {
-      setError(parseRpcError(e).message);
+      const presentation = classifyCheckoutSubmitError(parseRpcError(e));
+      setDraftAlreadySubmittedElsewhere(presentation.concurrentPromotion);
+      setError(presentation.message);
     } finally {
       submitInFlightRef.current = false;
       setSubmitting(false);
@@ -206,9 +212,18 @@ export function CheckoutScreen({ navigation }: Props) {
             ) : null}
 
             {error ? (
-              <Text style={styles.error} accessibilityRole="alert">
-                {error}
-              </Text>
+              <View>
+                <Text style={styles.error} accessibilityRole="alert">
+                  {error}
+                </Text>
+                {draftAlreadySubmittedElsewhere ? (
+                  <OasisButton
+                    label="View Orders"
+                    variant="secondary"
+                    onPress={() => navigation.navigate("MainTabs", { screen: "Orders" })}
+                  />
+                ) : null}
+              </View>
             ) : null}
 
             <Text style={styles.note}>

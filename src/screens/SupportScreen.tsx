@@ -22,6 +22,13 @@ import {
   type CustomerGeneralQueryCategory,
 } from "@/lib/customer-projections";
 import { clearGeneralQueryIdempotencyKey, getGeneralQueryIdempotencyKey } from "@/lib/general-query-idempotency";
+import {
+  buildSupportTicketPayloadFingerprint,
+  clearSupportTicketIdempotencyKey,
+  getSupportTicketIdempotencyKey,
+  isSupportTicketRetryOutcomeUnknownError,
+  isSupportTicketRetryStorageUnavailableError,
+} from "@/lib/support-ticket-idempotency";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { customerGateway } from "@/services/customerGateway";
 import type { CustomerGeneralQuery, CustomerOrderStatus, CustomerSupportTicket } from "@/types/database.types";
@@ -101,16 +108,39 @@ export function SupportScreen({ navigation }: Props) {
     setSubmittingTicket(true);
     setTicketNotice(null);
     try {
-      await customerGateway.submitTicket({
+      const description = orderDescription.trim();
+      const fingerprint = buildSupportTicketPayloadFingerprint({
         orderId,
         issueType,
-        description: orderDescription.trim(),
+        description,
       });
+      const idempotencyKey = await getSupportTicketIdempotencyKey(fingerprint);
+      const result = await customerGateway.submitTicket({
+        idempotencyKey,
+        orderId,
+        issueType,
+        description,
+      });
+      await clearSupportTicketIdempotencyKey();
       setOrderDescription("");
-      setTicketNotice("Your order support request has been submitted.");
+      setTicketNotice(
+        result.is_duplicate_submission
+          ? "This support request was already received. We have not created a duplicate."
+          : "Your order support request has been submitted."
+      );
       await load();
     } catch (e) {
-      setTicketNotice(parseRpcError(e).message);
+      if (isSupportTicketRetryOutcomeUnknownError(e)) {
+        setTicketNotice(
+          "A previous support request has an uncertain delivery outcome and cannot be matched safely from its text alone. Contact Oasis support for reconciliation before retrying; the app will not submit a possible duplicate automatically."
+        );
+      } else if (isSupportTicketRetryStorageUnavailableError(e)) {
+        setTicketNotice(
+          "Secure retry protection is temporarily unavailable on this device. No support request was submitted. Please try again after device storage is available."
+        );
+      } else {
+        setTicketNotice(parseRpcError(e).message);
+      }
     } finally {
       setSubmittingTicket(false);
     }

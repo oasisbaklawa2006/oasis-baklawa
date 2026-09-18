@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { GENIE_PARSE_ENABLED } from "@/lib/genie-parse-availability";
 
 export type GenieParseMode = "text" | "audio" | "image" | "document";
 
@@ -29,6 +30,17 @@ function normalizeLine(value: unknown): GenieParseLine | null {
 
 /** Governed Oasis Genie edge intake — never invents lines locally when the edge function fails. */
 export async function invokeGenieOrderParse(request: GenieParseRequest): Promise<GenieParseLine[]> {
+  if (!GENIE_PARSE_ENABLED) {
+    // Enforcement chokepoint, not just a UI-level gate: this is the one
+    // function every Genie parse mode funnels through before reaching
+    // supabase.functions.invoke("ai-order-parse", ...) -- a production edge
+    // function slug confirmed not to exist (see genie-parse-availability.ts).
+    // Any future call site, not only AiOrderScreen, is protected by this
+    // check, not just by the screen disabling its own button.
+    throw new Error(
+      "Oasis Genie order parsing is not yet available on this build. Add items from the catalogue instead."
+    );
+  }
   const { data, error } = await supabase.functions.invoke("ai-order-parse", {
     body: {
       mode: request.mode,

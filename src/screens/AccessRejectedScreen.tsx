@@ -3,7 +3,6 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import { Screen } from "@/components/Screen";
-import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { openExternalUrl } from "@/lib/open-external-url";
 import { colors, spacing, typography } from "@/theme";
 
@@ -11,15 +10,13 @@ type Props = NativeStackScreenProps<RootStackParamList, "AccessRejected">;
 
 const SUPPORT_PHONE = "+919999792959";
 
-export function AccessRejectedScreen({ navigation }: Props) {
-  const { snapshot } = useBuyerSession();
-
+export function AccessRejectedScreen({ navigation, route }: Props) {
   return (
     <Screen title="Access Not Approved" subtitle="Trade account application">
       <View style={styles.body}>
         <Text style={styles.copy}>
-          {snapshot?.message ??
-            "Your trade application was not approved for buyer ordering. Contact Oasis Baklawa to discuss next steps."}
+          {route.params?.message ??
+            "This B2B access request is not active. Contact Oasis Baklawa support or submit a new access request if eligible."}
         </Text>
         <TouchableOpacity
           style={styles.primary}
@@ -28,6 +25,13 @@ export function AccessRejectedScreen({ navigation }: Props) {
           accessibilityLabel="Contact buyer support"
         >
           <Text style={styles.primaryText}>Contact buyer support</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.secondary}
+          onPress={() => navigation.replace("Register")}
+          accessibilityRole="button"
+        >
+          <Text style={styles.secondaryText}>Submit a new access request</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.secondary}

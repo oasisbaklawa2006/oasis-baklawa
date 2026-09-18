@@ -34,6 +34,20 @@ export function OrdersScreen({ navigation, route }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  useEffect(() => {
+    // Bottom-tab screens stay mounted and keep their route params across tab
+    // switches (no unmountOnBlur here, nor should there be -- it would
+    // discard the rest of this screen's state too). Without clearing it,
+    // this success banner would reappear every single time the buyer
+    // revisits the Orders tab -- even days later, for an order that's long
+    // since shipped -- rather than showing once. Clear it after the render
+    // that displays it, not before.
+    if (checkoutSuccess) {
+      navigation.setParams({ checkoutSuccess: undefined });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkoutSuccess]);
+
   const loadOrders = useCallback(async ({ showLoader = true }: { showLoader?: boolean } = {}) => {
     if (showLoader) {
       setLoading(true);

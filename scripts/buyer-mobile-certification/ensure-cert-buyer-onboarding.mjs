@@ -90,27 +90,31 @@ if (state.phase === "PENDING_CENTRAL") {
 }
 
 const certMobile = deriveCertMobile(session.userId);
+const certEmail =
+  process.env.BUYER_CERT_EMAIL?.trim() ||
+  `buyer-cert-${createHash("sha256").update(session.userId).digest("hex").slice(0, 12)}@example.invalid`;
 const submitArgs = {
   p_business_name: process.env.BUYER_CERT_BUSINESS_NAME ?? "BUYER MOBILE GOLDEN PATH CERTIFICATION",
+  p_contact_name: "Buyer Mobile Certification",
+  p_contact_email: certEmail,
+  p_contact_phone: certMobile,
   p_gst_number: process.env.BUYER_CERT_GST_NUMBER ?? "99MOBCT0001CZ5",
-  p_contact_person: "Buyer Mobile Certification",
-  p_contact_email: process.env.BUYER_CERT_EMAIL ?? null,
-  p_mobile_number: certMobile,
-  p_city: "Certification City",
   p_registered_address: "Synthetic certification buyer - not a production customer.",
+  p_preferred_dispatch: null,
+  p_preferred_dispatch_other_name: null,
   p_trade_declaration: true,
   p_data_consent: true,
 };
 
 const { data: submitData, error: submitError } = await supabase.rpc(
-  "submit_b2b_trade_application_v1",
+  "submit_b2b_access_request_v2",
   submitArgs
 );
 if (submitError) {
   fail(
     [
-      `Governed trade-application submit failed for certification buyer ${session.userId}.`,
-      `submit_b2b_trade_application_v1: ${submitError.message}`,
+      `Governed B2B access-request submit failed for certification buyer ${session.userId}.`,
+      `submit_b2b_access_request_v2: ${submitError.message}`,
       `mobile=${certMobile}`,
     ].join("\n")
   );
@@ -118,12 +122,12 @@ if (submitError) {
 
 const result = submitData?.[0];
 if (!result?.application_id) {
-  fail(`submit_b2b_trade_application_v1 returned no application row for ${session.userId}.`);
+  fail(`submit_b2b_access_request_v2 returned no application row for ${session.userId}.`);
 }
 
 const afterSubmit = await resolveCertBuyerState(supabase, session.userId);
 console.log(
-  `Governed trade application ensured for ${session.userId}: application=${result.application_id} status=${result.application_status} duplicate=${result.is_duplicate_submission} mobile=${certMobile}`
+  `Governed B2B access request ensured for ${session.userId}: application=${result.application_id} status=${result.application_status} duplicate=${result.duplicate} mobile=${certMobile}`
 );
 console.log(
   `Post-submit auto-resume state: ${JSON.stringify(formatCertBuyerStateSummary(afterSubmit, session.userId))}`

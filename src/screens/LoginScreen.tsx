@@ -136,9 +136,49 @@ export function LoginScreen({ navigation }: Props) {
 
   async function resendOtp(targetChannel: Channel) {
     if (!reqId) return;
+
+    const normalized = validatedIdentifier(targetChannel);
+    if (!normalized) {
+      setError("OTP session is no longer valid. Please start sign-in again.");
+      setReqId(null);
+      setOtp("");
+      setStage("identifier");
+      return;
+    }
+
     setBusy(true);
     setError(null);
+    setBlockedState(null);
     try {
+      // Resend is another OTP request, so eligibility MUST be revalidated.
+      // Never let an earlier approved preflight authorize a later resend.
+      const preflight = await invokeBuyerPreflight(
+        targetChannel,
+        normalized,
+        createAttemptId()
+      );
+      const action = decideLoginAction(preflight);
+
+      if (action.type === "navigate") {
+        navigation.replace(
+          action.screen,
+          action.screen === "Register" ? undefined : { message: action.message }
+        );
+        return;
+      }
+
+      if (action.type === "inline_block") {
+        // Locally retire the stale OTP session as soon as eligibility is no
+        // longer approved. A later Verify press must not continue this flow.
+        setReqId(null);
+        setOtp("");
+        setStage("identifier");
+        setBlockedState(action.state);
+        setError(action.message);
+        return;
+      }
+
+      // action.type === "send_otp" — the ONLY resend path that reaches MSG91.
       await retryMsg91Otp(reqId, targetChannel === "mobile" ? "SMS-11" : "EMAIL-3");
     } catch (e) {
       setError(e instanceof Error ? mapMsg91Error(e.message) : "Could not resend the code.");

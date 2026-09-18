@@ -8,17 +8,23 @@ import {
   resetSupportTicketIdempotencyForTests,
 } from "./support-ticket-idempotency";
 
+const STORAGE_KEY = "oasis_buyer_support_ticket_idempotency_v2";
 const LEGACY_STORAGE_KEY = "oasis_buyer_support_ticket_idempotency_v1";
 
 const browserStorage = new Map<string, string>();
+let storageReadError = false;
+let storageWriteError = false;
+
 Object.defineProperty(globalThis, "window", {
   configurable: true,
   value: {
     localStorage: {
       getItem(key: string) {
+        if (storageReadError) throw new Error("storage read failed");
         return browserStorage.get(key) ?? null;
       },
       setItem(key: string, value: string) {
+        if (storageWriteError) throw new Error("storage write failed");
         browserStorage.set(key, value);
       },
       removeItem(key: string) {
@@ -34,6 +40,8 @@ Object.defineProperty(globalThis, "window", {
 describe("support ticket idempotency", () => {
   beforeEach(() => {
     browserStorage.clear();
+    storageReadError = false;
+    storageWriteError = false;
     resetSupportTicketIdempotencyForTests();
   });
 
@@ -111,5 +119,44 @@ describe("support ticket idempotency", () => {
     await reconcileLegacySupportTicketRetryAsCommitted();
     const fresh = await getSupportTicketIdempotencyKey(fingerprint);
     assert.notEqual(fresh, legacyKey);
+  });
+
+  it("quarantines any persisted state that is not explicitly ready", async () => {
+    browserStorage.set(
+      STORAGE_KEY,
+      JSON.stringify({
+        key: "22222222-2222-4222-8222-222222222222",
+        fingerprint: "prior-payload",
+        state: "unexpected_future_state",
+      })
+    );
+    resetSupportTicketIdempotencyForTests();
+
+    await assert.rejects(
+      () => getSupportTicketIdempotencyKey("new-payload"),
+      /support_ticket_retry_outcome_unknown/
+    );
+  });
+
+  it("fails closed when durable retry state cannot be read", async () => {
+    storageReadError = true;
+    resetSupportTicketIdempotencyForTests();
+
+    await assert.rejects(
+      () => getSupportTicketIdempotencyKey("payload"),
+      /support_ticket_retry_state_unavailable/
+    );
+    assert.equal(browserStorage.size, 0);
+  });
+
+  it("fails closed when a new submission key cannot be persisted", async () => {
+    storageWriteError = true;
+    resetSupportTicketIdempotencyForTests();
+
+    await assert.rejects(
+      () => getSupportTicketIdempotencyKey("payload"),
+      /support_ticket_retry_state_unavailable/
+    );
+    assert.equal(browserStorage.size, 0);
   });
 });

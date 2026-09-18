@@ -184,7 +184,9 @@ export function clearSupportTicketIdempotencyKey(): Promise<void> {
   });
 }
 
-export function isSupportTicketRetryReconciliationRequired(error: unknown): boolean {
+export function isSupportTicketRetryReconciliationRequired(
+  error: unknown
+): error is SupportTicketRetryReconciliationRequiredError {
   return error instanceof SupportTicketRetryReconciliationRequiredError;
 }
 

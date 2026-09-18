@@ -10,6 +10,7 @@ import { decideLoginAction } from "@/lib/login-preflight-action";
 import { isEmailIdentifier, normalizeEmail, normalizePhone } from "@/lib/buyer-identity";
 import { sendMsg91Otp, verifyMsg91Otp, retryMsg91Otp } from "@/lib/msg91-otp-widget";
 import { bridgeMsg91SessionAndClaim } from "@/lib/buyer-session-bridge";
+import { createIdempotencyKey } from "@/lib/idempotency";
 import { openExternalUrl } from "@/lib/open-external-url";
 import { colors, spacing, typography, touchTarget } from "@/theme";
 
@@ -22,7 +23,7 @@ const SUPPORT_WHATSAPP =
   "https://wa.me/919891162212?text=Hello%20Oasis%20Baklawa%2C%20I%20need%20help%20logging%20in.";
 
 function createAttemptId(): string {
-  return `native-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  return `native-${createIdempotencyKey()}`;
 }
 
 export function LoginScreen({ navigation }: Props) {

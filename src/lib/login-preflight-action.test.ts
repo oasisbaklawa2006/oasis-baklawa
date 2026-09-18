@@ -159,10 +159,7 @@ describe("normalizeBuyerPreflightResponse — untrusted gateway boundary", () =>
 
 describe("LoginScreen OTP request contract", () => {
   it("revalidates Buyer eligibility before every resend and only then reaches MSG91", () => {
-    const source = readFileSync(
-      new URL("../screens/LoginScreen.tsx", import.meta.url),
-      "utf8"
-    );
+    const source = readFileSync("src/screens/LoginScreen.tsx", "utf8");
     const start = source.indexOf("async function resendOtp");
     const end = source.indexOf("\n  return (", start);
     assert.ok(start >= 0 && end > start, "resendOtp implementation must be present");

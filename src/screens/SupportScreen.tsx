@@ -26,7 +26,8 @@ import {
   buildSupportTicketPayloadFingerprint,
   clearSupportTicketIdempotencyKey,
   getSupportTicketIdempotencyKey,
-  isSupportTicketRetryReconciliationRequired,
+  isSupportTicketRetryOutcomeUnknownError,
+  reconcileLegacySupportTicketRetryAsCommitted,
 } from "@/lib/support-ticket-idempotency";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { customerGateway } from "@/services/customerGateway";
@@ -129,11 +130,31 @@ export function SupportScreen({ navigation }: Props) {
       );
       await load();
     } catch (e) {
-      setTicketNotice(
-        isSupportTicketRetryReconciliationRequired(e)
-          ? e.message
-          : parseRpcError(e).message
-      );
+      if (isSupportTicketRetryOutcomeUnknownError(e)) {
+        const description = orderDescription.trim();
+        const normalizeIssueType = (value: string) =>
+          value.trim().toLowerCase().replace(/\s+/g, "_");
+        const committed = tickets.some(
+          (ticket) =>
+            ticket.order_id === orderId &&
+            normalizeIssueType(ticket.issue_type) === normalizeIssueType(issueType) &&
+            ticket.description.trim() === description
+        );
+
+        if (committed) {
+          await reconcileLegacySupportTicketRetryAsCommitted();
+          setOrderDescription("");
+          setTicketNotice(
+            "This support request already appears in your communication log. We have not created a duplicate."
+          );
+        } else {
+          setTicketNotice(
+            "A previous support request has an uncertain delivery outcome. Refresh the communication log or contact Oasis support before retrying; the app will not submit a possible duplicate automatically."
+          );
+        }
+      } else {
+        setTicketNotice(parseRpcError(e).message);
+      }
     } finally {
       setSubmittingTicket(false);
     }

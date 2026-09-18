@@ -68,7 +68,7 @@ export async function bridgeMsg91SessionAndClaim(
     // the same Auth user. Clear the just-created persisted session before
     // failing closed so a malformed/inconsistent handoff cannot leave a
     // different user authenticated on the device.
-    await supabase.auth.signOut().catch(() => undefined);
+    await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
     throw new Error("session_identity_mismatch");
   }
 

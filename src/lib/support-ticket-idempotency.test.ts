@@ -23,6 +23,23 @@ describe("support ticket idempotency", () => {
     assert.equal(await getSupportTicketIdempotencyKey(fingerprint), first);
   });
 
+  it("serializes concurrent cold-start requests so one payload gets one key", async () => {
+    const fingerprint = buildSupportTicketPayloadFingerprint({
+      orderId: "order-1",
+      issueType: "Damaged goods",
+      description: "Outer box was crushed",
+    });
+
+    const [first, second, third] = await Promise.all([
+      getSupportTicketIdempotencyKey(fingerprint),
+      getSupportTicketIdempotencyKey(fingerprint),
+      getSupportTicketIdempotencyKey(fingerprint),
+    ]);
+
+    assert.equal(second, first);
+    assert.equal(third, first);
+  });
+
   it("rotates before retrying a changed payload", async () => {
     const firstFingerprint = buildSupportTicketPayloadFingerprint({
       orderId: "order-1",
@@ -40,21 +57,16 @@ describe("support ticket idempotency", () => {
     assert.notEqual(first, second);
   });
 
-  it("rotates immediately after Core acknowledges the submission", async () => {
-    const firstFingerprint = buildSupportTicketPayloadFingerprint({
+  it("rotates immediately after Core acknowledges the same payload", async () => {
+    const fingerprint = buildSupportTicketPayloadFingerprint({
       orderId: "order-1",
       issueType: "Damaged goods",
       description: "Outer box was crushed",
     });
-    const secondFingerprint = buildSupportTicketPayloadFingerprint({
-      orderId: "order-2",
-      issueType: "Delivery question",
-      description: "Please confirm the transporter",
-    });
 
-    const first = await getSupportTicketIdempotencyKey(firstFingerprint);
+    const first = await getSupportTicketIdempotencyKey(fingerprint);
     await clearSupportTicketIdempotencyKey();
-    const second = await getSupportTicketIdempotencyKey(secondFingerprint);
+    const second = await getSupportTicketIdempotencyKey(fingerprint);
     assert.notEqual(first, second);
   });
 });

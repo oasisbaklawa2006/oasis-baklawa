@@ -4,7 +4,7 @@ import { decideLoginAction } from "./login-preflight-action";
 import {
   normalizeBuyerPreflightResponse,
   type BuyerPreflightResult,
-} from "./buyer-preflight";
+} from "./buyer-preflight-contract";
 
 function preflight(
   state: BuyerPreflightResult["state"],

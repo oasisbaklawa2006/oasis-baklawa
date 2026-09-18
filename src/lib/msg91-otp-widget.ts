@@ -7,6 +7,7 @@
 // server-side in msg91-otp / msg91-email-session (Central edge functions) —
 // this module never talks to MSG91's privileged REST API directly.
 import { OTPWidget } from "@msg91comm/sendotp-react-native";
+import { normalizeMsg91SendResponse, type Msg91SendResult } from "@/lib/msg91-otp-contract";
 
 // TODO(deployment): these must be the Buyer App's OWN MSG91 widget
 // credentials with "Mobile Integration" enabled in the MSG91 dashboard — they
@@ -27,29 +28,11 @@ export function ensureMsg91WidgetInitialized(): void {
   initialized = true;
 }
 
-export interface Msg91SendResult {
-  accessToken: string | null;
-  reqId: string | null;
-  invisibleVerified: boolean;
-}
-
 /** identifier: E.164-ish digits without '+' for mobile (e.g. "9198XXXXXXXX"), or a bare email. */
 export async function sendMsg91Otp(identifier: string): Promise<Msg91SendResult> {
   ensureMsg91WidgetInitialized();
-  const response = (await OTPWidget.sendOTP({ identifier })) as {
-    type?: string;
-    message?: string;
-    "access-token"?: string;
-    invisibleVerified?: boolean;
-  };
-  if (response?.type !== "success") {
-    throw new Error(response?.message || "msg91_send_failed");
-  }
-  if (response.invisibleVerified && response["access-token"]) {
-    return { accessToken: response["access-token"], reqId: null, invisibleVerified: true };
-  }
-  // Normal flow: `message` carries the reqId used for verifyOTP/retryOTP.
-  return { accessToken: null, reqId: response.message ?? null, invisibleVerified: false };
+  const response = await OTPWidget.sendOTP({ identifier });
+  return normalizeMsg91SendResponse(response);
 }
 
 export async function verifyMsg91Otp(reqId: string, otp: string): Promise<string> {

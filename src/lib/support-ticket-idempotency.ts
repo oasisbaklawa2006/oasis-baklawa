@@ -23,6 +23,38 @@ export interface SupportTicketPayload {
 let memoryRecord: SupportTicketRetryRecord | null = null;
 let operationChain: Promise<void> = Promise.resolve();
 
+export class SupportTicketRetryOutcomeUnknownError extends Error {
+  constructor() {
+    super("support_ticket_retry_outcome_unknown");
+    this.name = "SupportTicketRetryOutcomeUnknownError";
+  }
+}
+
+export class SupportTicketRetryStorageUnavailableError extends Error {
+  constructor() {
+    super("support_ticket_retry_state_unavailable");
+    this.name = "SupportTicketRetryStorageUnavailableError";
+  }
+}
+
+export function isSupportTicketRetryOutcomeUnknownError(
+  error: unknown
+): error is SupportTicketRetryOutcomeUnknownError {
+  return (
+    error instanceof SupportTicketRetryOutcomeUnknownError ||
+    (error instanceof Error && error.message === "support_ticket_retry_outcome_unknown")
+  );
+}
+
+export function isSupportTicketRetryStorageUnavailableError(
+  error: unknown
+): error is SupportTicketRetryStorageUnavailableError {
+  return (
+    error instanceof SupportTicketRetryStorageUnavailableError ||
+    (error instanceof Error && error.message === "support_ticket_retry_state_unavailable")
+  );
+}
+
 export function buildSupportTicketPayloadFingerprint(input: SupportTicketPayload): string {
   return JSON.stringify({
     orderId: input.orderId.trim(),
@@ -37,20 +69,27 @@ function parseStoredRecord(raw: string | null): SupportTicketRetryRecord | null 
   if (!raw?.trim()) return null;
 
   try {
-    const parsed = JSON.parse(raw) as Partial<SupportTicketRetryRecord>;
+    const parsed = JSON.parse(raw) as Partial<SupportTicketRetryRecord> & {
+      state?: unknown;
+    };
     if (
       typeof parsed.key === "string" &&
       parsed.key.trim().length > 0 &&
       (typeof parsed.fingerprint === "string" || parsed.fingerprint === null)
     ) {
+      const state: RetryRecordState =
+        parsed.state === undefined || parsed.state === "ready"
+          ? "ready"
+          : "legacy_unknown";
+
       return {
         key: parsed.key,
         fingerprint: parsed.fingerprint,
-        state: parsed.state === "legacy_unknown" ? "legacy_unknown" : "ready",
+        state,
       };
     }
   } catch {
-    // A historical v1 record was a bare idempotency key. Preserve it as an
+    // Historical v1 data could be a bare idempotency key. Preserve it as an
     // unknown-outcome retry state; never silently substitute a new key.
     return {
       key: raw.trim(),
@@ -59,7 +98,14 @@ function parseStoredRecord(raw: string | null): SupportTicketRetryRecord | null 
     };
   }
 
-  return null;
+  // Any non-empty record that cannot be proven to be the current ready schema
+  // is treated as an unknown prior outcome. Do not manufacture a replacement
+  // key that could duplicate an already-accepted request.
+  return {
+    key: raw.trim(),
+    fingerprint: null,
+    state: "legacy_unknown",
+  };
 }
 
 function resolveRecord(
@@ -92,30 +138,46 @@ async function persistBestEffort(record: SupportTicketRetryRecord): Promise<void
   try {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(record));
   } catch {
-    // memoryRecord remains authoritative for this process. The caller can
-    // still retry safely even when device storage is temporarily unavailable.
+    // Used only after Core has already acknowledged a request, or while
+    // preserving a quarantined legacy record. The in-process state remains
+    // fail-closed/safe.
+  }
+}
+
+async function persistBeforeSubmission(record: SupportTicketRetryRecord): Promise<void> {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(record));
+  } catch {
+    throw new SupportTicketRetryStorageUnavailableError();
+  }
+}
+
+async function readStorage(key: string): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(key);
+  } catch {
+    throw new SupportTicketRetryStorageUnavailableError();
   }
 }
 
 async function loadInitialRecord(): Promise<SupportTicketRetryRecord | null> {
-  try {
-    const current = parseStoredRecord(await AsyncStorage.getItem(STORAGE_KEY));
-    if (current) return current;
+  const currentRaw = await readStorage(STORAGE_KEY);
+  const current = parseStoredRecord(currentRaw);
+  if (current) return current;
 
-    const legacyRaw = await AsyncStorage.getItem(LEGACY_STORAGE_KEY);
-    if (legacyRaw?.trim()) {
-      const legacy: SupportTicketRetryRecord = {
-        key: legacyRaw.trim(),
-        fingerprint: null,
-        state: "legacy_unknown",
-      };
-      await persistBestEffort(legacy);
-      return legacy;
-    }
-  } catch {
-    // Fall through to an in-memory retry record only when there is no durable
-    // legacy state available to preserve.
+  const legacyRaw = await readStorage(LEGACY_STORAGE_KEY);
+  if (legacyRaw?.trim()) {
+    const legacy: SupportTicketRetryRecord = {
+      key: legacyRaw.trim(),
+      fingerprint: null,
+      state: "legacy_unknown",
+    };
+    await persistBestEffort(legacy);
+    return legacy;
   }
+
+  // Null is returned only after both durable storage reads have succeeded and
+  // confirmed that no retry state exists.
   return null;
 }
 
@@ -128,30 +190,13 @@ function runExclusive<T>(operation: () => Promise<T>): Promise<T> {
   return result;
 }
 
-export class SupportTicketRetryOutcomeUnknownError extends Error {
-  constructor() {
-    super("support_ticket_retry_outcome_unknown");
-    this.name = "SupportTicketRetryOutcomeUnknownError";
-  }
-}
-
-export function isSupportTicketRetryOutcomeUnknownError(
-  error: unknown
-): error is SupportTicketRetryOutcomeUnknownError {
-  return (
-    error instanceof SupportTicketRetryOutcomeUnknownError ||
-    (error instanceof Error && error.message === "support_ticket_retry_outcome_unknown")
-  );
-}
-
 /**
  * Returns a retry key bound to the exact ticket payload. All storage reads,
  * record resolution and persistence are serialized so cold-start concurrent
  * callers cannot generate competing keys.
  *
- * Historical v1 bare keys are quarantined as unknown-outcome state and block
- * automatic submission until the caller reconciles whether the prior request
- * was committed.
+ * Historical/unknown records are quarantined and block automatic submission
+ * until a uniquely correlated outcome can be reconciled.
  */
 export async function getSupportTicketIdempotencyKey(fingerprint: string): Promise<string> {
   if (!fingerprint.trim()) {
@@ -166,12 +211,14 @@ export async function getSupportTicketIdempotencyKey(fingerprint: string): Promi
     }
 
     const resolved = resolveRecord(memoryRecord, fingerprint);
-    memoryRecord = resolved.record;
 
     if (resolved.changed) {
-      await persistBestEffort(resolved.record);
+      // A submission key must be durable before it can leave the device. If
+      // storage is unreadable/unwritable, fail closed and do not call Core.
+      await persistBeforeSubmission(resolved.record);
     }
 
+    memoryRecord = resolved.record;
     return resolved.record.key;
   });
 }
@@ -194,15 +241,15 @@ export async function clearSupportTicketIdempotencyKey(): Promise<void> {
     try {
       await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
     } catch {
-      // The v2 rotated in-memory record remains authoritative for this process.
+      // The rotated in-memory record remains authoritative for this process.
     }
   });
 }
 
 /**
- * Call only after the communication log proves the legacy unknown request was
- * already committed. This removes the quarantined legacy key and rotates to a
- * fresh ready state without submitting anything automatically.
+ * Call only after an external/manual reconciliation can uniquely correlate the
+ * quarantined legacy key (or another unique submission identifier) with a
+ * committed Core ticket. Payload equality alone is never sufficient.
  */
 export async function reconcileLegacySupportTicketRetryAsCommitted(): Promise<void> {
   await runExclusive(async () => {

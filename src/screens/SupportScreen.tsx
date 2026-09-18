@@ -26,6 +26,7 @@ import {
   buildSupportTicketPayloadFingerprint,
   clearSupportTicketIdempotencyKey,
   getSupportTicketIdempotencyKey,
+  isSupportTicketRetryReconciliationRequired,
 } from "@/lib/support-ticket-idempotency";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { customerGateway } from "@/services/customerGateway";
@@ -128,7 +129,11 @@ export function SupportScreen({ navigation }: Props) {
       );
       await load();
     } catch (e) {
-      setTicketNotice(parseRpcError(e).message);
+      setTicketNotice(
+        isSupportTicketRetryReconciliationRequired(e)
+          ? e.message
+          : parseRpcError(e).message
+      );
     } finally {
       setSubmittingTicket(false);
     }

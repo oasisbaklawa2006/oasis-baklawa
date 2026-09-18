@@ -19,7 +19,8 @@
     "census:p106": "node --import tsx scripts/p106-quote-authority-census.ts",
     "rc:scan": "node scripts/rc-forensic-scan.mjs",
     "rc:navigation": "node scripts/rc-navigation-audit.mjs",
-    "quality": "npm run verify:boundary && npm run rc:scan && npm run rc:navigation && npm run typecheck && npm run lint && npm run test && npm run census:p106 && npx expo config --type public"
+    "quality": "npm run verify:boundary && npm run rc:scan && npm run rc:navigation && npm run typecheck && npm run lint && npm run test && npm run census:p106 && npx expo config --type public",
+    "eas-build-post-install": "node scripts/validate-msg91-build-config.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/hanken-grotesk": "^0.4.3",

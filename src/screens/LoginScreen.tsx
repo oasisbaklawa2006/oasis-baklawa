@@ -282,8 +282,12 @@ function mapSessionError(raw: string): string {
   if (raw.startsWith("APPROVED_B2B_IDENTITY_CLAIM_FAILED")) {
     return "We verified your code but couldn't activate your buyer account. Please contact Oasis support.";
   }
-  if (raw === "session_token_missing" || raw === "session_create_failed") {
-    return "We couldn't complete sign-in. Please try again.";
+  if (
+    raw === "session_token_missing" ||
+    raw === "session_create_failed" ||
+    raw === "session_identity_mismatch"
+  ) {
+    return "We couldn't complete sign-in safely. Please try again or contact Oasis support.";
   }
   return raw;
 }

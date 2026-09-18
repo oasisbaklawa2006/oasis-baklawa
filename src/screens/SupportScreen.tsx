@@ -27,7 +27,7 @@ import {
   clearSupportTicketIdempotencyKey,
   getSupportTicketIdempotencyKey,
   isSupportTicketRetryOutcomeUnknownError,
-  reconcileLegacySupportTicketRetryAsCommitted,
+  isSupportTicketRetryStorageUnavailableError,
 } from "@/lib/support-ticket-idempotency";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { customerGateway } from "@/services/customerGateway";
@@ -131,27 +131,13 @@ export function SupportScreen({ navigation }: Props) {
       await load();
     } catch (e) {
       if (isSupportTicketRetryOutcomeUnknownError(e)) {
-        const description = orderDescription.trim();
-        const normalizeIssueType = (value: string) =>
-          value.trim().toLowerCase().replace(/\s+/g, "_");
-        const committed = tickets.some(
-          (ticket) =>
-            ticket.order_id === orderId &&
-            normalizeIssueType(ticket.issue_type) === normalizeIssueType(issueType) &&
-            ticket.description.trim() === description
+        setTicketNotice(
+          "A previous support request has an uncertain delivery outcome and cannot be matched safely from its text alone. Contact Oasis support for reconciliation before retrying; the app will not submit a possible duplicate automatically."
         );
-
-        if (committed) {
-          await reconcileLegacySupportTicketRetryAsCommitted();
-          setOrderDescription("");
-          setTicketNotice(
-            "This support request already appears in your communication log. We have not created a duplicate."
-          );
-        } else {
-          setTicketNotice(
-            "A previous support request has an uncertain delivery outcome. Refresh the communication log or contact Oasis support before retrying; the app will not submit a possible duplicate automatically."
-          );
-        }
+      } else if (isSupportTicketRetryStorageUnavailableError(e)) {
+        setTicketNotice(
+          "Secure retry protection is temporarily unavailable on this device. No support request was submitted. Please try again after device storage is available."
+        );
       } else {
         setTicketNotice(parseRpcError(e).message);
       }

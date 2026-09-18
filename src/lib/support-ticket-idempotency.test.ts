@@ -1,6 +1,7 @@
 import { beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildSupportTicketPayloadFingerprint,
   clearSupportTicketIdempotencyKey,
   getSupportTicketIdempotencyKey,
   resetSupportTicketIdempotencyForTests,
@@ -11,19 +12,49 @@ describe("support ticket idempotency", () => {
     resetSupportTicketIdempotencyForTests();
   });
 
-  it("reuses one key across lost-response retries -- this is the client half of the fix that " +
-    "added submit_customer_support_ticket_v2 (branch support-ticket-idempotency-v2): v1 had no " +
-    "idempotency protection at all, and a retry after a dropped/timed-out response created a " +
-    "genuine duplicate ticket", async () => {
-    const first = await getSupportTicketIdempotencyKey();
+  it("reuses one key only for the same normalized ticket payload", async () => {
+    const fingerprint = buildSupportTicketPayloadFingerprint({
+      orderId: "order-1",
+      issueType: "Damaged goods",
+      description: " Outer box was crushed ",
+    });
+    const first = await getSupportTicketIdempotencyKey(fingerprint);
     assert.match(first, /^[0-9a-f-]{36}$/i);
-    assert.equal(await getSupportTicketIdempotencyKey(), first);
+    assert.equal(await getSupportTicketIdempotencyKey(fingerprint), first);
   });
 
-  it("rotates only after Core acknowledges the submission", async () => {
-    const first = await getSupportTicketIdempotencyKey();
+  it("rotates before retrying a changed payload", async () => {
+    const firstFingerprint = buildSupportTicketPayloadFingerprint({
+      orderId: "order-1",
+      issueType: "Damaged goods",
+      description: "Outer box was crushed",
+    });
+    const changedFingerprint = buildSupportTicketPayloadFingerprint({
+      orderId: "order-1",
+      issueType: "Missing items",
+      description: "Two packs are missing",
+    });
+
+    const first = await getSupportTicketIdempotencyKey(firstFingerprint);
+    const second = await getSupportTicketIdempotencyKey(changedFingerprint);
+    assert.notEqual(first, second);
+  });
+
+  it("rotates immediately after Core acknowledges the submission", async () => {
+    const firstFingerprint = buildSupportTicketPayloadFingerprint({
+      orderId: "order-1",
+      issueType: "Damaged goods",
+      description: "Outer box was crushed",
+    });
+    const secondFingerprint = buildSupportTicketPayloadFingerprint({
+      orderId: "order-2",
+      issueType: "Delivery question",
+      description: "Please confirm the transporter",
+    });
+
+    const first = await getSupportTicketIdempotencyKey(firstFingerprint);
     await clearSupportTicketIdempotencyKey();
-    const second = await getSupportTicketIdempotencyKey();
+    const second = await getSupportTicketIdempotencyKey(secondFingerprint);
     assert.notEqual(first, second);
   });
 });

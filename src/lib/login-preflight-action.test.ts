@@ -1,9 +1,16 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { decideLoginAction } from "./login-preflight-action";
-import type { BuyerPreflightResult } from "./buyer-preflight";
+import {
+  normalizeBuyerPreflightResponse,
+  type BuyerPreflightResult,
+} from "./buyer-preflight";
 
-function preflight(state: BuyerPreflightResult["state"], allowOtp: boolean, message = "msg"): BuyerPreflightResult {
+function preflight(
+  state: BuyerPreflightResult["state"],
+  allowOtp: boolean,
+  message = "msg"
+): BuyerPreflightResult {
   return { state, allowOtp, message };
 }
 
@@ -12,22 +19,45 @@ describe("decideLoginAction — buyer-login-gateway preflight branches", () => {
     assert.deepEqual(decideLoginAction(preflight("approved", true)), { type: "send_otp" });
   });
 
-  it("critical invariant: no non-approved state ever produces a send_otp action", () => {
-    const nonApproved: BuyerPreflightResult["state"][] = ["pending", "rejected", "unknown", "employee", "ambiguous"];
+  it("critical invariant: no non-approved state ever produces a send_otp action even if allowOtp is malformed true", () => {
+    const nonApproved: BuyerPreflightResult["state"][] = [
+      "pending",
+      "rejected",
+      "unknown",
+      "employee",
+      "ambiguous",
+    ];
     for (const state of nonApproved) {
-      const action = decideLoginAction(preflight(state, false));
+      const action = decideLoginAction(preflight(state, true));
       assert.notEqual(action.type, "send_otp", `state "${state}" must never produce send_otp`);
     }
   });
 
+  it("approved without allowOtp fails closed instead of sending OTP", () => {
+    const action = decideLoginAction(preflight("approved", false, "not permitted"));
+    assert.deepEqual(action, {
+      type: "inline_block",
+      state: "approved",
+      message: "not permitted",
+    });
+  });
+
   it("PENDING: navigates to AccessPending, no OTP", () => {
     const action = decideLoginAction(preflight("pending", false, "under review"));
-    assert.deepEqual(action, { type: "navigate", screen: "AccessPending", message: "under review" });
+    assert.deepEqual(action, {
+      type: "navigate",
+      screen: "AccessPending",
+      message: "under review",
+    });
   });
 
   it("REJECTED: navigates to AccessRejected, no OTP", () => {
     const action = decideLoginAction(preflight("rejected", false, "not approved"));
-    assert.deepEqual(action, { type: "navigate", screen: "AccessRejected", message: "not approved" });
+    assert.deepEqual(action, {
+      type: "navigate",
+      screen: "AccessRejected",
+      message: "not approved",
+    });
   });
 
   it("UNKNOWN: navigates to Register (Request B2B Access), no OTP", () => {
@@ -35,30 +65,92 @@ describe("decideLoginAction — buyer-login-gateway preflight branches", () => {
     assert.deepEqual(action, { type: "navigate", screen: "Register" });
   });
 
-  it("EMPLOYEE: blocks inline with Admin Login instruction — no Buyer OTP, no Buyer session, " +
-    "no Buyer membership. The destination offered is the existing Admin Login surface " +
-    "(work email + password, standard Supabase auth), never a Staff OTP flow, which this " +
-    "app does not and must not implement", () => {
-    const action = decideLoginAction(preflight("employee", false, "belongs to an Oasis employee account"));
-    assert.deepEqual(action, { type: "inline_block", state: "employee", message: "belongs to an Oasis employee account" });
-    // Structurally: this action type is never "send_otp" and never "navigate"
-    // to any Buyer screen (Dashboard, Register, AccessPending, AccessRejected)
-    // — it cannot create a Buyer session or membership because the OTP
-    // transport (sendMsg91Otp) is simply never invoked for this action type.
-    assert.notEqual(action.type, "send_otp");
-    assert.notEqual(action.type, "navigate");
-  });
+  it(
+    "EMPLOYEE: blocks inline with Admin Login instruction — no Buyer OTP, no Buyer session, " +
+      "no Buyer membership",
+    () => {
+      const action = decideLoginAction(
+        preflight("employee", false, "belongs to an Oasis employee account")
+      );
+      assert.deepEqual(action, {
+        type: "inline_block",
+        state: "employee",
+        message: "belongs to an Oasis employee account",
+      });
+      assert.notEqual(action.type, "send_otp");
+      assert.notEqual(action.type, "navigate");
+    }
+  );
 
   it("AMBIGUOUS: fails closed inline with a support action, no OTP", () => {
-    const action = decideLoginAction(preflight("ambiguous", false, "conflicting records"));
-    assert.deepEqual(action, { type: "inline_block", state: "ambiguous", message: "conflicting records" });
+    const action = decideLoginAction(
+      preflight("ambiguous", false, "conflicting records")
+    );
+    assert.deepEqual(action, {
+      type: "inline_block",
+      state: "ambiguous",
+      message: "conflicting records",
+    });
+  });
+});
+
+describe("normalizeBuyerPreflightResponse — untrusted gateway boundary", () => {
+  it("accepts only the canonical approved + allowOtp true combination", () => {
+    assert.deepEqual(
+      normalizeBuyerPreflightResponse({
+        ok: true,
+        state: "approved",
+        allowOtp: true,
+        message: "",
+      }),
+      { state: "approved", allowOtp: true, message: "" }
+    );
   });
 
-  it("defers entirely to allowOtp rather than re-deriving eligibility from state — if the " +
-    "gateway ever sent allowOtp:true for a non-'approved' state, this function would still " +
-    "send OTP (no client-side eligibility reconstruction), matching the contract that the " +
-    "gateway alone is authoritative", () => {
-    const action = decideLoginAction(preflight("pending", true));
-    assert.deepEqual(action, { type: "send_otp" });
+  it("rejects an unknown state even when allowOtp is true", () => {
+    const result = normalizeBuyerPreflightResponse({
+      ok: true,
+      state: "invalid",
+      allowOtp: true,
+    });
+    assert.equal(result.state, "ambiguous");
+    assert.equal(result.allowOtp, false);
+  });
+
+  it("rejects allowOtp true for every non-approved state", () => {
+    for (const state of ["pending", "employee", "rejected", "unknown", "ambiguous"]) {
+      const result = normalizeBuyerPreflightResponse({
+        ok: true,
+        state,
+        allowOtp: true,
+      });
+      assert.equal(result.state, "ambiguous");
+      assert.equal(result.allowOtp, false);
+    }
+  });
+
+  it("rejects approved when allowOtp is false or missing", () => {
+    for (const payload of [
+      { ok: true, state: "approved", allowOtp: false },
+      { ok: true, state: "approved" },
+    ]) {
+      const result = normalizeBuyerPreflightResponse(payload);
+      assert.equal(result.state, "ambiguous");
+      assert.equal(result.allowOtp, false);
+    }
+  });
+
+  it("accepts valid non-approved states only with allowOtp false", () => {
+    const result = normalizeBuyerPreflightResponse({
+      ok: true,
+      state: "pending",
+      allowOtp: false,
+      message: "under review",
+    });
+    assert.deepEqual(result, {
+      state: "pending",
+      allowOtp: false,
+      message: "under review",
+    });
   });
 });

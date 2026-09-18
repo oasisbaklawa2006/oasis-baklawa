@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
@@ -44,14 +44,17 @@ export function ProductDetailScreen({ navigation, route }: Props) {
   const [favouriteBusy, setFavouriteBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [existingCartQuantity, setExistingCartQuantity] = useState<number | null>(null);
+  const loadGenerationRef = useRef(0);
 
   const load = useCallback(async () => {
+    const generation = ++loadGenerationRef.current;
     setLoading(true);
     setError(null);
     try {
       const catalogue = await fetchCatalogue({ includeBuyerPrices: isApprovedBuyer });
       const match = catalogue.find((p) => p.product_id === productId) ?? null;
-      setProduct(match);
+      if (generation !== loadGenerationRef.current) return;
+
       let inCartQuantity: number | null = null;
       if (match && isApprovedBuyer) {
         // Without this, quantity always resets to the MOQ default, and
@@ -71,6 +74,9 @@ export function ProductDetailScreen({ navigation, route }: Props) {
           // below, same as before this fix.
         }
       }
+
+      if (generation !== loadGenerationRef.current) return;
+      setProduct(match);
       setExistingCartQuantity(inCartQuantity);
       if (inCartQuantity !== null) {
         setQuantity(inCartQuantity);
@@ -82,9 +88,13 @@ export function ProductDetailScreen({ navigation, route }: Props) {
       }
       if (!match) setError("Product not found in the published catalogue.");
     } catch (e) {
-      setError(parseRpcError(e).message);
+      if (generation === loadGenerationRef.current) {
+        setError(parseRpcError(e).message);
+      }
     } finally {
-      setLoading(false);
+      if (generation === loadGenerationRef.current) {
+        setLoading(false);
+      }
     }
   }, [productId, isApprovedBuyer]);
 

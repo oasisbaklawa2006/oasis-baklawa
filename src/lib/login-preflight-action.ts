@@ -13,13 +13,12 @@ export type LoginPreflightAction =
   | { type: "inline_block"; state: BuyerPreflightState; message: string };
 
 /**
- * The single critical invariant this app enforces: sendOTP is only ever
- * reachable for state === "approved" (equivalently, allowOtp === true, which
- * the gateway sets exclusively for "approved"). Every other state is routed
- * away or blocked inline -- none of them reach the OTP transport.
+ * Defense-in-depth for the parser boundary: even if a malformed result somehow
+ * reaches this pure decision layer, OTP is reachable only when BOTH the
+ * canonical state is approved and the gateway permission is true.
  */
 export function decideLoginAction(preflight: BuyerPreflightResult): LoginPreflightAction {
-  if (preflight.allowOtp) {
+  if (preflight.state === "approved" && preflight.allowOtp === true) {
     return { type: "send_otp" };
   }
   if (preflight.state === "pending") {
@@ -32,12 +31,8 @@ export function decideLoginAction(preflight: BuyerPreflightResult): LoginPreflig
     return { type: "navigate", screen: "Register" };
   }
   // employee: this Buyer App has no staff authentication of its own — Oasis
-  // employees (admins, management, sales, accounts, dispatch, factory,
-  // operations, etc.) authenticate exclusively through the separate Admin
-  // Login surface (registered work email + password, standard Supabase
-  // email/password session), never through Buyer OTP. This function only
-  // signals the block; LoginScreen shows the Admin Login instruction inline.
-  // ambiguous: no dedicated destination either — fail closed inline with a
-  // support action, matching Central's own inline (non-navigating) treatment.
+  // employees authenticate exclusively through the separate Admin Login.
+  // ambiguous, or any contradictory approved/allowOtp=false result: fail closed
+  // inline and never reach the OTP transport.
   return { type: "inline_block", state: preflight.state, message: preflight.message };
 }

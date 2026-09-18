@@ -1,45 +1,132 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createIdempotencyKey } from "@/lib/idempotency";
 
-const STORAGE_KEY = "oasis_buyer_support_ticket_idempotency_v1";
+const STORAGE_KEY = "oasis_buyer_support_ticket_idempotency_v2";
 
-let fallbackKey: string | null = null;
+interface SupportTicketRetryRecord {
+  key: string;
+  fingerprint: string | null;
+}
+
+export interface SupportTicketPayload {
+  orderId: string;
+  issueType: string;
+  description: string;
+  productSku?: string | null;
+  quantityAffected?: number | null;
+}
+
+let memoryRecord: SupportTicketRetryRecord | null = null;
+
+export function buildSupportTicketPayloadFingerprint(input: SupportTicketPayload): string {
+  return JSON.stringify({
+    orderId: input.orderId.trim(),
+    issueType: input.issueType.trim().toLowerCase().replace(/\s+/g, "_"),
+    description: input.description.trim(),
+    productSku: input.productSku?.trim() || null,
+    quantityAffected: input.quantityAffected ?? null,
+  });
+}
+
+function parseStoredRecord(raw: string | null): SupportTicketRetryRecord | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<SupportTicketRetryRecord>;
+    if (
+      typeof parsed.key === "string" &&
+      parsed.key.trim().length > 0 &&
+      (typeof parsed.fingerprint === "string" || parsed.fingerprint === null)
+    ) {
+      return { key: parsed.key, fingerprint: parsed.fingerprint };
+    }
+  } catch {
+    // Legacy v1 storage contained only a bare key. It is deliberately not
+    // reused because it cannot be proven to belong to the current payload.
+  }
+  return null;
+}
+
+function resolveRecord(
+  current: SupportTicketRetryRecord | null,
+  fingerprint: string
+): { record: SupportTicketRetryRecord; changed: boolean } {
+  if (current?.fingerprint === fingerprint) {
+    return { record: current, changed: false };
+  }
+  if (current?.fingerprint === null) {
+    return { record: { ...current, fingerprint }, changed: true };
+  }
+  return {
+    record: { key: createIdempotencyKey(), fingerprint },
+    changed: true,
+  };
+}
+
+async function persistBestEffort(record: SupportTicketRetryRecord): Promise<void> {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(record));
+  } catch {
+    // memoryRecord remains authoritative for this process. The caller can
+    // still retry safely even when device storage is temporarily unavailable.
+  }
+}
 
 /**
- * Returns a stable key so a lost/timed-out ticket-submission response can be
- * retried safely without creating a duplicate ticket. Companion to
- * general-query-idempotency.ts, required by Core's
- * submit_customer_support_ticket_v2(p_idempotency_key, ...) -- a new,
- * backward-compatible RPC (branch support-ticket-idempotency-v2) added
- * alongside the original submit_customer_support_ticket_v1, which had no
- * idempotency protection at all beyond this app's own disabled-while-
- * submitting button and remains deployed, unchanged, for any client still
- * on the old signature.
+ * Returns a retry key bound to the exact ticket payload. A lost/timed-out
+ * response may reuse the key only while the payload fingerprint is unchanged;
+ * editing order/type/description rotates the key before the next submission.
  */
-export async function getSupportTicketIdempotencyKey(): Promise<string> {
+export async function getSupportTicketIdempotencyKey(fingerprint: string): Promise<string> {
+  if (!fingerprint.trim()) {
+    throw new Error("support_ticket_payload_fingerprint_required");
+  }
+
+  if (memoryRecord) {
+    const resolved = resolveRecord(memoryRecord, fingerprint);
+    memoryRecord = resolved.record;
+    if (resolved.changed) await persistBestEffort(resolved.record);
+    return resolved.record.key;
+  }
+
   try {
-    const existing = await AsyncStorage.getItem(STORAGE_KEY);
-    if (existing && existing.trim().length > 0) return existing;
-    const generated = createIdempotencyKey();
-    await AsyncStorage.setItem(STORAGE_KEY, generated);
-    return generated;
+    const stored = parseStoredRecord(await AsyncStorage.getItem(STORAGE_KEY));
+    const resolved = resolveRecord(stored, fingerprint);
+    memoryRecord = resolved.record;
+    if (resolved.changed) await persistBestEffort(resolved.record);
+    return resolved.record.key;
   } catch {
-    fallbackKey ??= createIdempotencyKey();
-    return fallbackKey;
+    const resolved = resolveRecord(null, fingerprint);
+    memoryRecord = resolved.record;
+    return resolved.record.key;
   }
 }
 
-/** Clears the ticket retry key once Core acknowledges the submission. */
+/**
+ * Rotates the retry key immediately after Core acknowledges the submission.
+ * The fresh unbound key is written over the old persisted key; if that write
+ * fails, removal is attempted, while memoryRecord still prevents reuse in the
+ * current process.
+ */
 export async function clearSupportTicketIdempotencyKey(): Promise<void> {
-  fallbackKey = null;
+  const rotated: SupportTicketRetryRecord = {
+    key: createIdempotencyKey(),
+    fingerprint: null,
+  };
+  memoryRecord = rotated;
+
   try {
-    await AsyncStorage.removeItem(STORAGE_KEY);
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(rotated));
   } catch {
-    // Best-effort cleanup.
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // Device storage is unavailable. The in-memory rotated key still makes
+      // the just-acknowledged key unreachable for the life of this process.
+    }
   }
 }
 
-/** Test-only: reset in-memory fallback between isolated test cases. */
+/** Test-only: reset in-memory state between isolated test cases. */
 export function resetSupportTicketIdempotencyForTests(): void {
-  fallbackKey = null;
+  memoryRecord = null;
 }

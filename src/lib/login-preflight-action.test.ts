@@ -1,5 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { decideLoginAction } from "./login-preflight-action";
 import {
   normalizeBuyerPreflightResponse,
@@ -152,5 +153,32 @@ describe("normalizeBuyerPreflightResponse — untrusted gateway boundary", () =>
       allowOtp: false,
       message: "under review",
     });
+  });
+});
+
+
+describe("LoginScreen OTP request contract", () => {
+  it("revalidates Buyer eligibility before every resend and only then reaches MSG91", () => {
+    const source = readFileSync(
+      new URL("../screens/LoginScreen.tsx", import.meta.url),
+      "utf8"
+    );
+    const start = source.indexOf("async function resendOtp");
+    const end = source.indexOf("\n  return (", start);
+    assert.ok(start >= 0 && end > start, "resendOtp implementation must be present");
+
+    const resend = source.slice(start, end);
+    const preflightIndex = resend.indexOf("invokeBuyerPreflight(");
+    const decisionIndex = resend.indexOf("decideLoginAction(");
+    const retryIndex = resend.indexOf("retryMsg91Otp(");
+
+    assert.ok(preflightIndex >= 0, "resend must re-run canonical Buyer preflight");
+    assert.ok(decisionIndex > preflightIndex, "resend must classify the fresh preflight result");
+    assert.ok(retryIndex > decisionIndex, "MSG91 retry must occur only after the fresh eligibility decision");
+    assert.match(
+      resend,
+      /action\.type === "send_otp"|action\.type === "navigate"[\s\S]*action\.type === "inline_block"[\s\S]*retryMsg91Otp/,
+      "non-approved resend states must route/block before MSG91 retry"
+    );
   });
 });

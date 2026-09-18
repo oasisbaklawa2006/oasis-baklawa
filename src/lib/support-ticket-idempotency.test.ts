@@ -1,4 +1,3 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -9,14 +8,33 @@ import {
   resetSupportTicketIdempotencyForTests,
 } from "./support-ticket-idempotency";
 
-const STORAGE_KEY = "oasis_buyer_support_ticket_idempotency_v2";
 const LEGACY_STORAGE_KEY = "oasis_buyer_support_ticket_idempotency_v1";
 
+const browserStorage = new Map<string, string>();
+Object.defineProperty(globalThis, "window", {
+  configurable: true,
+  value: {
+    localStorage: {
+      getItem(key: string) {
+        return browserStorage.get(key) ?? null;
+      },
+      setItem(key: string, value: string) {
+        browserStorage.set(key, value);
+      },
+      removeItem(key: string) {
+        browserStorage.delete(key);
+      },
+      clear() {
+        browserStorage.clear();
+      },
+    },
+  },
+});
+
 describe("support ticket idempotency", () => {
-  beforeEach(async () => {
+  beforeEach(() => {
+    browserStorage.clear();
     resetSupportTicketIdempotencyForTests();
-    await AsyncStorage.removeItem(STORAGE_KEY);
-    await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
   });
 
   it("reuses one key only for the same normalized ticket payload", async () => {
@@ -75,7 +93,7 @@ describe("support ticket idempotency", () => {
 
   it("quarantines the legacy bare key until its outcome is reconciled", async () => {
     const legacyKey = "11111111-1111-4111-8111-111111111111";
-    await AsyncStorage.setItem(LEGACY_STORAGE_KEY, legacyKey);
+    browserStorage.set(LEGACY_STORAGE_KEY, legacyKey);
     resetSupportTicketIdempotencyForTests();
 
     const fingerprint = buildSupportTicketPayloadFingerprint({
@@ -88,7 +106,7 @@ describe("support ticket idempotency", () => {
       () => getSupportTicketIdempotencyKey(fingerprint),
       /support_ticket_retry_outcome_unknown/
     );
-    assert.equal(await AsyncStorage.getItem(LEGACY_STORAGE_KEY), legacyKey);
+    assert.equal(browserStorage.get(LEGACY_STORAGE_KEY), legacyKey);
 
     await reconcileLegacySupportTicketRetryAsCommitted();
     const fresh = await getSupportTicketIdempotencyKey(fingerprint);

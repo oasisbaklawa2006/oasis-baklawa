@@ -1,25 +1,15 @@
 /**
- * Whether Oasis Genie order parsing (any mode -- text, audio, image,
- * document) is permitted to call the production edge function.
+ * Oasis Genie parsing is a release-controlled runtime feature.
  *
- * Direct inspection of the live Supabase project (tcxvcatsqqertcnycuop --
- * the exact project this app's own supabaseUrl points at) found NO
- * deployed function with the slug "ai-order-parse", which is the ONLY
- * edge function every Genie parse mode calls (see invokeGenieOrderParse in
- * genie-order-parse.ts). It also does not exist in source in any of the
- * three governed repositories (oasis-supabase-core, Oasis-Baklawa-Central,
- * oasis-ai-studio).
- *
- * Kept in its own zero-dependency module (no supabase, no react-native)
- * specifically so this gate is directly unit-testable, and so it can be
- * imported by the actual network chokepoint (invokeGenieOrderParse) as the
- * enforcement point -- not just by the UI screen, which is a much weaker
- * guarantee (a future call site that imports invokeGenieOrderParse
- * directly, bypassing AiOrderScreen, would otherwise have no protection
- * against calling a production function that does not exist).
- *
- * Flip to true only once a governed, sourced, certified ai-order-parse
- * function actually exists -- never to silence a UI complaint about the
- * feature being unavailable.
+ * Source availability alone never enables the customer path. The app must be
+ * built with EXPO_PUBLIC_GENIE_PARSE_ENABLED=true only after the governed
+ * ai-order-parse backend has passed Core release/deployment certification.
+ * Missing, malformed, or any non-"true" value fails closed.
  */
-export const GENIE_PARSE_ENABLED = false;
+export function resolveGenieParseEnabled(value: string | undefined): boolean {
+  return value === "true";
+}
+
+export const GENIE_PARSE_ENABLED = resolveGenieParseEnabled(
+  process.env.EXPO_PUBLIC_GENIE_PARSE_ENABLED
+);

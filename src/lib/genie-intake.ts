@@ -4,6 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import { invokeGenieOrderParse, type GenieParseMode } from "@/lib/genie-order-parse";
 
 const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
+const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 
 async function readBase64FromUri(uri: string): Promise<string> {
   return FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
@@ -14,8 +15,7 @@ export async function parseGenieIntake(
   options: { text?: string }
 ): Promise<{ productName: string; quantity: number; uom: string }[]> {
   if (mode === "text") {
-    const lines = await invokeGenieOrderParse({ mode, text: options.text ?? "", locale: "en-IN" });
-    return lines;
+    return invokeGenieOrderParse({ mode, text: options.text ?? "", locale: "en-IN" });
   }
 
   if (mode === "image") {
@@ -38,8 +38,31 @@ export async function parseGenieIntake(
     }
     return invokeGenieOrderParse({
       mode: "image",
-      mimeType: asset.mimeType ?? undefined,
+      mimeType: asset.mimeType ?? "image/jpeg",
       fileName: asset.fileName ?? "po-image.jpg",
+      contentBase64,
+      locale: "en-IN",
+    });
+  }
+
+  if (mode === "audio") {
+    const result = await DocumentPicker.getDocumentAsync({
+      copyToCacheDirectory: true,
+      multiple: false,
+      type: "audio/*",
+    });
+    if (result.canceled || !result.assets[0]?.uri) {
+      throw new Error("No voice note selected.");
+    }
+    const asset = result.assets[0];
+    if (asset.size && asset.size > MAX_AUDIO_BYTES) {
+      throw new Error("Voice note is too large. Choose a file under 10 MB.");
+    }
+    const contentBase64 = await readBase64FromUri(asset.uri);
+    return invokeGenieOrderParse({
+      mode: "audio",
+      mimeType: asset.mimeType ?? "audio/mpeg",
+      fileName: asset.name ?? "voice-order.mp3",
       contentBase64,
       locale: "en-IN",
     });
@@ -67,14 +90,12 @@ export async function parseGenieIntake(
     const contentBase64 = await readBase64FromUri(asset.uri);
     return invokeGenieOrderParse({
       mode: "document",
-      mimeType: asset.mimeType ?? "application/octet-stream",
+      mimeType: asset.mimeType ?? "application/pdf",
       fileName: asset.name,
       contentBase64,
       locale: "en-IN",
     });
   }
 
-  throw new Error(
-    "Voice ordering requires a verified ai-order-parse audio contract. Hindi, English, and Hinglish are supported once Core certifies the edge function."
-  );
+  throw new Error("Unsupported Oasis Genie intake mode.");
 }

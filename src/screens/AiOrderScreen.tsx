@@ -27,12 +27,10 @@ import { colors, spacing, typography, touchTarget } from "@/theme";
 type Props = NativeStackScreenProps<RootStackParamList, "AiOrder">;
 type InputMode = "text" | "audio" | "image" | "document";
 
-// Oasis Genie parsing (all four modes -- text, audio, image, document) is
-// gated off via GENIE_PARSE_ENABLED (genie-parse-availability.ts) -- see
-// that module for the full evidence and rationale. Every mode ultimately
-// calls invokeGenieOrderParse(), which enforces the same flag as its own
-// chokepoint before ever reaching the network; this screen also disables
-// its own UI so a buyer never sees an apparently-live control for it.
+// Oasis Genie parsing is deployment-gated via GENIE_PARSE_ENABLED.
+// Every mode funnels through invokeGenieOrderParse(), so preview/production
+// builds fail closed unless the governed Core function has been deployed and
+// EXPO_PUBLIC_GENIE_PARSE_ENABLED=true is explicitly supplied.
 
 interface ParsedLine {
   productName: string;
@@ -89,12 +87,6 @@ export function AiOrderScreen({ navigation }: Props) {
       // that does not exist.
       setError(
         "Oasis Genie order parsing is not yet available on this build. Add items from the catalogue instead."
-      );
-      return;
-    }
-    if (mode === "audio") {
-      setError(
-        "Voice ordering requires a verified ai-order-parse audio contract. Hindi, English, and Hinglish are supported once Core certifies the edge function."
       );
       return;
     }
@@ -201,11 +193,16 @@ export function AiOrderScreen({ navigation }: Props) {
   }
 
   const modeUnavailableCopy: Record<InputMode, string> = {
-    text: "Oasis Genie order parsing (type-to-order) is not yet available on this build. Add items from the catalogue instead.",
-    audio:
-      "Voice ordering requires a verified ai-order-parse audio contract. Hindi, English, and Hinglish are supported once Core certifies the edge function.",
-    image: "Photo/PO parsing is not yet available on this build. Add items from the catalogue instead.",
-    document: "PDF/Excel/PO parsing is not yet available on this build. Add items from the catalogue instead.",
+    text: "Oasis Genie is disabled in this build until the governed Core parser is deployed.",
+    audio: GENIE_PARSE_ENABLED
+      ? "Choose an existing voice recording (Hindi, English, or Hinglish). In-app microphone capture remains a physical-device UAT item."
+      : "Oasis Genie is disabled in this build until the governed Core parser is deployed.",
+    image: GENIE_PARSE_ENABLED
+      ? "Choose a PO/order photo for governed extraction."
+      : "Oasis Genie is disabled in this build until the governed Core parser is deployed.",
+    document: GENIE_PARSE_ENABLED
+      ? "Choose a PDF/Excel/CSV/PO file for governed extraction."
+      : "Oasis Genie is disabled in this build until the governed Core parser is deployed.",
   };
 
   const parseLabel = !GENIE_PARSE_ENABLED
@@ -216,7 +213,7 @@ export function AiOrderScreen({ navigation }: Props) {
         ? "Choose PO photo"
         : mode === "document"
           ? "Choose PDF/Excel/PO file"
-          : "Voice unavailable";
+          : "Choose voice recording";
 
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
@@ -257,7 +254,7 @@ export function AiOrderScreen({ navigation }: Props) {
           <OasisButton
             label={parsing ? "Parsing…" : parseLabel}
             onPress={() => void parseOrder()}
-            disabled={!GENIE_PARSE_ENABLED || parsing || mode === "audio" || catalogueLoading || Boolean(catalogueError)}
+            disabled={!GENIE_PARSE_ENABLED || parsing || catalogueLoading || Boolean(catalogueError)}
             loading={parsing}
           />
 

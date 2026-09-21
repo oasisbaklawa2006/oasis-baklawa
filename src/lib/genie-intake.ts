@@ -18,6 +18,29 @@ export async function parseGenieIntake(
     return lines;
   }
 
+  if (mode === "audio") {
+    const result = await DocumentPicker.getDocumentAsync({
+      copyToCacheDirectory: true,
+      multiple: false,
+      type: ["audio/*"],
+    });
+    if (result.canceled || !result.assets[0]?.uri) {
+      throw new Error("No voice recording selected.");
+    }
+    const asset = result.assets[0];
+    if (asset.size && asset.size > MAX_DOCUMENT_BYTES) {
+      throw new Error("Voice recording is too large. Choose a file under 10 MB.");
+    }
+    const contentBase64 = await readBase64FromUri(asset.uri);
+    return invokeGenieOrderParse({
+      mode: "audio",
+      mimeType: asset.mimeType ?? "audio/mp4",
+      fileName: asset.name || "buyer-order-audio.m4a",
+      contentBase64,
+      locale: "en-IN",
+    });
+  }
+
   if (mode === "image") {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -74,7 +97,5 @@ export async function parseGenieIntake(
     });
   }
 
-  throw new Error(
-    "Voice ordering requires a verified ai-order-parse audio contract. Hindi, English, and Hinglish are supported once Core certifies the edge function."
-  );
+  throw new Error("Unsupported Oasis Genie intake mode.");
 }

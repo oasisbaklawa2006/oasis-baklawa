@@ -28,6 +28,15 @@ describe("parseRpcError", () => {
     assert.equal(parsed.code, "NETWORK");
   });
 
+  it("maps missing or invalid Supabase API key to backend configuration", () => {
+    const missing = parseRpcError({ message: "No API key found in request" });
+    assert.equal(missing.code, "BACKEND_CONFIGURATION");
+
+    const invalid = parseRpcError({ message: "Invalid API key" });
+    assert.equal(invalid.code, "BACKEND_CONFIGURATION");
+    assert.match(invalid.message, /update to the latest build/i);
+  });
+
   it("maps quotation expiry from governed message", () => {
     const parsed = parseRpcError({ message: "QUOTATION_EXPIRED" });
     assert.equal(parsed.code, "QUOTATION_EXPIRED");

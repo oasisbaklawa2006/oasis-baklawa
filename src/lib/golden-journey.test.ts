@@ -156,8 +156,18 @@ describe("golden journey invariants", () => {
     const dashboard = readFileSync(join(ROOT, "screens/DashboardScreen.tsx"), "utf8");
     assert.match(orderDetail, /navigate\("OrderPayment"/);
     assert.match(orderDetail, /verified_payment_amount/);
-    assert.match(dashboard, /navigate\("AiOrder"\)/);
     assert.match(dashboard, /navigate\("OrderPayment"/);
+  });
+
+  it("keeps Oasis Genie navigation and screen behind the fail-closed master gate", () => {
+    const dashboard = readFileSync(join(ROOT, "screens/DashboardScreen.tsx"), "utf8");
+    const quickOrder = readFileSync(join(ROOT, "screens/QuickOrderScreen.tsx"), "utf8");
+    const aiOrder = readFileSync(join(ROOT, "screens/AiOrderScreen.tsx"), "utf8");
+    assert.match(dashboard, /GENIE_ENABLED/);
+    assert.match(dashboard, /navigate\("AiOrder"\)/);
+    assert.match(quickOrder, /GENIE_ENABLED/);
+    assert.match(aiOrder, /GENIE_ENABLED/);
+    assert.match(aiOrder, /navigation\.replace\("MainTabs", \{ screen: "Dashboard" \}\)/);
   });
 });
 

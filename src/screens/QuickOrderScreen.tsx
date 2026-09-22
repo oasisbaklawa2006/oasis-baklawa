@@ -9,6 +9,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
 import { addCustomerOrderDraftLine } from "@/lib/api/draft";
 import { resolveCommercialRules } from "@/lib/buyer-commercial-validation";
+import { GENIE_ENABLED } from "@/lib/genie-parse-availability";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { colors, spacing, typography } from "@/theme";
 
@@ -79,14 +80,16 @@ export function QuickOrderScreen({ navigation }: Props) {
         <TouchableOpacity onPress={() => navigation.goBack()} accessibilityRole="button">
           <Text style={styles.back}>‹ Back</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => navigation.navigate("AiOrder")}
-          style={styles.aiLink}
-          accessibilityRole="button"
-          accessibilityLabel="Open text AI order parser"
-        >
-          <Text style={styles.aiLinkText}>Paste a text order (AI parser)</Text>
-        </TouchableOpacity>
+        {GENIE_ENABLED ? (
+          <TouchableOpacity
+            onPress={() => navigation.navigate("AiOrder")}
+            style={styles.aiLink}
+            accessibilityRole="button"
+            accessibilityLabel="Open text AI order parser"
+          >
+            <Text style={styles.aiLinkText}>Paste a text order (AI parser)</Text>
+          </TouchableOpacity>
+        ) : null}
         {notice ? <Text style={styles.notice}>{notice}</Text> : null}
         <TextInput
           style={styles.search}

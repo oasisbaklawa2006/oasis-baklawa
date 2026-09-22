@@ -18,6 +18,7 @@ export type RpcErrorCode =
   | "VALIDATION_FAILED"
   | "DUPLICATE_APPLICATION"
   | "MOBILE_NUMBER_ALREADY_REGISTERED"
+  | "BACKEND_CONFIGURATION"
   | "NETWORK"
   | "UNKNOWN";
 
@@ -41,6 +42,7 @@ export const KNOWN_RPC_ERROR_CODES: ReadonlySet<RpcErrorCode> = new Set([
   "VALIDATION_FAILED",
   "DUPLICATE_APPLICATION",
   "MOBILE_NUMBER_ALREADY_REGISTERED",
+  "BACKEND_CONFIGURATION",
   "NETWORK",
   "UNKNOWN",
 ]);
@@ -83,6 +85,13 @@ function getSqlState(error: unknown): string | null {
 function inferCode(raw: string, sqlState: string | null): RpcErrorCode {
   if (raw.includes("Failed to fetch") || raw.includes("Network request failed")) {
     return "NETWORK";
+  }
+  if (
+    raw.includes("Invalid API key") ||
+    raw.includes("No API key found") ||
+    raw.includes("apikey header")
+  ) {
+    return "BACKEND_CONFIGURATION";
   }
   if (sqlState === "28000" || raw.includes("JWT") || raw.includes("session expired")) {
     return "AUTH_REQUIRED";
@@ -174,6 +183,8 @@ function customerMessage(code: RpcErrorCode, raw: string): string {
       return "An application with this contact information already exists.";
     case "MOBILE_NUMBER_ALREADY_REGISTERED":
       return "This mobile number is already linked to another account.";
+    case "BACKEND_CONFIGURATION":
+      return "This app build cannot reach Oasis services because its backend configuration is missing or invalid. Please update to the latest build.";
     case "NETWORK":
       return "Network connection failed. Check your connection and try again.";
     default:

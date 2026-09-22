@@ -21,22 +21,27 @@ export interface GenieParseLine {
 function normalizeLine(value: unknown): GenieParseLine | null {
   if (!value || typeof value !== "object") return null;
   const row = value as Record<string, unknown>;
-  const productName = typeof row.productName === "string" ? row.productName : typeof row.product_name === "string" ? row.product_name : null;
+  const productName = typeof row.productName === "string"
+    ? row.productName
+    : typeof row.product_name === "string"
+    ? row.product_name
+    : null;
   const quantity = typeof row.quantity === "number" ? row.quantity : Number(row.quantity);
-  const uom = typeof row.uom === "string" ? row.uom : "units";
-  if (!productName?.trim() || !Number.isFinite(quantity) || quantity <= 0) return null;
+  const uom = typeof row.uom === "string" ? row.uom.trim() : "";
+  if (
+    !productName?.trim() ||
+    !Number.isFinite(quantity) ||
+    quantity <= 0 ||
+    !uom
+  ) {
+    return null;
+  }
   return { productName: productName.trim(), quantity, uom };
 }
 
 /** Governed Oasis Genie edge intake — never invents lines locally when the edge function fails. */
 export async function invokeGenieOrderParse(request: GenieParseRequest): Promise<GenieParseLine[]> {
   if (!GENIE_PARSE_ENABLED) {
-    // Enforcement chokepoint, not just a UI-level gate: this is the one
-    // function every Genie parse mode funnels through before reaching
-    // supabase.functions.invoke("ai-order-parse", ...) -- a production edge
-    // function slug confirmed not to exist (see genie-parse-availability.ts).
-    // Any future call site, not only AiOrderScreen, is protected by this
-    // check, not just by the screen disabling its own button.
     throw new Error(
       "Oasis Genie order parsing is not yet available on this build. Add items from the catalogue instead."
     );
@@ -58,7 +63,9 @@ export async function invokeGenieOrderParse(request: GenieParseRequest): Promise
 
   const lines = Array.isArray(data?.lines) ? data.lines : [];
   const normalized = lines.map(normalizeLine);
-  const valid = normalized.filter((line: GenieParseLine | null): line is GenieParseLine => Boolean(line));
+  const valid = normalized.filter(
+    (line: GenieParseLine | null): line is GenieParseLine => Boolean(line)
+  );
   const invalidCount = normalized.length - valid.length;
   if (invalidCount > 0) {
     throw new Error(
@@ -66,7 +73,9 @@ export async function invokeGenieOrderParse(request: GenieParseRequest): Promise
     );
   }
   if (valid.length === 0) {
-    throw new Error("No governed order lines were returned. Refine the request or choose products manually.");
+    throw new Error(
+      "No governed order lines were returned. Refine the request or choose products manually."
+    );
   }
   return valid;
 }

@@ -196,13 +196,13 @@ export function AiOrderScreen({ navigation }: Props) {
         text: "",
         audio: "Choose a recorded voice note in Hindi, English, or Hinglish. You will review every extracted line before it can enter the cart.",
         image: "Choose a PO/product-order image. You will review every extracted line before it can enter the cart.",
-        document: "Choose a PDF, Excel, CSV, or text PO. You will review every extracted line before it can enter the cart.",
+        document: "Choose a PDF, CSV, JSON, or text PO. You will review every extracted line before it can enter the cart.",
       }
     : {
         text: "Oasis Genie is release-gated on this build. Add items from the catalogue instead.",
         audio: "Oasis Genie voice-note parsing is release-gated on this build.",
         image: "Oasis Genie photo/PO parsing is release-gated on this build.",
-        document: "Oasis Genie PDF/Excel/PO parsing is release-gated on this build.",
+        document: "Oasis Genie PDF/CSV/text PO parsing is release-gated on this build.",
       };
 
   const parseLabel = !GENIE_PARSE_ENABLED
@@ -212,7 +212,7 @@ export function AiOrderScreen({ navigation }: Props) {
       : mode === "image"
         ? "Choose PO photo"
         : mode === "document"
-          ? "Choose PDF/Excel/PO file"
+          ? "Choose PO file"
           : "Choose voice note";
 
   return (

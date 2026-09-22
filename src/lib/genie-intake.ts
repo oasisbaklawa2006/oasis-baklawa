@@ -1,6 +1,10 @@
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
+import {
+  assertKnownBoundedFileSize,
+  resolveGenieMediaMimeType,
+} from "@/lib/genie-media-contract";
 import { invokeGenieOrderParse, type GenieParseMode } from "@/lib/genie-order-parse";
 
 const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
@@ -36,10 +40,11 @@ export async function parseGenieIntake(
     if (!contentBase64) {
       throw new Error("Could not read the selected image.");
     }
+    const mimeType = resolveGenieMediaMimeType("image", asset.mimeType, asset.fileName);
     return invokeGenieOrderParse({
       mode: "image",
-      mimeType: asset.mimeType ?? "image/jpeg",
-      fileName: asset.fileName ?? "po-image.jpg",
+      mimeType,
+      fileName: asset.fileName ?? undefined,
       contentBase64,
       locale: "en-IN",
     });
@@ -55,14 +60,13 @@ export async function parseGenieIntake(
       throw new Error("No voice note selected.");
     }
     const asset = result.assets[0];
-    if (asset.size && asset.size > MAX_AUDIO_BYTES) {
-      throw new Error("Voice note is too large. Choose a file under 10 MB.");
-    }
+    assertKnownBoundedFileSize(asset.size, MAX_AUDIO_BYTES, "Voice note");
+    const mimeType = resolveGenieMediaMimeType("audio", asset.mimeType, asset.name);
     const contentBase64 = await readBase64FromUri(asset.uri);
     return invokeGenieOrderParse({
       mode: "audio",
-      mimeType: asset.mimeType ?? "audio/mpeg",
-      fileName: asset.name ?? "voice-order.mp3",
+      mimeType,
+      fileName: asset.name,
       contentBase64,
       locale: "en-IN",
     });
@@ -74,23 +78,27 @@ export async function parseGenieIntake(
       multiple: false,
       type: [
         "application/pdf",
-        "application/vnd.ms-excel",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/json",
+        "application/rtf",
         "text/plain",
         "text/csv",
+        "text/html",
+        "text/css",
+        "text/xml",
+        "text/rtf",
+        "text/markdown",
       ],
     });
     if (result.canceled || !result.assets[0]?.uri) {
       throw new Error("No document selected.");
     }
     const asset = result.assets[0];
-    if (asset.size && asset.size > MAX_DOCUMENT_BYTES) {
-      throw new Error("Document is too large. Choose a file under 10 MB.");
-    }
+    assertKnownBoundedFileSize(asset.size, MAX_DOCUMENT_BYTES, "Document");
+    const mimeType = resolveGenieMediaMimeType("document", asset.mimeType, asset.name);
     const contentBase64 = await readBase64FromUri(asset.uri);
     return invokeGenieOrderParse({
       mode: "document",
-      mimeType: asset.mimeType ?? "application/pdf",
+      mimeType,
       fileName: asset.name,
       contentBase64,
       locale: "en-IN",

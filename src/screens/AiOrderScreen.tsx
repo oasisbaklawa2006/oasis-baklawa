@@ -11,7 +11,7 @@ import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
 import { commitGenieResolvedLineToDraft, clearGenieDraftLineCommits } from "@/lib/genie-draft-line-commit";
 import { genieDraftLineWriter } from "@/lib/genie-draft-line-writer";
 import { parseGenieIntake } from "@/lib/genie-intake";
-import { GENIE_PARSE_ENABLED } from "@/lib/genie-parse-availability";
+import { GENIE_ENABLED, GENIE_PARSE_ENABLED } from "@/lib/genie-parse-availability";
 import { createIdempotencyKey } from "@/lib/idempotency";
 import {
   applyGenieCandidateSelection,
@@ -69,6 +69,13 @@ export function AiOrderScreen({ navigation }: Props) {
   }, [isApprovedBuyer]);
 
   useEffect(() => {
+    if (!GENIE_ENABLED) {
+      navigation.replace("MainTabs", { screen: "Dashboard" });
+    }
+  }, [navigation]);
+
+  useEffect(() => {
+    if (!GENIE_ENABLED) return;
     void loadCatalogue();
   }, [loadCatalogue]);
 
@@ -76,6 +83,10 @@ export function AiOrderScreen({ navigation }: Props) {
     () => resolvedLines.length > 0 && ambiguousLines.length === 0 && unresolvedLines.length === 0,
     [resolvedLines, ambiguousLines, unresolvedLines]
   );
+
+  if (!GENIE_ENABLED) {
+    return null;
+  }
 
   async function parseOrder() {
     if (!GENIE_PARSE_ENABLED) {

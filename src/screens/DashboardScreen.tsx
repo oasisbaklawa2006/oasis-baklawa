@@ -12,6 +12,7 @@ import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { fetchPublishedProducts } from "@/lib/api/catalogue";
 import { fetchCustomerOrderStatus } from "@/lib/api/orders";
 import { isOpenFulfilmentStage } from "@/lib/order-stages";
+import { GENIE_ENABLED } from "@/lib/genie-parse-availability";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { customerGateway } from "@/services/customerGateway";
 import type { CustomerOrderStatus, CustomerStatement, PublishedProduct } from "@/types/database.types";
@@ -88,7 +89,9 @@ export function DashboardScreen({ navigation }: Props) {
         {error && !loading ? <ErrorState message={error} onRetry={load} /> : null}
 
         <View style={styles.quickActions}>
-          <ActionChip label="Oasis Genie" onPress={() => navigation.navigate("AiOrder")} />
+          {GENIE_ENABLED ? (
+            <ActionChip label="Oasis Genie" onPress={() => navigation.navigate("AiOrder")} />
+          ) : null}
           <ActionChip label="New Order" onPress={() => navigation.navigate("Catalogue")} />
           <ActionChip label="Quick Order" onPress={() => navigation.navigate("QuickOrder")} />
           <ActionChip label="Quotations" onPress={() => navigation.navigate("Quotations")} />

@@ -1,6 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { useEffect } from "react";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import { Screen } from "@/components/Screen";
@@ -38,6 +37,7 @@ export function LoginScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [blockedState, setBlockedState] = useState<BuyerPreflightState | null>(null);
   const [resendAvailable, setResendAvailable] = useState(false);
+  const [resendCycle, setResendCycle] = useState(0);
 
   useEffect(() => {
     if (stage !== "otp") {
@@ -46,7 +46,7 @@ export function LoginScreen({ navigation }: Props) {
     }
     const timer = setTimeout(() => setResendAvailable(true), 10_000);
     return () => clearTimeout(timer);
-  }, [stage, reqId]);
+  }, [stage, reqId, resendCycle]);
 
   function resetChannel() {
     setChannel(null);
@@ -55,6 +55,7 @@ export function LoginScreen({ navigation }: Props) {
     setStage("identifier");
     setReqId(null);
     setResendAvailable(false);
+    setResendCycle(0);
     setError(null);
     setBlockedState(null);
   }
@@ -194,6 +195,10 @@ export function LoginScreen({ navigation }: Props) {
 
       // action.type === "send_otp" — the ONLY resend path that reaches MSG91.
       await retryMsg91Otp(reqId, targetChannel === "mobile" ? "SMS-11" : "EMAIL-3");
+      // A successful resend starts a fresh provider cooldown even though the
+      // OTP stage and request ID remain unchanged.
+      setResendAvailable(false);
+      setResendCycle((cycle) => cycle + 1);
     } catch (e) {
       setError(e instanceof Error ? mapMsg91Error(e.message) : "Could not resend the code.");
     } finally {

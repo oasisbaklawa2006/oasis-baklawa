@@ -1,11 +1,8 @@
 // Native MSG91 OTP transport using the official @msg91comm/sendotp-react-native
-// SDK (Mobile Integration widget). This is the smallest secure Expo-compatible
-// path found for native OTP: no provider secret is ever embedded here — only
-// the same class of client-safe widgetId/tokenAuth pair Central already embeds
-// in its own web bundle (src/pages/BuyerLogin.tsx: MSG91_WIDGET_ID /
-// MSG91_TOKEN_AUTH). Provider verification of the resulting access-token stays
-// server-side in msg91-otp / msg91-email-session (Central edge functions) —
-// this module never talks to MSG91's privileged REST API directly.
+// SDK (dedicated Mobile Integration widget). The client carries only the
+// widgetId/tokenAuth required by MSG91's native SDK; the MSG91 account AuthKey
+// is server-only. Provider verification of the resulting access-token remains
+// server-authoritative through the governed Oasis session bridge.
 import { OTPWidget } from "@msg91comm/sendotp-react-native";
 import { normalizeMsg91SendResponse, type Msg91SendResult } from "@/lib/msg91-otp-contract";
 
@@ -41,8 +38,9 @@ export async function verifyMsg91Otp(reqId: string, otp: string): Promise<string
   if (response?.type !== "success" || !response.message) {
     throw new Error(response?.message || "msg91_verify_failed");
   }
-  // On success `message` carries the provider access-token (same contract as
-  // Central's widget bridge — see extractMsg91AccessToken in BuyerLogin.tsx).
+  // On success `message` carries the provider access-token. The app never treats
+  // this as final authentication authority; it is handed to the Oasis server
+  // bridge for MSG91 verifyAccessToken verification before a session is minted.
   return response.message;
 }
 

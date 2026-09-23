@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
@@ -36,6 +36,17 @@ export function LoginScreen({ navigation }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [blockedState, setBlockedState] = useState<BuyerPreflightState | null>(null);
+  const [resendAvailable, setResendAvailable] = useState(false);
+  const [resendCycle, setResendCycle] = useState(0);
+
+  useEffect(() => {
+    if (stage !== "otp") {
+      setResendAvailable(false);
+      return;
+    }
+    const timer = setTimeout(() => setResendAvailable(true), 10_000);
+    return () => clearTimeout(timer);
+  }, [stage, reqId, resendCycle]);
 
   function resetChannel() {
     setChannel(null);
@@ -43,6 +54,8 @@ export function LoginScreen({ navigation }: Props) {
     setOtp("");
     setStage("identifier");
     setReqId(null);
+    setResendAvailable(false);
+    setResendCycle(0);
     setError(null);
     setBlockedState(null);
   }
@@ -92,9 +105,11 @@ export function LoginScreen({ navigation }: Props) {
       // action.type === "send_otp" — the ONLY path that reaches MSG91.
 
       const sendResult = await sendMsg91Otp(normalized);
-      if (sendResult.invisibleVerified && sendResult.accessToken) {
-        await completeLogin(targetChannel, sendResult.accessToken, normalized, attemptId);
-        return;
+      // Phase-1 Buyer widget has Invisible OTP disabled. Fail closed if the
+      // provider unexpectedly reports an invisible-verification result so the
+      // certified flow always remains explicit OTP -> verify -> server bridge.
+      if (sendResult.invisibleVerified) {
+        throw new Error("msg91_unexpected_invisible_verification");
       }
       setReqId(sendResult.reqId);
       setIdentifier(normalized);
@@ -180,6 +195,10 @@ export function LoginScreen({ navigation }: Props) {
 
       // action.type === "send_otp" — the ONLY resend path that reaches MSG91.
       await retryMsg91Otp(reqId, targetChannel === "mobile" ? "SMS-11" : "EMAIL-3");
+      // A successful resend starts a fresh provider cooldown even though the
+      // OTP stage and request ID remain unchanged.
+      setResendAvailable(false);
+      setResendCycle((cycle) => cycle + 1);
     } catch (e) {
       setError(e instanceof Error ? mapMsg91Error(e.message) : "Could not resend the code.");
     } finally {
@@ -235,7 +254,8 @@ export function LoginScreen({ navigation }: Props) {
               placeholder="Enter OTP"
               keyboardType="number-pad"
               value={otp}
-              onChangeText={(v) => setOtp(v.replace(/\D/g, "").slice(0, 8))}
+              onChangeText={(v) => setOtp(v.replace(/\D/g, "").slice(0, 6))}
+              maxLength={6}
               accessibilityLabel="One-time password"
             />
           )}
@@ -253,8 +273,15 @@ export function LoginScreen({ navigation }: Props) {
           </TouchableOpacity>
 
           {stage === "otp" && (
-            <TouchableOpacity onPress={() => resendOtp(channel)} disabled={busy} accessibilityRole="button">
-              <Text style={styles.link}>Resend code</Text>
+            <TouchableOpacity
+              onPress={() => resendOtp(channel)}
+              disabled={busy || !resendAvailable}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: busy || !resendAvailable }}
+            >
+              <Text style={[styles.link, !resendAvailable && styles.linkDisabled]}>
+                {resendAvailable ? "Resend code" : "Resend available in 10 seconds"}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -315,7 +342,10 @@ function mapMsg91Error(raw: string): string {
     return "OTP login isn't available on this build yet. Please contact Oasis support.";
   }
   if (raw === "msg91_send_failed") return "We couldn't send a code to that number/email. Please try again.";
-  if (raw === "msg91_verify_failed") return "That code didn't match. Please try again.";
+  if (raw === "msg91_verify_failed") return "That code didn\'t match. Please try again.";
+  if (raw === "msg91_unexpected_invisible_verification") {
+    return "OTP configuration mismatch. Please contact Oasis support.";
+  }
   return raw;
 }
 
@@ -382,6 +412,7 @@ const styles = StyleSheet.create({
   footer: { marginTop: spacing.xl, gap: spacing.md, alignItems: "center" },
   supportRow: { flexDirection: "row", gap: spacing.lg },
   supportLink: { color: colors.textMuted, fontSize: typography.sizeXs, fontFamily: typography.fontFamilySansMedium },
+  linkDisabled: { opacity: 0.5 },
   link: {
     color: colors.action,
     textAlign: "center",

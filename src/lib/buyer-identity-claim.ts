@@ -7,15 +7,17 @@
 // on-device — Core is the sole authority for the claim decision.
 //
 // All pure logic (row validation, outcome normalization, the fail-closed
-// bound assertion) lives in buyer-identity-claim-core.ts, which has no
-// supabase/react-native import and is unit tested directly. This file is
-// only the IO: the actual RPC call and session wait.
+// bound assertion and session-readiness retry policy) lives in
+// buyer-identity-claim-core.ts, which has no supabase/react-native import and
+// is unit tested directly. This file is only the IO: the actual RPC call and
+// session read.
 import { callRpc } from "@/lib/rpc";
 import { supabase } from "@/lib/supabase";
 import {
   APPROVED_B2B_IDENTITY_CLAIM_RPC,
   classifyClaimRpcError,
   normalizeClaimRpcData,
+  waitForExpectedAuthenticatedSession,
   type ApprovedB2bIdentityClaimOutcome,
 } from "@/lib/buyer-identity-claim-core";
 
@@ -26,25 +28,27 @@ export {
   type ApprovedB2bIdentityClaimRow,
 } from "@/lib/buyer-identity-claim-core";
 
-async function waitForAuthenticatedSession(attempts = 8, delayMs = 75): Promise<boolean> {
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const { data } = await supabase.auth.getSession();
-    if (data.session?.access_token) return true;
-    if (attempt < attempts - 1) {
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-    }
-  }
-  return false;
-}
-
 /**
  * Claims Buyer membership for the current authenticated, provider-verified
  * session. Safe to call after BOTH mobile and email session bridges — Core's
  * current definition matches on verified phone OR verified email. Throws on
  * genuine RPC failure or a malformed response; never invents a claim.
+ *
+ * expectedUserId is supplied by the token-hash bridge on first login so a
+ * stale/different local session can never authorize the claim.
  */
-export async function claimApprovedB2bIdentity(): Promise<ApprovedB2bIdentityClaimOutcome> {
-  const sessionReady = await waitForAuthenticatedSession();
+export async function claimApprovedB2bIdentity(
+  expectedUserId?: string
+): Promise<ApprovedB2bIdentityClaimOutcome> {
+  const sessionReady = await waitForExpectedAuthenticatedSession(
+    async () => {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) return null;
+      return data.session?.user?.id ?? null;
+    },
+    expectedUserId ?? null
+  );
+
   if (!sessionReady) {
     throw new Error("APPROVED_B2B_IDENTITY_CLAIM_FAILED:session_missing");
   }

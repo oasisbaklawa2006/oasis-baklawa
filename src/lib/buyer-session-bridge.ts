@@ -6,18 +6,14 @@
 // type:"email"}) call Central uses to mint the session — this is not a new,
 // parallel auth mechanism.
 import { supabase } from "@/lib/supabase";
+import { claimApprovedB2bIdentity } from "@/lib/buyer-identity-claim";
 import {
-  claimApprovedB2bIdentity,
-  assertApprovedB2bClaimBound,
-  type ApprovedB2bIdentityClaimOutcome,
-} from "@/lib/buyer-identity-claim";
+  completeVerifiedBuyerSessionAndClaim,
+  type BuyerSessionBridgeResult,
+} from "@/lib/buyer-session-bridge-core";
 
 export type BuyerLoginChannel = "mobile" | "email";
-
-export interface BuyerSessionBridgeResult {
-  userId: string;
-  claim: ApprovedB2bIdentityClaimOutcome;
-}
+export type { BuyerSessionBridgeResult } from "@/lib/buyer-session-bridge-core";
 
 interface EdgeBridgeResponse {
   ok?: boolean;
@@ -56,24 +52,43 @@ export async function bridgeMsg91SessionAndClaim(
   if (!verifyRes.ok) throw new Error(verifyRes.error || verifyRes.reason || "provider_verification_failed");
   if (!verifyRes.token_hash || !verifyRes.user_id) throw new Error("session_token_missing");
 
-  const { data: sessionData, error: sessionError } = await supabase.auth.verifyOtp({
-    token_hash: verifyRes.token_hash,
-    type: "email",
-  });
-  if (sessionError || !sessionData.user) {
-    throw new Error(sessionError?.message || "session_create_failed");
-  }
-  if (sessionData.user.id !== verifyRes.user_id) {
-    // The server-resolved MSG91 identity and the Supabase token must bind to
-    // the same Auth user. Clear the just-created persisted session before
-    // failing closed so a malformed/inconsistent handoff cannot leave a
-    // different user authenticated on the device.
-    await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
-    throw new Error("session_identity_mismatch");
-  }
-
-  const claim = await claimApprovedB2bIdentity();
-  assertApprovedB2bClaimBound(claim, Boolean(verifyRes.approved_b2b_pending_claim));
-
-  return { userId: sessionData.user.id, claim };
+  return completeVerifiedBuyerSessionAndClaim(
+    {
+      tokenHash: verifyRes.token_hash,
+      providerUserId: verifyRes.user_id,
+      approvedB2bPendingClaim: Boolean(verifyRes.approved_b2b_pending_claim),
+    },
+    {
+      verifyOtp: async (tokenHash) => {
+        const { data: sessionData, error: sessionError } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: "email",
+        });
+        return {
+          userId: sessionData.user?.id ?? null,
+          accessToken: sessionData.session?.access_token ?? null,
+          refreshToken: sessionData.session?.refresh_token ?? null,
+          errorMessage: sessionError?.message ?? null,
+        };
+      },
+      setSession: async (sessionAccessToken, sessionRefreshToken) => {
+        // React Native persists auth through AsyncStorage. Physical PHYS-01
+        // showed verifyOtp() returning a valid user while getSession() still
+        // briefly observed no local session, preventing the Buyer claim RPC
+        // from being sent. Reassert the exact verified session before claim.
+        const { data: reboundData, error: reboundError } = await supabase.auth.setSession({
+          access_token: sessionAccessToken,
+          refresh_token: sessionRefreshToken,
+        });
+        return {
+          userId: reboundData.session?.user.id ?? null,
+          errorMessage: reboundError?.message ?? null,
+        };
+      },
+      signOutLocal: async () => {
+        await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+      },
+      claimApprovedB2bIdentity,
+    }
+  );
 }

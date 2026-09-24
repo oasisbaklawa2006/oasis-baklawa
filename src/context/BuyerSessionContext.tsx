@@ -20,6 +20,7 @@ interface BuyerSessionContextValue {
 
 const BuyerSessionContext = createContext<BuyerSessionContextValue | null>(null);
 
+/** Provides the authoritative Buyer eligibility snapshot and refresh lifecycle to the native app. */
 export function BuyerSessionProvider({ children }: { children: React.ReactNode }) {
   const [snapshot, setSnapshot] = useState<BuyerSessionSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,10 +72,12 @@ export function BuyerSessionProvider({ children }: { children: React.ReactNode }
       }
       if (event === "SIGNED_OUT") {
         lastUserIdRef.current = null;
-        // Fail closed immediately while the forced post-transition refresh
-        // reconciles authoritative session state. The request-id bump inside
-        // refresh({ force: true }) prevents any older in-flight request from
-        // restoring the previous buyer snapshot after sign-out.
+        // Invalidate any older resolveBuyerSession() immediately, before the
+        // deferred post-transition refresh runs. Otherwise an in-flight
+        // pre-sign-out request could briefly restore authenticated Buyer UI.
+        requestIdRef.current += 1;
+        // Fail closed immediately while the deferred forced refresh
+        // reconciles authoritative session state.
         setSnapshot({
           state: "unauthenticated",
           companyId: null,
@@ -83,10 +86,16 @@ export function BuyerSessionProvider({ children }: { children: React.ReactNode }
           userId: null,
         });
       }
-      // Keep Supabase's auth notification callback synchronous/non-blocking.
-      // Auth transitions must bypass AppState/request coalescing because an
-      // older refresh may have captured the previous identity.
-      void refresh({ force: true });
+
+      // Supabase documents onAuthStateChange as a synchronous notification.
+      // Do not re-enter auth APIs (resolveBuyerSession -> getSession) from
+      // inside that callback while the auth client is still publishing the
+      // state transition. Deferring one task prevents the PHYS-01 first-login
+      // race where verifyOtp succeeded but the subsequent claim could not yet
+      // observe the persisted React Native session.
+      setTimeout(() => {
+        void refresh({ force: true });
+      }, 0);
     });
 
     // Business-data changes (staff freezing a company, de-approving a
@@ -134,6 +143,7 @@ export function BuyerSessionProvider({ children }: { children: React.ReactNode }
   return <BuyerSessionContext.Provider value={value}>{children}</BuyerSessionContext.Provider>;
 }
 
+/** Returns the Buyer session context and fails fast when used outside its provider. */
 export function useBuyerSession(): BuyerSessionContextValue {
   const context = useContext(BuyerSessionContext);
   if (!context) {

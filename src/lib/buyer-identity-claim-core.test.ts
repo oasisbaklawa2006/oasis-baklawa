@@ -1,6 +1,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { assertApprovedB2bClaimBound, type ApprovedB2bIdentityClaimOutcome } from "./buyer-identity-claim-core";
+import {
+  assertApprovedB2bClaimBound,
+  waitForExpectedAuthenticatedSession,
+  type ApprovedB2bIdentityClaimOutcome,
+} from "./buyer-identity-claim-core";
 
 function outcome(overrides: Partial<ApprovedB2bIdentityClaimOutcome> = {}): ApprovedB2bIdentityClaimOutcome {
   return {
@@ -36,5 +40,62 @@ describe("assertApprovedB2bClaimBound", () => {
       () => assertApprovedB2bClaimBound(outcome(), true),
       /APPROVED_B2B_IDENTITY_CLAIM_FAILED:bind_failed/
     );
+  });
+});
+
+describe("waitForExpectedAuthenticatedSession", () => {
+  it("accepts the expected user immediately", async () => {
+    const ready = await waitForExpectedAuthenticatedSession(
+      async () => "user-1",
+      "user-1",
+      3,
+      0,
+      async () => undefined
+    );
+    assert.equal(ready, true);
+  });
+
+  it("retries through the React Native persistence gap until the expected user is visible", async () => {
+    const observations: (string | null)[] = [null, null, "user-1"];
+    let reads = 0;
+
+    const ready = await waitForExpectedAuthenticatedSession(
+      async () => observations[reads++] ?? null,
+      "user-1",
+      4,
+      0,
+      async () => undefined
+    );
+
+    assert.equal(ready, true);
+    assert.equal(reads, 3);
+  });
+
+  it("never treats a different persisted user as the verified buyer", async () => {
+    let reads = 0;
+    const ready = await waitForExpectedAuthenticatedSession(
+      async () => {
+        reads += 1;
+        return "wrong-user";
+      },
+      "user-1",
+      3,
+      0,
+      async () => undefined
+    );
+
+    assert.equal(ready, false);
+    assert.equal(reads, 3);
+  });
+
+  it("still supports recovery callers that only require any authenticated session", async () => {
+    const ready = await waitForExpectedAuthenticatedSession(
+      async () => "existing-user",
+      null,
+      1,
+      0,
+      async () => undefined
+    );
+    assert.equal(ready, true);
   });
 });

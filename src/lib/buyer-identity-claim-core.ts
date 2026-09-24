@@ -26,6 +26,7 @@ const NO_MATCH_CLAIM_ROW: ApprovedB2bIdentityClaimRow = {
   already_active: false,
 };
 
+/** Validates the exact single-row shape returned by Core's Buyer identity claim RPC. */
 export function isApprovedB2bIdentityClaimRow(value: unknown): value is ApprovedB2bIdentityClaimRow {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const row = value as Record<string, unknown>;
@@ -51,10 +52,42 @@ export function normalizeClaimRpcData(data: unknown): ApprovedB2bIdentityClaimRo
   return isApprovedB2bIdentityClaimRow(data) ? data : null;
 }
 
+/** Maps backend claim failures to stable, non-sensitive client error categories. */
 export function classifyClaimRpcError(message?: string | null): string {
   const normalized = (message ?? "").toLowerCase();
   if (normalized.includes("ambiguous") || normalized.includes("conflict")) return "ambiguous";
   return "rpc_error";
+}
+
+/**
+ * Waits until the client can read an authenticated session for the expected
+ * Auth user. React Native persists Supabase auth through AsyncStorage, so a
+ * freshly verified token can briefly exist in verifyOtp()'s return value
+ * before getSession() observes the same user. Never accept a different user
+ * just because some session exists.
+ */
+export async function waitForExpectedAuthenticatedSession(
+  readCurrentUserId: () => Promise<string | null>,
+  expectedUserId: string | null = null,
+  attempts = 20,
+  delayMs = 100,
+  sleep: (delayMs: number) => Promise<void> = (ms) =>
+    new Promise((resolve) => setTimeout(resolve, ms))
+): Promise<boolean> {
+  if (attempts < 1) return false;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const currentUserId = await readCurrentUserId();
+    if (currentUserId && (!expectedUserId || currentUserId === expectedUserId)) {
+      return true;
+    }
+
+    if (attempt < attempts - 1) {
+      await sleep(delayMs);
+    }
+  }
+
+  return false;
 }
 
 /**

@@ -26,6 +26,7 @@ const NO_MATCH_CLAIM_ROW: ApprovedB2bIdentityClaimRow = {
   already_active: false,
 };
 
+/** Validates the exact single-row shape returned by Core's Buyer identity claim RPC. */
 export function isApprovedB2bIdentityClaimRow(value: unknown): value is ApprovedB2bIdentityClaimRow {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const row = value as Record<string, unknown>;
@@ -51,6 +52,7 @@ export function normalizeClaimRpcData(data: unknown): ApprovedB2bIdentityClaimRo
   return isApprovedB2bIdentityClaimRow(data) ? data : null;
 }
 
+/** Maps backend claim failures to stable, non-sensitive client error categories. */
 export function classifyClaimRpcError(message?: string | null): string {
   const normalized = (message ?? "").toLowerCase();
   if (normalized.includes("ambiguous") || normalized.includes("conflict")) return "ambiguous";

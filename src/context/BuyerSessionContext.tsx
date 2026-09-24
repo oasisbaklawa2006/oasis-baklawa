@@ -83,10 +83,16 @@ export function BuyerSessionProvider({ children }: { children: React.ReactNode }
           userId: null,
         });
       }
-      // Keep Supabase's auth notification callback synchronous/non-blocking.
-      // Auth transitions must bypass AppState/request coalescing because an
-      // older refresh may have captured the previous identity.
-      void refresh({ force: true });
+
+      // Supabase documents onAuthStateChange as a synchronous notification.
+      // Do not re-enter auth APIs (resolveBuyerSession -> getSession) from
+      // inside that callback while the auth client is still publishing the
+      // state transition. Deferring one task prevents the PHYS-01 first-login
+      // race where verifyOtp succeeded but the subsequent claim could not yet
+      // observe the persisted React Native session.
+      setTimeout(() => {
+        void refresh({ force: true });
+      }, 0);
     });
 
     // Business-data changes (staff freezing a company, de-approving a

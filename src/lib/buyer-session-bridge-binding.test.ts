@@ -9,6 +9,7 @@ import {
 
 const BRIDGE_SOURCE = readFileSync(join(__dirname, "buyer-session-bridge.ts"), "utf8");
 
+/** Returns a successful Buyer membership claim fixture for bridge behavior tests. */
 function successfulClaim() {
   return {
     applicationId: "app-1",
@@ -18,6 +19,7 @@ function successfulClaim() {
   };
 }
 
+/** Builds bridge-core dependencies while allowing each test to override one handoff boundary. */
 function depsWith(
   overrides: Partial<BuyerSessionBridgeCoreDeps> = {}
 ): BuyerSessionBridgeCoreDeps {

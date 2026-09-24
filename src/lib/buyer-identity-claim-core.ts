@@ -58,6 +58,37 @@ export function classifyClaimRpcError(message?: string | null): string {
 }
 
 /**
+ * Waits until the client can read an authenticated session for the expected
+ * Auth user. React Native persists Supabase auth through AsyncStorage, so a
+ * freshly verified token can briefly exist in verifyOtp()'s return value
+ * before getSession() observes the same user. Never accept a different user
+ * just because some session exists.
+ */
+export async function waitForExpectedAuthenticatedSession(
+  readCurrentUserId: () => Promise<string | null>,
+  expectedUserId: string | null = null,
+  attempts = 20,
+  delayMs = 100,
+  sleep: (delayMs: number) => Promise<void> = (ms) =>
+    new Promise((resolve) => setTimeout(resolve, ms))
+): Promise<boolean> {
+  if (attempts < 1) return false;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const currentUserId = await readCurrentUserId();
+    if (currentUserId && (!expectedUserId || currentUserId === expectedUserId)) {
+      return true;
+    }
+
+    if (attempt < attempts - 1) {
+      await sleep(delayMs);
+    }
+  }
+
+  return false;
+}
+
+/**
  * Fail closed when the edge bridge signalled a brand-new identity awaiting
  * bind (approved_b2b_pending_claim / is_new) but Core's claim did not attach
  * membership. Prevents a silent fall-through to "no application" for a real

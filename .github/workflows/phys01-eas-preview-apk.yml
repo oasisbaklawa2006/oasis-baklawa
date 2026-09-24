@@ -1,0 +1,99 @@
+name: PHYS-01 Android Preview APK
+
+on:
+  push:
+    branches:
+      - build/phys01-android-935335c8
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+    steps:
+      - name: Checkout exact build branch
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Verify Expo authentication is available
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${EXPO_TOKEN:-}" ]; then
+            echo "EXPO_TOKEN GitHub Actions secret is not configured."
+            exit 1
+          fi
+
+      - name: Install project dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install EAS CLI
+        run: npm install --global eas-cli@latest
+
+      - name: Verify Expo account
+        run: eas whoami --non-interactive
+
+      - name: Verify project and preview profile
+        run: eas config --platform android --profile preview --non-interactive
+
+      - name: Build fresh Android preview APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          eas build \
+            --platform android \
+            --profile preview \
+            --clear-cache \
+            --wait \
+            --json \
+            --message "PHYS-01 Android UAT after PR #25/#26; runtime base 935335c8ba59033c4c30566fecdeed900e8dda66" \
+            > eas-build.json
+
+      - name: Download APK and write provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_ID="$(jq -r 'if type=="array" then .[0].id else .id end' eas-build.json)"
+          BUILD_URL="$(jq -r 'if type=="array" then .[0].artifacts.buildUrl else .artifacts.buildUrl end' eas-build.json)"
+          if [ -z "$BUILD_ID" ] || [ "$BUILD_ID" = "null" ] || [ -z "$BUILD_URL" ] || [ "$BUILD_URL" = "null" ]; then
+            echo "EAS completed without a downloadable Android artifact."
+            cat eas-build.json
+            exit 1
+          fi
+
+          APK="oasis-buyer-phys01-${GITHUB_SHA:0:8}.apk"
+          curl --fail --location --retry 3 "$BUILD_URL" --output "$APK"
+          sha256sum "$APK" | tee apk-sha256.txt
+
+          {
+            echo "runtime_base_sha=935335c8ba59033c4c30566fecdeed900e8dda66"
+            echo "workflow_source_sha=$GITHUB_SHA"
+            echo "eas_build_id=$BUILD_ID"
+            echo "profile=preview"
+            echo "platform=android"
+            echo "package=com.oasisbaklawa.customer"
+            echo "artifact=$APK"
+          } | tee build-provenance.txt
+
+      - name: Upload PHYS-01 APK evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: oasis-buyer-phys01-apk
+          path: |
+            oasis-buyer-phys01-*.apk
+            eas-build.json
+            apk-sha256.txt
+            build-provenance.txt
+          if-no-files-found: error
+          retention-days: 14

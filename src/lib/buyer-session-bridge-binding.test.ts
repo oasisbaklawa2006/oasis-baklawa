@@ -9,6 +9,7 @@ import {
 
 const BRIDGE_SOURCE = readFileSync(join(__dirname, "buyer-session-bridge.ts"), "utf8");
 
+/** Returns the canonical successful Buyer claim fixture used by bridge tests. */
 function successfulClaim() {
   return {
     applicationId: "app-1",
@@ -18,6 +19,7 @@ function successfulClaim() {
   };
 }
 
+/** Builds bridge-core dependencies with focused per-test overrides. */
 function depsWith(
   overrides: Partial<BuyerSessionBridgeCoreDeps> = {}
 ): BuyerSessionBridgeCoreDeps {

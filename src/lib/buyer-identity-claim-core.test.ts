@@ -56,7 +56,7 @@ describe("waitForExpectedAuthenticatedSession", () => {
   });
 
   it("retries through the React Native persistence gap until the expected user is visible", async () => {
-    const observations: Array<string | null> = [null, null, "user-1"];
+    const observations: (string | null)[] = [null, null, "user-1"];
     let reads = 0;
 
     const ready = await waitForExpectedAuthenticatedSession(

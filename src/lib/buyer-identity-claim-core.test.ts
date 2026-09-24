@@ -6,6 +6,7 @@ import {
   type ApprovedB2bIdentityClaimOutcome,
 } from "./buyer-identity-claim-core";
 
+/** Builds a Buyer identity-claim outcome fixture with safe fail-closed defaults. */
 function outcome(overrides: Partial<ApprovedB2bIdentityClaimOutcome> = {}): ApprovedB2bIdentityClaimOutcome {
   return {
     applicationId: null,

@@ -60,7 +60,7 @@ export async function bridgeMsg91SessionAndClaim(
     token_hash: verifyRes.token_hash,
     type: "email",
   });
-  if (sessionError || !sessionData.user) {
+  if (sessionError || !sessionData.user || !sessionData.session) {
     throw new Error(sessionError?.message || "session_create_failed");
   }
   if (sessionData.user.id !== verifyRes.user_id) {
@@ -72,7 +72,22 @@ export async function bridgeMsg91SessionAndClaim(
     throw new Error("session_identity_mismatch");
   }
 
-  const claim = await claimApprovedB2bIdentity();
+  // React Native persists auth through AsyncStorage. Physical PHYS-01 showed
+  // verifyOtp() returning a valid user while getSession() still briefly
+  // observed no local session, preventing the Buyer claim RPC from being sent.
+  // Reassert the exact session returned by verifyOtp() before the claim so the
+  // following authenticated RPC is deterministic, without trusting any
+  // locally reconstructed identity.
+  const { data: reboundData, error: reboundError } = await supabase.auth.setSession({
+    access_token: sessionData.session.access_token,
+    refresh_token: sessionData.session.refresh_token,
+  });
+  if (reboundError || !reboundData.session || reboundData.session.user.id !== verifyRes.user_id) {
+    await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+    throw new Error(reboundError?.message || "session_create_failed");
+  }
+
+  const claim = await claimApprovedB2bIdentity(verifyRes.user_id);
   assertApprovedB2bClaimBound(claim, Boolean(verifyRes.approved_b2b_pending_claim));
 
   return { userId: sessionData.user.id, claim };

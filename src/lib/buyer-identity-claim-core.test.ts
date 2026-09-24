@@ -6,6 +6,7 @@ import {
   type ApprovedB2bIdentityClaimOutcome,
 } from "./buyer-identity-claim-core";
 
+/** Builds a deterministic claim outcome fixture for claim-bound assertions. */
 function outcome(overrides: Partial<ApprovedB2bIdentityClaimOutcome> = {}): ApprovedB2bIdentityClaimOutcome {
   return {
     applicationId: null,

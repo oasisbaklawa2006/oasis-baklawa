@@ -40,17 +40,23 @@ export {
 export async function claimApprovedB2bIdentity(
   expectedUserId?: string
 ): Promise<ApprovedB2bIdentityClaimOutcome> {
-  const sessionReady = await waitForExpectedAuthenticatedSession(
-    async () => {
+  // The bridge has already verified the exact Auth user and reasserted the
+  // returned access/refresh tokens with setSession(). Do not gate the first
+  // authenticated RPC on a second AsyncStorage-backed getSession() read:
+  // PHYS-01 proved that native persistence can lag even while /auth/v1/user
+  // already succeeds for the verified session. The RPC itself remains
+  // server-authorized by the JWT and auth.uid(), and the bridge still rejects
+  // any provider/rebound user mismatch before reaching this function.
+  if (!expectedUserId) {
+    const sessionReady = await waitForExpectedAuthenticatedSession(async () => {
       const { data, error } = await supabase.auth.getSession();
       if (error) return null;
       return data.session?.user?.id ?? null;
-    },
-    expectedUserId ?? null
-  );
+    });
 
-  if (!sessionReady) {
-    throw new Error("APPROVED_B2B_IDENTITY_CLAIM_FAILED:session_missing");
+    if (!sessionReady) {
+      throw new Error("APPROVED_B2B_IDENTITY_CLAIM_FAILED:session_missing");
+    }
   }
 
   let data: unknown;

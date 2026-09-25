@@ -77,6 +77,25 @@ describe("buyer session bridge verified-user binding", () => {
     assert.equal(result.userId, "verified-user");
   });
 
+  it("does not insert another session-read gate between rebound auth and the claim transport", () => {
+    const claimSource = readFileSync(join(__dirname, "buyer-identity-claim.ts"), "utf8");
+    assert.match(
+      claimSource,
+      /if \(!expectedUserId\)[\s\S]*waitForExpectedAuthenticatedSession/,
+      "recovery callers may wait for persisted session state"
+    );
+    assert.doesNotMatch(
+      claimSource,
+      /if \(expectedUserId\)[\s\S]*waitForExpectedAuthenticatedSession/,
+      "verified bridge callers must proceed to the server-authorized RPC without a redundant persistence read"
+    );
+    assert.match(
+      claimSource,
+      /data = await callRpc\(APPROVED_B2B_IDENTITY_CLAIM_RPC\)/,
+      "the verified bridge path must retain the canonical Core claim transport"
+    );
+  });
+
   it("fails closed on OTP identity mismatch: signs out and never claims", async () => {
     let signOuts = 0;
     let claims = 0;

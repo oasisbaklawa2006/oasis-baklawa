@@ -30,7 +30,10 @@ export interface BuyerSessionBridgeCoreDeps {
   verifyOtp: (tokenHash: string) => Promise<VerifiedOtpSessionResult>;
   setSession: (accessToken: string, refreshToken: string) => Promise<ReboundSessionResult>;
   signOutLocal: () => Promise<void>;
-  claimApprovedB2bIdentity: (expectedUserId: string) => Promise<ApprovedB2bIdentityClaimOutcome>;
+  claimApprovedB2bIdentity: (
+    expectedUserId: string,
+    verifiedAccessToken: string
+  ) => Promise<ApprovedB2bIdentityClaimOutcome>;
 }
 
 /**
@@ -68,7 +71,10 @@ export async function completeVerifiedBuyerSessionAndClaim(
     throw new Error(rebound.errorMessage || "session_create_failed");
   }
 
-  const claim = await deps.claimApprovedB2bIdentity(verified.providerUserId);
+  const claim = await deps.claimApprovedB2bIdentity(
+    verified.providerUserId,
+    otpSession.accessToken
+  );
   assertApprovedB2bClaimBound(claim, verified.approvedB2bPendingClaim);
 
   return { userId: otpSession.userId, claim };

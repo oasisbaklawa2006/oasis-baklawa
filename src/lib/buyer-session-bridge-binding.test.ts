@@ -8,6 +8,7 @@ import {
 } from "./buyer-session-bridge-core";
 
 const BRIDGE_SOURCE = readFileSync(join(__dirname, "buyer-session-bridge.ts"), "utf8");
+const CLAIM_SOURCE = readFileSync(join(__dirname, "buyer-identity-claim.ts"), "utf8");
 
 /** Returns the canonical successful Buyer claim fixture used by bridge tests. */
 function successfulClaim() {
@@ -37,28 +38,14 @@ function depsWith(
   };
 }
 
-/**
- * Source-level binding contract plus executable fail-closed coverage for the
- * native bridge. The wrapper imports React Native/Supabase runtime modules, so
- * the runtime-agnostic handoff core is executed with stubs while source checks
- * ensure the native wrapper remains wired to that core.
- */
 describe("buyer session bridge verified-user binding", () => {
   it("keeps the native wrapper delegated to the verified-session handoff core", () => {
-    assert.match(
-      BRIDGE_SOURCE,
-      /completeVerifiedBuyerSessionAndClaim\s*\(/,
-      "native bridge must delegate the post-provider handoff to the tested core"
-    );
-    assert.match(
-      BRIDGE_SOURCE,
-      /providerUserId:\s*verifyRes\.user_id/,
-      "native bridge must pass the provider-verified UUID to the tested core"
-    );
+    assert.match(BRIDGE_SOURCE, /completeVerifiedBuyerSessionAndClaim\s*\(/);
+    assert.match(BRIDGE_SOURCE, /providerUserId:\s*verifyRes\.user_id/);
   });
 
-  it("forwards the exact provider-verified UUID into the Buyer claim", async () => {
-    const claimUserIds: string[] = [];
+  it("forwards the exact provider UUID and verified JWT into the claim transport", async () => {
+    const calls: { userId: string; accessToken: string }[] = [];
     const result = await completeVerifiedBuyerSessionAndClaim(
       {
         tokenHash: "token-hash",
@@ -66,15 +53,23 @@ describe("buyer session bridge verified-user binding", () => {
         approvedB2bPendingClaim: true,
       },
       depsWith({
-        claimApprovedB2bIdentity: async (expectedUserId) => {
-          claimUserIds.push(expectedUserId);
+        claimApprovedB2bIdentity: async (userId, accessToken) => {
+          calls.push({ userId, accessToken });
           return successfulClaim();
         },
       })
     );
 
-    assert.deepEqual(claimUserIds, ["verified-user"]);
+    assert.deepEqual(calls, [{ userId: "verified-user", accessToken: "access-token" }]);
     assert.equal(result.userId, "verified-user");
+  });
+
+  it("uses explicit-token RPC transport for verified first-login claims", () => {
+    assert.match(
+      CLAIM_SOURCE,
+      /callRpcWithAccessToken\(verifiedAccessToken, APPROVED_B2B_IDENTITY_CLAIM_RPC\)/
+    );
+    assert.match(CLAIM_SOURCE, /if \(!expectedUserId\)[\s\S]*waitForExpectedAuthenticatedSession/);
   });
 
   it("fails closed on OTP identity mismatch: signs out and never claims", async () => {
@@ -87,27 +82,16 @@ describe("buyer session bridge verified-user binding", () => {
         refreshToken: "refresh-token",
         errorMessage: null,
       }),
-      signOutLocal: async () => {
-        signOuts += 1;
-      },
-      claimApprovedB2bIdentity: async () => {
-        claims += 1;
-        return successfulClaim();
-      },
+      signOutLocal: async () => { signOuts += 1; },
+      claimApprovedB2bIdentity: async () => { claims += 1; return successfulClaim(); },
     });
-
     await assert.rejects(
       completeVerifiedBuyerSessionAndClaim(
-        {
-          tokenHash: "token-hash",
-          providerUserId: "verified-user",
-          approvedB2bPendingClaim: true,
-        },
+        { tokenHash: "token-hash", providerUserId: "verified-user", approvedB2bPendingClaim: true },
         deps
       ),
       /session_identity_mismatch/
     );
-
     assert.equal(signOuts, 1);
     assert.equal(claims, 0);
   });
@@ -117,27 +101,16 @@ describe("buyer session bridge verified-user binding", () => {
     let claims = 0;
     const deps = depsWith({
       setSession: async () => ({ userId: null, errorMessage: "persist_failed" }),
-      signOutLocal: async () => {
-        signOuts += 1;
-      },
-      claimApprovedB2bIdentity: async () => {
-        claims += 1;
-        return successfulClaim();
-      },
+      signOutLocal: async () => { signOuts += 1; },
+      claimApprovedB2bIdentity: async () => { claims += 1; return successfulClaim(); },
     });
-
     await assert.rejects(
       completeVerifiedBuyerSessionAndClaim(
-        {
-          tokenHash: "token-hash",
-          providerUserId: "verified-user",
-          approvedB2bPendingClaim: true,
-        },
+        { tokenHash: "token-hash", providerUserId: "verified-user", approvedB2bPendingClaim: true },
         deps
       ),
       /persist_failed/
     );
-
     assert.equal(signOuts, 1);
     assert.equal(claims, 0);
   });
@@ -147,27 +120,16 @@ describe("buyer session bridge verified-user binding", () => {
     let claims = 0;
     const deps = depsWith({
       setSession: async () => ({ userId: "wrong-user", errorMessage: null }),
-      signOutLocal: async () => {
-        signOuts += 1;
-      },
-      claimApprovedB2bIdentity: async () => {
-        claims += 1;
-        return successfulClaim();
-      },
+      signOutLocal: async () => { signOuts += 1; },
+      claimApprovedB2bIdentity: async () => { claims += 1; return successfulClaim(); },
     });
-
     await assert.rejects(
       completeVerifiedBuyerSessionAndClaim(
-        {
-          tokenHash: "token-hash",
-          providerUserId: "verified-user",
-          approvedB2bPendingClaim: true,
-        },
+        { tokenHash: "token-hash", providerUserId: "verified-user", approvedB2bPendingClaim: true },
         deps
       ),
       /session_create_failed/
     );
-
     assert.equal(signOuts, 1);
     assert.equal(claims, 0);
   });

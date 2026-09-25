@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { createVerifiedAccessTokenClient, supabase } from "@/lib/supabase";
 import type { Database } from "@/types/database.types";
 
 type PublicFunctions = Database["public"]["Functions"];
@@ -15,7 +15,17 @@ type RpcInvoker = <Fn extends keyof PublicFunctions>(
   args?: PublicFunctions[Fn]["Args"]
 ) => Promise<{ data: PublicFunctions[Fn]["Returns"] | null; error: Error | null }>;
 
-const invokeRpc = supabase.rpc as unknown as RpcInvoker;
+async function invokeAndUnwrap<Fn extends keyof PublicFunctions>(
+  invokeRpc: RpcInvoker,
+  fn: Fn,
+  args?: RpcArgs<Fn>
+): Promise<PublicFunctions[Fn]["Returns"]> {
+  const { data, error } = await invokeRpc(fn, args);
+  if (error) throw error;
+  return data as PublicFunctions[Fn]["Returns"];
+}
+
+const invokeRpc = supabase.rpc.bind(supabase) as unknown as RpcInvoker;
 
 export async function callRpc<Fn extends ZeroArgRpc>(
   fn: Fn,
@@ -29,7 +39,29 @@ export async function callRpc<Fn extends keyof PublicFunctions>(
   fn: Fn,
   args?: RpcArgs<Fn>
 ): Promise<PublicFunctions[Fn]["Returns"]> {
-  const { data, error } = await invokeRpc(fn, args);
-  if (error) throw error;
-  return data as PublicFunctions[Fn]["Returns"];
+  return invokeAndUnwrap(invokeRpc, fn, args);
+}
+
+/**
+ * Calls an RPC with an explicit verified JWT, avoiding any dependency on
+ * persisted native auth state for the first post-OTP request.
+ */
+export async function callRpcWithAccessToken<Fn extends ZeroArgRpc>(
+  accessToken: string,
+  fn: Fn,
+  args?: RpcArgs<Fn>
+): Promise<PublicFunctions[Fn]["Returns"]>;
+export async function callRpcWithAccessToken<Fn extends ParamRpc>(
+  accessToken: string,
+  fn: Fn,
+  args: RpcArgs<Fn>
+): Promise<PublicFunctions[Fn]["Returns"]>;
+export async function callRpcWithAccessToken<Fn extends keyof PublicFunctions>(
+  accessToken: string,
+  fn: Fn,
+  args?: RpcArgs<Fn>
+): Promise<PublicFunctions[Fn]["Returns"]> {
+  const client = createVerifiedAccessTokenClient(accessToken);
+  const tokenRpc = client.rpc.bind(client) as unknown as RpcInvoker;
+  return invokeAndUnwrap(tokenRpc, fn, args);
 }

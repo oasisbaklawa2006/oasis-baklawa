@@ -45,7 +45,7 @@ describe("buyer session bridge verified-user binding", () => {
   });
 
   it("forwards the exact provider UUID and verified JWT into the claim transport", async () => {
-    const calls: Array<{ userId: string; accessToken: string }> = [];
+    const calls: { userId: string; accessToken: string }[] = [];
     const result = await completeVerifiedBuyerSessionAndClaim(
       {
         tokenHash: "token-hash",

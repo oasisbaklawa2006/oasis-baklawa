@@ -1,10 +1,6 @@
 // Bridges an MSG91-verified access-token to the canonical Supabase Buyer
-// session, ported from Oasis-Baklawa-Central's verifiedProviderSession
-// (src/pages/BuyerLogin.tsx). Both channels go through Central's existing
-// edge functions (msg91-otp, msg91-email-session) for server-side provider
-// re-verification, then the SAME supabase.auth.verifyOtp({token_hash,
-// type:"email"}) call Central uses to mint the session — this is not a new,
-// parallel auth mechanism.
+// session. Both channels use the existing server-side provider verification
+// and canonical Supabase token-hash exchange.
 import { supabase } from "@/lib/supabase";
 import { claimApprovedB2bIdentity } from "@/lib/buyer-identity-claim";
 import {
@@ -30,8 +26,7 @@ interface EdgeBridgeResponse {
 
 /**
  * Exchanges a provider-verified MSG91 access-token for a canonical Supabase
- * session, then claims Buyer membership. Throws on any failure — callers
- * must not assume partial success.
+ * session, then claims Buyer membership. Throws on any failure.
  */
 export async function bridgeMsg91SessionAndClaim(
   channel: BuyerLoginChannel,
@@ -72,10 +67,6 @@ export async function bridgeMsg91SessionAndClaim(
         };
       },
       setSession: async (sessionAccessToken, sessionRefreshToken) => {
-        // React Native persists auth through AsyncStorage. Physical PHYS-01
-        // showed verifyOtp() returning a valid user while getSession() still
-        // briefly observed no local session, preventing the Buyer claim RPC
-        // from being sent. Reassert the exact verified session before claim.
         const { data: reboundData, error: reboundError } = await supabase.auth.setSession({
           access_token: sessionAccessToken,
           refresh_token: sessionRefreshToken,

@@ -17,3 +17,21 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: false,
   },
 });
+
+/**
+ * Creates an ephemeral client whose PostgREST requests are authenticated by
+ * the already verified access token. It deliberately has no persisted auth
+ * storage, so the first Buyer claim cannot depend on AsyncStorage readiness.
+ */
+export function createVerifiedAccessTokenClient(accessToken: string) {
+  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  });
+}

@@ -25,7 +25,7 @@ async function invokeAndUnwrap<Fn extends keyof PublicFunctions>(
   return data as PublicFunctions[Fn]["Returns"];
 }
 
-const invokeRpc = supabase.rpc as unknown as RpcInvoker;
+const invokeRpc = supabase.rpc.bind(supabase) as unknown as RpcInvoker;
 
 export async function callRpc<Fn extends ZeroArgRpc>(
   fn: Fn,
@@ -62,6 +62,6 @@ export async function callRpcWithAccessToken<Fn extends keyof PublicFunctions>(
   args?: RpcArgs<Fn>
 ): Promise<PublicFunctions[Fn]["Returns"]> {
   const client = createVerifiedAccessTokenClient(accessToken);
-  const tokenRpc = client.rpc as unknown as RpcInvoker;
+  const tokenRpc = client.rpc.bind(client) as unknown as RpcInvoker;
   return invokeAndUnwrap(tokenRpc, fn, args);
 }

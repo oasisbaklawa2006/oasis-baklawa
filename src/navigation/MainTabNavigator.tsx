@@ -7,7 +7,7 @@ import { OrdersScreen } from "@/screens/OrdersScreen";
 import { DashboardScreen } from "@/screens/DashboardScreen";
 import { SupportScreen } from "@/screens/SupportScreen";
 import { AccountScreen } from "@/screens/AccountScreen";
-import { colors, typography } from "@/theme";
+import { colors, touchTarget, typography } from "@/theme";
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -15,7 +15,7 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   const icons: Record<string, string> = {
     Catalogue: "◈",
     Orders: "◎",
-    Dashboard: "◇",
+    Dashboard: "O",
     Support: "◆",
     Account: "○",
   };
@@ -32,7 +32,7 @@ export function MainTabNavigator() {
       initialRouteName="Dashboard"
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: colors.action,
+        tabBarActiveTintColor: colors.accentBronze,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: styles.tabBar,
         tabBarLabelStyle: styles.tabLabel,
@@ -41,9 +41,9 @@ export function MainTabNavigator() {
     >
       <Tab.Screen name="Catalogue" component={CatalogueScreen} options={{ tabBarLabel: "Catalogue" }} />
       <Tab.Screen name="Orders" component={OrdersScreen} options={{ tabBarLabel: "Orders" }} />
-      <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ tabBarLabel: "Home" }} />
+      <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ tabBarLabel: "Oasis" }} />
       <Tab.Screen name="Support" component={SupportScreen} options={{ tabBarLabel: "Support" }} />
-      <Tab.Screen name="Account" component={AccountScreen} options={{ tabBarLabel: "My Account" }} />
+      <Tab.Screen name="Account" component={AccountScreen} options={{ tabBarLabel: "Account" }} />
     </Tab.Navigator>
   );
 }
@@ -53,15 +53,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfacePremium,
     borderTopColor: colors.borderLight,
     borderTopWidth: 1,
-    paddingTop: 4,
-    height: 60,
+    paddingTop: 6,
+    height: 76,
+    paddingBottom: 6,
   },
   tabLabel: {
     fontFamily: typography.fontFamilySansMedium,
     fontSize: 10,
-    marginBottom: 4,
+    marginBottom: 2,
   },
-  iconWrap: { alignItems: "center", justifyContent: "center" },
+  iconWrap: { minWidth: touchTarget, minHeight: 28, alignItems: "center", justifyContent: "center" },
   icon: { fontSize: 18, color: colors.textMuted },
-  iconFocused: { color: colors.action },
+  iconFocused: { color: colors.accentBronze },
 });

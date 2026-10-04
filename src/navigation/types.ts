@@ -33,11 +33,15 @@ export type RootStackParamList = {
   QuickOrder: undefined;
   AiOrder: undefined;
   Cart: undefined;
+  CommercialReview: undefined;
   Checkout: undefined;
+  OrderConfirmation: { orderId: string };
   Documents: undefined;
   Quotations: undefined;
   QuotationDetail: { quotationId: string; quotationNumber: string };
   OrderPayment: { orderId: string; orderNumber: string };
+  DeliveredClosure: { orderId: string };
+  CommunicationLog: { entityId: string };
 };
 
 declare global {

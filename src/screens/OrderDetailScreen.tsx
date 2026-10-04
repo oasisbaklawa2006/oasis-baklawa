@@ -144,6 +144,16 @@ export function OrderDetailScreen({ navigation, route }: Props) {
               />
             </View>
           ) : null}
+          <View style={styles.orderActions}>
+            <OasisButton
+              label="Get help with this order"
+              variant="secondary"
+              onPress={() => navigation.navigate("MainTabs", { screen: "Support", params: { orderId: order.order_id } })}
+            />
+            {buyerFulfilmentStageLabel(order.customer_stage) === "Delivered" ? (
+              <OasisButton label="Order received" onPress={() => navigation.navigate("DeliveredClosure", { orderId: order.order_id })} />
+            ) : null}
+          </View>
           <Text style={styles.section}>Line items</Text>
           <FlatList
             data={items}
@@ -181,6 +191,7 @@ const styles = StyleSheet.create({
   financeCard: { backgroundColor: colors.surfacePremium, borderRadius: 12, padding: spacing.md, marginTop: spacing.md, gap: 4 },
   financeMeta: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.textPrimary },
   financeLine: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textSecondary },
+  orderActions: { marginTop: spacing.md, gap: spacing.sm },
   line: { paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
   lineTitle: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeMd, color: colors.textPrimary },
   lineMeta: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted, marginTop: 2 },

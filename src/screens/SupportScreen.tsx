@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
   RefreshControl,
@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
-import type { CompositeScreenProps } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused, type CompositeScreenProps } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { MainTabParamList, RootStackParamList } from "@/navigation/types";
 import { BuyerGate } from "@/components/BuyerGate";
@@ -51,6 +51,10 @@ export function SupportScreen({ navigation, route }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const [orderId, setOrderId] = useState(route.params?.orderId ?? "");
+  const isFocused = useIsFocused();
+  const routeOrderSelection = useRef<string | null>(route.params?.orderId ?? null);
+  const preserveRouteSelectionOnFocus = useRef(Boolean(route.params?.orderId));
+  const hasFocused = useRef(false);
   const [issueType, setIssueType] = useState(ORDER_ISSUE_TYPES[0]);
   const [orderDescription, setOrderDescription] = useState("");
   const [submittingTicket, setSubmittingTicket] = useState(false);
@@ -82,8 +86,24 @@ export function SupportScreen({ navigation, route }: Props) {
     const incomingOrderId = route.params?.orderId;
     if (!incomingOrderId) return;
     setOrderId(incomingOrderId);
+    routeOrderSelection.current = incomingOrderId;
+    preserveRouteSelectionOnFocus.current = !isFocused || !hasFocused.current;
     navigation.setParams({ orderId: undefined });
-  }, [navigation, route.params?.orderId]);
+  }, [isFocused, navigation, route.params?.orderId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      hasFocused.current = true;
+      if (preserveRouteSelectionOnFocus.current) {
+        preserveRouteSelectionOnFocus.current = false;
+        return;
+      }
+      if (routeOrderSelection.current) {
+        routeOrderSelection.current = null;
+        setOrderId("");
+      }
+    }, [])
+  );
 
   useEffect(() => {
     (async () => {
@@ -222,7 +242,10 @@ export function SupportScreen({ navigation, route }: Props) {
                       <TouchableOpacity
                         key={order.order_id}
                         style={[styles.chip, orderId === order.order_id && styles.chipActive]}
-                        onPress={() => setOrderId(order.order_id)}
+                        onPress={() => {
+                          routeOrderSelection.current = null;
+                          setOrderId(order.order_id);
+                        }}
                         accessibilityRole="button"
                         accessibilityState={{ selected: orderId === order.order_id }}
                       >

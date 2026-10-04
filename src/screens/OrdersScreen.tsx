@@ -8,7 +8,7 @@ import { BuyerGate } from "@/components/BuyerGate";
 import { Screen } from "@/components/Screen";
 import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { fetchCustomerOrderItems, fetchCustomerOrderStatus } from "@/lib/api/orders";
-import { FULFILMENT_TIMELINE_STAGES, fulfilmentStageIndex } from "@/lib/order-stages";
+import { FULFILMENT_TIMELINE_STAGES, buyerFulfilmentStageLabel, fulfilmentStageIndex } from "@/lib/order-stages";
 import { parseRpcError } from "@/lib/rpc-errors";
 import type { CustomerOrderItem, CustomerOrderStatus } from "@/types/database.types";
 import { colors, spacing, typography } from "@/theme";
@@ -129,7 +129,7 @@ export function OrdersScreen({ navigation, route }: Props) {
                     <Text style={styles.orderValue}>₹{item.order_value.toLocaleString("en-IN")}</Text>
                   </View>
                   <Text style={styles.stageMeta}>
-                    {item.customer_stage.replace(/_/g, " ")} · {item.payment_stage.replace(/_/g, " ")}
+                    {buyerFulfilmentStageLabel(item.customer_stage)}
                   </Text>
                   <Text style={styles.stagnancy}>{istStagnancy(item.updated_at)}</Text>
 

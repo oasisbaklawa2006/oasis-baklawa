@@ -79,10 +79,10 @@ export function SupportScreen({ navigation, route }: Props) {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = navigation.addListener("focus", () => {
-      if (route.params?.orderId) setOrderId(route.params.orderId);
-    });
-    return unsubscribe;
+    const incomingOrderId = route.params?.orderId;
+    if (!incomingOrderId) return;
+    setOrderId(incomingOrderId);
+    navigation.setParams({ orderId: undefined });
   }, [navigation, route.params?.orderId]);
 
   useEffect(() => {
@@ -93,6 +93,7 @@ export function SupportScreen({ navigation, route }: Props) {
     })();
   }, [load]);
 
+  /** Refreshes buyer-visible support data without mutating submission state. */
   async function onRefresh() {
     setRefreshing(true);
     await load();
@@ -104,6 +105,7 @@ export function SupportScreen({ navigation, route }: Props) {
     [tickets, generalQueries]
   );
 
+  /** Submits an order-linked support request through the governed idempotent gateway. */
   async function submitOrderTicket() {
     if (!orderId) {
       setTicketNotice("Select an order before submitting order support.");
@@ -154,6 +156,7 @@ export function SupportScreen({ navigation, route }: Props) {
     }
   }
 
+  /** Submits a general enquiry through its governed idempotent gateway. */
   async function submitGeneralEnquiry() {
     const subject = querySubject.trim();
     const message = queryMessage.trim();

@@ -153,7 +153,7 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
       <Screen title="Order payment" subtitle={orderNumber} safeAreaEdges={["top", "bottom"]}>
         <OasisButton
-          label="Refresh finance facts"
+          label="Refresh payment details"
           variant="secondary"
           onPress={() => {
             setRefreshing(true);
@@ -162,24 +162,24 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
           loading={refreshing && !flow.paymentIntentId}
         />
         {loading ? (
-          <LoadingState message="Loading server-authoritative payable state…" />
+          <LoadingState message="Loading payment details…" />
         ) : error ? (
           <ErrorState message={error} onRetry={() => { setLoading(true); void load(); }} />
         ) : !boundary.payable ? (
-          <ErrorState message={boundary.blockedReason ?? "Payable state unavailable."} onRetry={() => { setLoading(true); void load(); }} />
+          <ErrorState message={boundary.blockedReason ?? "Payment details are unavailable."} onRetry={() => { setLoading(true); void load(); }} />
         ) : (
           <View style={styles.body}>
             <View style={styles.card}>
-              <Row label="Finance status" value={(boundary.payable.financeStatus ?? "pending").replace(/_/g, " ")} />
+              <Row label="Payment status" value={(boundary.payable.financeStatus ?? "pending").replace(/_/g, " ")} />
               <Row label="Payment purpose" value={purposeLabel(boundary.payable.paymentPurpose)} />
-              <Row label="Commercial value" value={formatInr(boundary.payable.commercialValue)} />
-              <Row label="Required advance" value={formatInr(boundary.payable.requiredAdvance)} />
-              <Row label="Verified payments" value={formatInr(boundary.payable.verifiedPaymentAmount)} />
-              <Row label="Covered amount" value={formatInr(boundary.payable.coveredAmount)} />
+              <Row label="Order total" value={formatInr(boundary.payable.commercialValue)} />
+              <Row label="Advance required" value={formatInr(boundary.payable.requiredAdvance)} />
+              <Row label="Payments received" value={formatInr(boundary.payable.verifiedPaymentAmount)} />
+              <Row label="Amount covered" value={formatInr(boundary.payable.coveredAmount)} />
               <Row label="Balance due" value={formatInr(boundary.payable.balanceDue)} />
-              <Row label="Payable now" value={formatInr(boundary.payable.payableAmount)} emphasis />
-              {boundary.payable.piNumber ? <Row label="PI reference" value={boundary.payable.piNumber} /> : null}
-              {boundary.payable.piStatus ? <Row label="PI status" value={boundary.payable.piStatus.replace(/_/g, " ")} /> : null}
+              <Row label="Pay now" value={formatInr(boundary.payable.payableAmount)} emphasis />
+              {boundary.payable.piNumber ? <Row label="Proforma invoice" value={boundary.payable.piNumber} /> : null}
+              {boundary.payable.piStatus ? <Row label="Proforma invoice status" value={boundary.payable.piStatus.replace(/_/g, " ")} /> : null}
               {boundary.payable.finalPaymentStatus ? (
                 <Row label="Final payment status" value={boundary.payable.finalPaymentStatus.replace(/_/g, " ")} />
               ) : null}
@@ -191,11 +191,11 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
 
             {flow.status ? (
               <View style={styles.statusCard}>
-                <Text style={styles.statusTitle}>Gateway status</Text>
+                <Text style={styles.statusTitle}>Payment status</Text>
                 <Text style={styles.statusMeta}>{flow.status.status.replace(/_/g, " ")}</Text>
                 <Text style={styles.statusMeta}>Amount {formatInr(flow.status.canonical_amount)}</Text>
                 {flow.providerOrderId ? (
-                  <Text style={styles.statusMeta}>Provider order {flow.providerOrderId}</Text>
+                  <Text style={styles.statusMeta}>Payment reference {flow.providerOrderId}</Text>
                 ) : null}
               </View>
             ) : null}
@@ -213,11 +213,11 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
             ) : null}
 
             <Text style={styles.note}>
-              Buyer never marks payment success locally. Intent creation and status polling consume Core #255 gateway contracts only.
+              Payment confirmation is verified securely before your order status is updated.
             </Text>
 
             <OasisButton
-              label={submitting ? "Creating payment intent…" : initiateLabel}
+              label={submitting ? "Preparing payment…" : initiateLabel.replace("Initiate ", "Pay ")}
               onPress={() => void onInitiatePayment()}
               disabled={!boundary.canInitiatePayment || submitting}
               loading={submitting}
@@ -225,7 +225,7 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
 
             {flow.paymentIntentId ? (
               <OasisButton
-                label="Refresh gateway status"
+                label="Check payment status"
                 variant="secondary"
                 onPress={() => void onRefreshPaymentStatus()}
                 loading={refreshing}

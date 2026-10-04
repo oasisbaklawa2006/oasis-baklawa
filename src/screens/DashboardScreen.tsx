@@ -11,7 +11,7 @@ import { Screen } from "@/components/Screen";
 import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { fetchPublishedProducts } from "@/lib/api/catalogue";
 import { fetchCustomerOrderStatus } from "@/lib/api/orders";
-import { isOpenFulfilmentStage } from "@/lib/order-stages";
+import { buyerFulfilmentStageLabel, isOpenFulfilmentStage } from "@/lib/order-stages";
 import { GENIE_ENABLED } from "@/lib/genie-parse-availability";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { customerGateway } from "@/services/customerGateway";
@@ -170,7 +170,7 @@ export function DashboardScreen({ navigation }: Props) {
             <Text style={styles.alertTitle}>Orders needing attention</Text>
             {delayedOrders.slice(0, 3).map((o) => (
               <Text key={o.order_id} style={styles.alertLine}>
-                #{o.order_number} · {o.customer_stage.replace(/_/g, " ")}
+                #{o.order_number} · {buyerFulfilmentStageLabel(o.customer_stage)}
               </Text>
             ))}
           </View>
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   nextActionButton: { minHeight: 48, marginTop: spacing.md, borderRadius: 24, backgroundColor: colors.dark, alignItems: "center", justifyContent: "center" },
   nextActionButtonText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeMd, color: colors.accentGold },
   quickActions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md },
-  chip: { backgroundColor: colors.action, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20, minHeight: 44, justifyContent: "center" },
+  chip: { backgroundColor: colors.action, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20, minHeight: 48, justifyContent: "center" },
   chipText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.white },
   statsRow: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
   statCard: { flex: 1, backgroundColor: colors.surfacePremium, borderRadius: 12, padding: spacing.md },
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
   productImage: { width: 120, height: 120 },
   productName: { fontFamily: typography.fontFamilySansMedium, fontSize: typography.sizeXs, color: colors.textPrimary, marginTop: 6 },
   empty: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textMuted },
-  cartFab: { backgroundColor: colors.textPrimary, padding: spacing.md, borderRadius: 10, alignItems: "center", marginTop: spacing.lg, marginBottom: spacing.xl, minHeight: 44, justifyContent: "center" },
+  cartFab: { backgroundColor: colors.textPrimary, padding: spacing.md, borderRadius: 10, alignItems: "center", marginTop: spacing.lg, marginBottom: spacing.xl, minHeight: 48, justifyContent: "center" },
   cartFabText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.white },
   unavailableCard: { backgroundColor: colors.surfaceUtility, borderRadius: 12, padding: spacing.md, marginTop: spacing.md, borderWidth: 1, borderColor: colors.borderLight },
   unavailableTitle: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeMd, color: colors.textPrimary },

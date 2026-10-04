@@ -7,7 +7,7 @@ import { OrdersScreen } from "@/screens/OrdersScreen";
 import { DashboardScreen } from "@/screens/DashboardScreen";
 import { SupportScreen } from "@/screens/SupportScreen";
 import { AccountScreen } from "@/screens/AccountScreen";
-import { colors, typography } from "@/theme";
+import { colors, touchTarget, typography } from "@/theme";
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -32,7 +32,7 @@ export function MainTabNavigator() {
       initialRouteName="Dashboard"
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: colors.action,
+        tabBarActiveTintColor: colors.accentBronze,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: styles.tabBar,
         tabBarLabelStyle: styles.tabLabel,
@@ -53,15 +53,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfacePremium,
     borderTopColor: colors.borderLight,
     borderTopWidth: 1,
-    paddingTop: 4,
-    height: 60,
+    paddingTop: 6,
+    height: 76,
+    paddingBottom: 6,
   },
   tabLabel: {
     fontFamily: typography.fontFamilySansMedium,
     fontSize: 10,
-    marginBottom: 4,
+    marginBottom: 2,
   },
-  iconWrap: { alignItems: "center", justifyContent: "center" },
+  iconWrap: { minWidth: touchTarget, minHeight: 28, alignItems: "center", justifyContent: "center" },
   icon: { fontSize: 18, color: colors.textMuted },
-  iconFocused: { color: colors.action },
+  iconFocused: { color: colors.accentBronze },
 });

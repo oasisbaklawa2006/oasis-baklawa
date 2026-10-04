@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import { StyleSheet, Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
@@ -19,16 +20,21 @@ export function OrderConfirmationScreen({ navigation, route }: Props) {
   const { orderId } = route.params;
   const [order, setOrder] = useState<CustomerOrderStatus | null>(null);
   const [payableAmount, setPayableAmount] = useState<number | null>(null);
+  const [financeError, setFinanceError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setFinanceError(null);
     try {
       const [orders, finance] = await Promise.all([
         fetchCustomerOrderStatus(),
-        customerGateway.financeFacts(orderId).catch(() => null),
+        customerGateway.financeFacts(orderId).catch((e) => {
+          setFinanceError(parseRpcError(e).message);
+          return null;
+        }),
       ]);
       setOrder(orders.find((item) => item.order_id === orderId) ?? null);
       const payable = derivePayableState(finance);
@@ -40,14 +46,13 @@ export function OrderConfirmationScreen({ navigation, route }: Props) {
     }
   }, [orderId]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useFocusEffect(\n    useCallback(() => {\n      void load();\n    }, [load])\n  );
 
   return (
     <Screen title="Order confirmed" subtitle="Thank you. Your order has been received.">
       {loading ? <LoadingState message="Confirming your order…" /> : null}
       {error && !loading ? <ErrorState message={error} onRetry={load} /> : null}
+      {financeError && !loading && !error ? <ErrorState message={financeError} onRetry={load} /> : null}
       {!loading && !error && !order ? <ErrorState message="We could not load this order yet." onRetry={load} /> : null}
       {order ? (
         <>

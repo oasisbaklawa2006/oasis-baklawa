@@ -15,7 +15,7 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   const icons: Record<string, string> = {
     Catalogue: "◈",
     Orders: "◎",
-    Dashboard: "◇",
+    Dashboard: "O",
     Support: "◆",
     Account: "○",
   };
@@ -41,9 +41,9 @@ export function MainTabNavigator() {
     >
       <Tab.Screen name="Catalogue" component={CatalogueScreen} options={{ tabBarLabel: "Catalogue" }} />
       <Tab.Screen name="Orders" component={OrdersScreen} options={{ tabBarLabel: "Orders" }} />
-      <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ tabBarLabel: "Home" }} />
+      <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ tabBarLabel: "Oasis" }} />
       <Tab.Screen name="Support" component={SupportScreen} options={{ tabBarLabel: "Support" }} />
-      <Tab.Screen name="Account" component={AccountScreen} options={{ tabBarLabel: "My Account" }} />
+      <Tab.Screen name="Account" component={AccountScreen} options={{ tabBarLabel: "Account" }} />
     </Tab.Navigator>
   );
 }

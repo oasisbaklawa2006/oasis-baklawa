@@ -127,17 +127,7 @@ export function CheckoutScreen({ navigation }: Props) {
       } catch {
         // Best-effort cleanup; server deduplicates repeated keys.
       }
-      navigation.replace("MainTabs", {
-        screen: "Orders",
-        params: {
-          checkoutSuccess: {
-            orderNumber: result.order_number,
-            salesOrderValue: Number(result.sales_order_value),
-            advanceRequired: Number(result.advance_required),
-            isDuplicateSubmission: result.is_duplicate_submission,
-          },
-        },
-      });
+      navigation.replace("OrderConfirmation", { orderId: result.order_id });
     } catch (e) {
       const presentation = classifyCheckoutSubmitError(parseRpcError(e));
       setDraftAlreadySubmittedElsewhere(presentation.concurrentPromotion);

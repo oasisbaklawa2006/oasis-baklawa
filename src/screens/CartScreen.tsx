@@ -227,10 +227,10 @@ export function CartScreen({ navigation }: Props) {
         )}
 
         <OasisButton
-          label={checkoutReady ? "Proceed to Checkout" : "Complete carton/MOQ rules to checkout"}
-          onPress={() => navigation.navigate("Checkout")}
+          label={checkoutReady ? "Review order" : "Complete carton/MOQ rules to continue"}
+          onPress={() => navigation.navigate("CommercialReview")}
           disabled={!checkoutReady || !isOnline}
-          accessibilityHint="Opens governed checkout with advance calculation"
+          accessibilityHint="Reviews your commercial details before checkout"
         />
       </Screen>
     </BuyerGate>

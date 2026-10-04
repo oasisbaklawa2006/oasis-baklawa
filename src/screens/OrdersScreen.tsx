@@ -88,7 +88,7 @@ export function OrdersScreen({ navigation, route }: Props) {
 
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
-      <Screen title="Orders" subtitle="Customer-safe order projections" scroll={false}>
+      <Screen title="Orders" subtitle="Track your Oasis orders" scroll={false}>
         {checkoutSuccess ? (
           <View style={styles.successCard}>
             <Text style={styles.successTitle}>
@@ -112,7 +112,7 @@ export function OrdersScreen({ navigation, route }: Props) {
             keyExtractor={(item) => item.order_id}
             contentContainerStyle={styles.list}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-            ListEmptyComponent={<EmptyState title="No orders yet" message="Submitted Sales Orders will appear here." />}
+            ListEmptyComponent={<EmptyState title="No orders yet" message="Your confirmed orders will appear here." />}
             renderItem={({ item }) => {
               const activeStage = fulfilmentStageIndex(item.customer_stage);
               const orderItems = itemsByOrder.get(item.order_id) ?? [];
@@ -172,7 +172,7 @@ export function OrdersScreen({ navigation, route }: Props) {
                       accessibilityRole="button"
                       accessibilityLabel={`View payable state for order ${item.order_number}`}
                     >
-                      <Text style={styles.payLinkText}>View payable state</Text>
+                      <Text style={styles.payLinkText}>View payment</Text>
                     </TouchableOpacity>
                   ) : null}
 
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
   timelineLabelActive: { fontFamily: typography.fontFamilySansSemiBold, color: colors.textPrimary },
   dispatchDate: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textSecondary, marginTop: 10 },
   tracking: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted, marginTop: spacing.md },
-  payLink: { marginTop: spacing.sm, minHeight: 44, justifyContent: "center" },
+  payLink: { marginTop: spacing.sm, minHeight: 48, justifyContent: "center" },
   payLinkText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.action },
   itemsToggle: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.action, marginTop: spacing.md },
   itemLine: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textSecondary, marginTop: 4 },

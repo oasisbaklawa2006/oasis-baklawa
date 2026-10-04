@@ -78,12 +78,11 @@ export function SupportScreen({ navigation, route }: Props) {
   }, []);
 
   useEffect(() => {
-    if (route.params?.orderId) setOrderId(route.params.orderId);
-  }, [route.params?.orderId]);
-
-  useEffect(() => {
-    if (route.params?.orderId) setOrderId(route.params.orderId);
-  }, [route.params?.orderId]);
+    const unsubscribe = navigation.addListener("focus", () => {
+      if (route.params?.orderId) setOrderId(route.params.orderId);
+    });
+    return unsubscribe;
+  }, [navigation, route.params?.orderId]);
 
   useEffect(() => {
     (async () => {

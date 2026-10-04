@@ -103,8 +103,8 @@ export function CartScreen({ navigation }: Props) {
       const updated = await updateCustomerOrderDraftLine(line.line_id, repairedQty);
       setDraft(updated);
     } catch (e) {
-      setError(parseRpcError(e).message);
       await loadDraft();
+      setError(parseRpcError(e).message);
     } finally {
       setBusyLineId(null);
     }
@@ -168,6 +168,7 @@ export function CartScreen({ navigation }: Props) {
                     const moq = commercial.rules?.moq;
                     const increment = commercial.rules?.increment;
                     const lineIssues = draft.readiness_issues.filter((issue) => issue.product_id === item.product_id);
+                    const hasQuantityIssue = lineIssues.some((issue) => issue.code === "QUANTITY_RULE_VIOLATION");
                     const busy = busyLineId === item.line_id;
                     const canAdjustQuantity = commercial.orderable && moq != null && increment != null;
                     return (
@@ -182,7 +183,7 @@ export function CartScreen({ navigation }: Props) {
                               {issueMessage(issue, price)}
                             </Text>
                           ))}
-                          {lineIssues.length > 0 && canAdjustQuantity ? (
+                          {hasQuantityIssue && canAdjustQuantity ? (
                             <TouchableOpacity
                               style={styles.repairButton}
                               disabled={busy || !isOnline}

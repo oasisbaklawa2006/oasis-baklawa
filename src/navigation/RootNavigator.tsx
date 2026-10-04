@@ -45,6 +45,7 @@ const linking: LinkingOptions<RootStackParamList> = {
   },
 };
 
+/** Registers the buyer app stack and its supported deep-link routes. */
 export function RootNavigator() {
   return (
     <NavigationContainer linking={linking}>

@@ -138,7 +138,7 @@ describe("golden journey invariants", () => {
     assert.match(paymentScreen, /resolvePaymentGatewayBoundary/);
     assert.match(paymentScreen, /initiateGovernedPayment/);
     assert.match(paymentScreen, /customerGateway\.financeFacts/);
-    assert.match(paymentScreen, /never marks payment success locally/i);
+    assert.match(paymentScreen, /payment confirmation is verified securely/i);
     assert.match(flowSource, /fetchPaymentGatewayPayableStatus/);
     assert.match(flowSource, /createPaymentGatewayPayableIntent/);
   });

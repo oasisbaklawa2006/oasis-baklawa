@@ -1,21 +1,45 @@
-/** Canonical customer fulfilment stages — single source for list and detail timelines. */
+/**
+ * Buyer-facing fulfilment projection.
+ * Backend customer_stage values remain authoritative and are never mutated here.
+ */
 export const FULFILMENT_TIMELINE_STAGES = [
-  { key: "order_received", label: "Order Received" },
-  { key: "payment_pending", label: "Payment Pending" },
-  { key: "in_production", label: "In Production" },
+  { key: "confirmed", label: "Confirmed" },
+  { key: "preparing", label: "Preparing" },
   { key: "packing", label: "Packing" },
-  { key: "ready_for_dispatch", label: "Ready for Dispatch" },
   { key: "dispatched", label: "Dispatched" },
   { key: "delivered", label: "Delivered" },
 ] as const;
 
 export type FulfilmentStageKey = (typeof FULFILMENT_TIMELINE_STAGES)[number]["key"];
 
+const CUSTOMER_STAGE_TO_BUYER_STAGE: Record<string, FulfilmentStageKey> = {
+  order_received: "confirmed",
+  payment_pending: "confirmed",
+  confirmed: "confirmed",
+  in_production: "preparing",
+  production: "preparing",
+  preparing: "preparing",
+  packing: "packing",
+  ready_for_dispatch: "packing",
+  dispatched: "dispatched",
+  delivered: "delivered",
+};
+
+export function buyerFulfilmentStage(stage: string): FulfilmentStageKey | null {
+  return CUSTOMER_STAGE_TO_BUYER_STAGE[stage.trim().toLowerCase()] ?? null;
+}
+
+export function buyerFulfilmentStageLabel(stage: string): string {
+  const projected = buyerFulfilmentStage(stage);
+  return FULFILMENT_TIMELINE_STAGES.find((item) => item.key === projected)?.label ?? "Order in progress";
+}
+
 export function fulfilmentStageIndex(stage: string): number {
-  const idx = FULFILMENT_TIMELINE_STAGES.findIndex((s) => s.key === stage);
-  return idx === -1 ? -1 : idx;
+  const projected = buyerFulfilmentStage(stage);
+  if (!projected) return -1;
+  return FULFILMENT_TIMELINE_STAGES.findIndex((item) => item.key === projected);
 }
 
 export function isOpenFulfilmentStage(stage: string): boolean {
-  return !stage.toLowerCase().includes("delivered");
+  return buyerFulfilmentStage(stage) !== "delivered";
 }

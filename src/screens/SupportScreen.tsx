@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
   RefreshControl,
@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
-import type { CompositeScreenProps } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused, type CompositeScreenProps } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { MainTabParamList, RootStackParamList } from "@/navigation/types";
 import { BuyerGate } from "@/components/BuyerGate";
@@ -41,7 +41,8 @@ type Props = CompositeScreenProps<
 
 const ORDER_ISSUE_TYPES = ["Damaged goods", "Missing items", "Wrong shipment", "Delivery question", "Other order question"];
 
-export function SupportScreen({ navigation }: Props) {
+/** Buyer support surface with route-context order selection and governed idempotent submission. */
+export function SupportScreen({ navigation, route }: Props) {
   const [tickets, setTickets] = useState<CustomerSupportTicket[]>([]);
   const [generalQueries, setGeneralQueries] = useState<CustomerGeneralQuery[]>([]);
   const [orders, setOrders] = useState<CustomerOrderStatus[]>([]);
@@ -49,7 +50,11 @@ export function SupportScreen({ navigation }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [orderId, setOrderId] = useState("");
+  const [orderId, setOrderId] = useState(route.params?.orderId ?? "");
+  const isFocused = useIsFocused();
+  const routeOrderSelection = useRef<string | null>(route.params?.orderId ?? null);
+  const preserveRouteSelectionOnFocus = useRef(Boolean(route.params?.orderId));
+  const hasFocused = useRef(false);
   const [issueType, setIssueType] = useState(ORDER_ISSUE_TYPES[0]);
   const [orderDescription, setOrderDescription] = useState("");
   const [submittingTicket, setSubmittingTicket] = useState(false);
@@ -78,6 +83,29 @@ export function SupportScreen({ navigation }: Props) {
   }, []);
 
   useEffect(() => {
+    const incomingOrderId = route.params?.orderId;
+    if (!incomingOrderId) return;
+    setOrderId(incomingOrderId);
+    routeOrderSelection.current = incomingOrderId;
+    preserveRouteSelectionOnFocus.current = !isFocused || !hasFocused.current;
+    navigation.setParams({ orderId: undefined });
+  }, [isFocused, navigation, route.params?.orderId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      hasFocused.current = true;
+      if (preserveRouteSelectionOnFocus.current) {
+        preserveRouteSelectionOnFocus.current = false;
+        return;
+      }
+      if (routeOrderSelection.current) {
+        routeOrderSelection.current = null;
+        setOrderId("");
+      }
+    }, [])
+  );
+
+  useEffect(() => {
     (async () => {
       setLoading(true);
       await load();
@@ -85,6 +113,7 @@ export function SupportScreen({ navigation }: Props) {
     })();
   }, [load]);
 
+  /** Refreshes buyer-visible support data without mutating submission state. */
   async function onRefresh() {
     setRefreshing(true);
     await load();
@@ -96,6 +125,7 @@ export function SupportScreen({ navigation }: Props) {
     [tickets, generalQueries]
   );
 
+  /** Submits an order-linked support request through the governed idempotent gateway. */
   async function submitOrderTicket() {
     if (!orderId) {
       setTicketNotice("Select an order before submitting order support.");
@@ -146,6 +176,7 @@ export function SupportScreen({ navigation }: Props) {
     }
   }
 
+  /** Submits a general enquiry through its governed idempotent gateway. */
   async function submitGeneralEnquiry() {
     const subject = querySubject.trim();
     const message = queryMessage.trim();
@@ -198,11 +229,11 @@ export function SupportScreen({ navigation }: Props) {
             ListHeaderComponent={
               <View style={styles.form}>
                 <Text style={styles.intro}>
-                  Order support and general enquiries use separate governed paths. A general enquiry never creates an order.
+                  Get help with an order or send us a general enquiry.
                 </Text>
 
                 <Text style={styles.sectionTitle}>Order support</Text>
-                <Text style={styles.sectionCopy}>Choose an order so Core can route the request safely.</Text>
+                <Text style={styles.sectionCopy}>Choose the order you need help with.</Text>
                 <View style={styles.chips}>
                   {orders.length === 0 ? (
                     <Text style={styles.emptyOrders}>No orders available for order-linked support yet.</Text>
@@ -211,7 +242,10 @@ export function SupportScreen({ navigation }: Props) {
                       <TouchableOpacity
                         key={order.order_id}
                         style={[styles.chip, orderId === order.order_id && styles.chipActive]}
-                        onPress={() => setOrderId(order.order_id)}
+                        onPress={() => {
+                          routeOrderSelection.current = null;
+                          setOrderId(order.order_id);
+                        }}
                         accessibilityRole="button"
                         accessibilityState={{ selected: orderId === order.order_id }}
                       >
@@ -376,7 +410,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderRadius: 10,
     alignItems: "center",
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: "center",
   },
   buttonOutline: {
@@ -385,7 +419,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderRadius: 10,
     alignItems: "center",
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: "center",
   },
   buttonDisabled: { opacity: 0.6 },

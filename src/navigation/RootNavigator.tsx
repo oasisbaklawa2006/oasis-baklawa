@@ -26,10 +26,11 @@ import { DocumentsScreen } from "@/screens/DocumentsScreen";
 import { QuotationsScreen } from "@/screens/QuotationsScreen";
 import { QuotationDetailScreen } from "@/screens/QuotationDetailScreen";
 import { OrderPaymentScreen } from "@/screens/OrderPaymentScreen";
+import { DeliveredClosureScreen } from "@/screens/DeliveredClosureScreen";
+import { CommunicationLogScreen } from "@/screens/CommunicationLogScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const PlaceholderScreen = () => null;
 
 const linking: LinkingOptions<RootStackParamList> = {
   prefixes: ["oasisbaklawa://"],
@@ -44,6 +45,7 @@ const linking: LinkingOptions<RootStackParamList> = {
   },
 };
 
+/** Registers the buyer app stack and its supported deep-link routes. */
 export function RootNavigator() {
   return (
     <NavigationContainer linking={linking}>
@@ -69,8 +71,8 @@ export function RootNavigator() {
         <Stack.Screen name="Quotations" component={QuotationsScreen} />
         <Stack.Screen name="QuotationDetail" component={QuotationDetailScreen} />
         <Stack.Screen name="OrderPayment" component={OrderPaymentScreen} />
-        <Stack.Screen name="DeliveredClosure" component={PlaceholderScreen} />
-        <Stack.Screen name="CommunicationLog" component={PlaceholderScreen} />
+        <Stack.Screen name="DeliveredClosure" component={DeliveredClosureScreen} />
+        <Stack.Screen name="CommunicationLog" component={CommunicationLogScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

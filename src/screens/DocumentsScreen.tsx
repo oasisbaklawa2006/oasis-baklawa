@@ -62,15 +62,15 @@ function OrderDocumentsSection({
   const finalInvoice = orderDocuments.find((document) => document.document_type === "FINAL_INVOICE");
 
   const salesOrderDetail = salesOrder
-    ? documentDetail(salesOrder, "Your submitted order reference is available in Orders.")
-    : "Your submitted order reference is available in Orders.";
+    ? documentDetail(salesOrder, "Your confirmed order reference is available in Orders.")
+    : "Your confirmed order reference is available in Orders.";
 
   return (
     <View style={styles.orderSection}>
-      <Text style={styles.orderTitle}>{order.order_number || "Sales order reference pending"}</Text>
+      <Text style={styles.orderTitle}>{order.order_number || "Order reference pending"}</Text>
       <Text style={styles.orderSubtitle}>Documents for this order</Text>
       <DocumentCard
-        label="Sales Order"
+        label="Order Confirmation"
         status={salesOrder ? documentAvailability(salesOrder.availability_state) : "available"}
         detail={salesOrderDetail}
       />
@@ -104,8 +104,8 @@ function StatementSection({ statement }: { statement: CustomerStatement | null }
       />
       {statement?.statement_facts_only ? (
         <View style={styles.statementFacts}>
-          <Text style={styles.sectionTitle}>Statement facts</Text>
-          <Text style={styles.sectionCopy}>Customer-safe ledger facts supplied by Finance.</Text>
+          <Text style={styles.sectionTitle}>Account statement</Text>
+          <Text style={styles.sectionCopy}>Your issued invoices and amounts due.</Text>
           {statement.wallet_balance !== null ? (
             <View style={styles.walletRow}>
               <Text style={styles.walletLabel}>Wallet balance</Text>
@@ -171,13 +171,13 @@ export function DocumentsScreen({ navigation }: Props) {
 
   const hasOrders = orders.length > 0;
   const introCopy = useMemo(
-    () => "Documents appear when issued. We never create local numbers or files.",
+    () => "Your order documents appear here as they are issued.",
     []
   );
 
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
-      <Screen title="Documents" subtitle="Invoices · Pro-forma · Transport copies">
+      <Screen title="Documents" subtitle="Order confirmations · Proforma invoices · Final invoices">
         <TouchableOpacity onPress={() => navigation.goBack()} accessibilityRole="button">
           <Text style={styles.back}>‹ Back</Text>
         </TouchableOpacity>
@@ -200,9 +200,9 @@ export function DocumentsScreen({ navigation }: Props) {
             ) : (
               <View style={styles.emptyDocuments}>
                 <DocumentCard
-                  label="Sales Order"
+                  label="Order Confirmation"
                   status="not-issued"
-                  detail="Your Sales Order reference will appear after a successful submission."
+                  detail="Your order confirmation will appear after a successful submission."
                 />
                 <DocumentCard
                   label="Proforma Invoice"

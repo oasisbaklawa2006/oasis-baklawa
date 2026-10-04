@@ -82,6 +82,10 @@ export function SupportScreen({ navigation, route }: Props) {
   }, [route.params?.orderId]);
 
   useEffect(() => {
+    if (route.params?.orderId) setOrderId(route.params.orderId);
+  }, [route.params?.orderId]);
+
+  useEffect(() => {
     (async () => {
       setLoading(true);
       await load();

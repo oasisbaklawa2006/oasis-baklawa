@@ -2,6 +2,7 @@
   "expo": {
     "name": "Oasis Baklawa",
     "slug": "oasis-baklawa",
+    "scheme": "oasisbaklawa",
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/icon.png",

@@ -1,5 +1,9 @@
 import React from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import { View } from "react-native";
+import {
+  NavigationContainer,
+  type LinkingOptions,
+} from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import { MainTabNavigator } from "@/navigation/MainTabNavigator";
@@ -24,9 +28,24 @@ import { OrderPaymentScreen } from "@/screens/OrderPaymentScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+const PlaceholderScreen = () => <View style={{ flex: 1 }} />;
+
+const linking: LinkingOptions<RootStackParamList> = {
+  prefixes: ["oasisbaklawa://"],
+  config: {
+    screens: {
+      OrderDetail: "order/:orderId",
+      OrderConfirmation: "order/:orderId/confirmation",
+      DeliveredClosure: "order/:orderId/delivered",
+      CommunicationLog: "communication/:entityId",
+      CommercialReview: "commercial-review",
+    },
+  },
+};
+
 export function RootNavigator() {
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking}>
       <Stack.Navigator initialRouteName="Splash" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Splash" component={SplashScreen} />
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
@@ -42,11 +61,15 @@ export function RootNavigator() {
         <Stack.Screen name="QuickOrder" component={QuickOrderScreen} />
         <Stack.Screen name="AiOrder" component={AiOrderScreen} />
         <Stack.Screen name="Cart" component={CartScreen} />
+        <Stack.Screen name="CommercialReview" component={PlaceholderScreen} />
         <Stack.Screen name="Checkout" component={CheckoutScreen} />
+        <Stack.Screen name="OrderConfirmation" component={PlaceholderScreen} />
         <Stack.Screen name="Documents" component={DocumentsScreen} />
         <Stack.Screen name="Quotations" component={QuotationsScreen} />
         <Stack.Screen name="QuotationDetail" component={QuotationDetailScreen} />
         <Stack.Screen name="OrderPayment" component={OrderPaymentScreen} />
+        <Stack.Screen name="DeliveredClosure" component={PlaceholderScreen} />
+        <Stack.Screen name="CommunicationLog" component={PlaceholderScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

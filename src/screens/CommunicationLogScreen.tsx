@@ -12,6 +12,7 @@ import { customerGateway } from "@/services/customerGateway";
 import type { CustomerGeneralQuery, CustomerSupportTicket } from "@/types/database.types";
 import { colors, spacing, typography } from "@/theme";
 type Props = NativeStackScreenProps<RootStackParamList, "CommunicationLog">;
+/** Displays buyer-visible support history while tolerating a partial source outage. */
 export function CommunicationLogScreen({ navigation, route }: Props) {
  const { entityId }=route.params; const [tickets,setTickets]=useState<CustomerSupportTicket[]>([]); const [queries,setQueries]=useState<CustomerGeneralQuery[]>([]); const [loading,setLoading]=useState(true); const [error,setError]=useState<string|null>(null); const [warning,setWarning]=useState<string|null>(null);
  /** Loads independent communication sources without discarding a successful source when its sibling fails. */

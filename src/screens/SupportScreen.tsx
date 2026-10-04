@@ -41,7 +41,7 @@ type Props = CompositeScreenProps<
 
 const ORDER_ISSUE_TYPES = ["Damaged goods", "Missing items", "Wrong shipment", "Delivery question", "Other order question"];
 
-export function SupportScreen({ navigation }: Props) {
+export function SupportScreen({ navigation, route }: Props) {
   const [tickets, setTickets] = useState<CustomerSupportTicket[]>([]);
   const [generalQueries, setGeneralQueries] = useState<CustomerGeneralQuery[]>([]);
   const [orders, setOrders] = useState<CustomerOrderStatus[]>([]);
@@ -49,7 +49,7 @@ export function SupportScreen({ navigation }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [orderId, setOrderId] = useState("");
+  const [orderId, setOrderId] = useState(route.params?.orderId ?? "");
   const [issueType, setIssueType] = useState(ORDER_ISSUE_TYPES[0]);
   const [orderDescription, setOrderDescription] = useState("");
   const [submittingTicket, setSubmittingTicket] = useState(false);
@@ -76,6 +76,10 @@ export function SupportScreen({ navigation }: Props) {
       setError(parseRpcError(e).message);
     }
   }, []);
+
+  useEffect(() => {
+    if (route.params?.orderId) setOrderId(route.params.orderId);
+  }, [route.params?.orderId]);
 
   useEffect(() => {
     (async () => {
@@ -198,11 +202,11 @@ export function SupportScreen({ navigation }: Props) {
             ListHeaderComponent={
               <View style={styles.form}>
                 <Text style={styles.intro}>
-                  Order support and general enquiries use separate governed paths. A general enquiry never creates an order.
+                  Get help with an order or send us a general enquiry.
                 </Text>
 
                 <Text style={styles.sectionTitle}>Order support</Text>
-                <Text style={styles.sectionCopy}>Choose an order so Core can route the request safely.</Text>
+                <Text style={styles.sectionCopy}>Choose the order you need help with.</Text>
                 <View style={styles.chips}>
                   {orders.length === 0 ? (
                     <Text style={styles.emptyOrders}>No orders available for order-linked support yet.</Text>
@@ -376,7 +380,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderRadius: 10,
     alignItems: "center",
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: "center",
   },
   buttonOutline: {
@@ -385,7 +389,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderRadius: 10,
     alignItems: "center",
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: "center",
   },
   buttonDisabled: { opacity: 0.6 },

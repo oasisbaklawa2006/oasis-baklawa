@@ -1,5 +1,4 @@
 import React from "react";
-import { View } from "react-native";
 import {
   NavigationContainer,
   type LinkingOptions,
@@ -21,6 +20,8 @@ import { QuickOrderScreen } from "@/screens/QuickOrderScreen";
 import { AiOrderScreen } from "@/screens/AiOrderScreen";
 import { CartScreen } from "@/screens/CartScreen";
 import { CheckoutScreen } from "@/screens/CheckoutScreen";
+import { CommercialReviewScreen } from "@/screens/CommercialReviewScreen";
+import { OrderConfirmationScreen } from "@/screens/OrderConfirmationScreen";
 import { DocumentsScreen } from "@/screens/DocumentsScreen";
 import { QuotationsScreen } from "@/screens/QuotationsScreen";
 import { QuotationDetailScreen } from "@/screens/QuotationDetailScreen";
@@ -28,7 +29,7 @@ import { OrderPaymentScreen } from "@/screens/OrderPaymentScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const PlaceholderScreen = () => <View style={{ flex: 1 }} />;
+const PlaceholderScreen = () => null;
 
 const linking: LinkingOptions<RootStackParamList> = {
   prefixes: ["oasisbaklawa://"],
@@ -61,9 +62,9 @@ export function RootNavigator() {
         <Stack.Screen name="QuickOrder" component={QuickOrderScreen} />
         <Stack.Screen name="AiOrder" component={AiOrderScreen} />
         <Stack.Screen name="Cart" component={CartScreen} />
-        <Stack.Screen name="CommercialReview" component={PlaceholderScreen} />
+        <Stack.Screen name="CommercialReview" component={CommercialReviewScreen} />
         <Stack.Screen name="Checkout" component={CheckoutScreen} />
-        <Stack.Screen name="OrderConfirmation" component={PlaceholderScreen} />
+        <Stack.Screen name="OrderConfirmation" component={OrderConfirmationScreen} />
         <Stack.Screen name="Documents" component={DocumentsScreen} />
         <Stack.Screen name="Quotations" component={QuotationsScreen} />
         <Stack.Screen name="QuotationDetail" component={QuotationDetailScreen} />

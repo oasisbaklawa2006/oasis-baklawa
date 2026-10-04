@@ -16,6 +16,7 @@ import { colors, spacing, typography } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "OrderDetail">;
 
+/** Shows buyer-safe order progress, payment facts, support entry and delivered closure actions. */
 export function OrderDetailScreen({ navigation, route }: Props) {
   const { orderId, order: initialOrder } = route.params;
   const [order, setOrder] = useState<CustomerOrderStatus | null>(initialOrder ?? null);

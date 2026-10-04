@@ -41,6 +41,7 @@ type Props = CompositeScreenProps<
 
 const ORDER_ISSUE_TYPES = ["Damaged goods", "Missing items", "Wrong shipment", "Delivery question", "Other order question"];
 
+/** Buyer support surface with route-context order selection and governed idempotent submission. */
 export function SupportScreen({ navigation, route }: Props) {
   const [tickets, setTickets] = useState<CustomerSupportTicket[]>([]);
   const [generalQueries, setGeneralQueries] = useState<CustomerGeneralQuery[]>([]);

@@ -42,7 +42,11 @@ export function CommercialReviewScreen({ navigation }: Props) {
     }
   }, []);
 
-  useFocusEffect(\n    useCallback(() => {\n      void load();\n    }, [load])\n  );
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load])
+  );
 
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>

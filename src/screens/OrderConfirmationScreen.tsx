@@ -46,7 +46,11 @@ export function OrderConfirmationScreen({ navigation, route }: Props) {
     }
   }, [orderId]);
 
-  useFocusEffect(\n    useCallback(() => {\n      void load();\n    }, [load])\n  );
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load])
+  );
 
   return (
     <Screen title="Order confirmed" subtitle="Thank you. Your order has been received.">

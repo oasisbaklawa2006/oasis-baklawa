@@ -86,6 +86,30 @@ export function CartScreen({ navigation }: Props) {
     }
   }
 
+  /** Repairs one invalid cart line to the next quantity allowed by its authoritative commercial rules. */
+  async function repairQuantity(line: CustomerOrderDraftLine) {
+    const price = pricesByProduct[line.product_id];
+    const commercial = resolveCommercialRules(price);
+    if (!commercial.orderable || !commercial.rules) {
+      setError(commercial.message ?? "Pricing is unavailable for this product.");
+      return;
+    }
+    const { moq, increment } = commercial.rules;
+    const repairedQty =
+      line.quantity < moq ? moq : moq + Math.ceil((line.quantity - moq) / increment) * increment;
+    setBusyLineId(line.line_id);
+    setError(null);
+    try {
+      const updated = await updateCustomerOrderDraftLine(line.line_id, repairedQty);
+      setDraft(updated);
+    } catch (e) {
+      setError(parseRpcError(e).message);
+      await loadDraft();
+    } finally {
+      setBusyLineId(null);
+    }
+  }
+
   async function removeLine(lineId: string) {
     setBusyLineId(lineId);
     setError(null);
@@ -158,6 +182,17 @@ export function CartScreen({ navigation }: Props) {
                               {issueMessage(issue, price)}
                             </Text>
                           ))}
+                          {lineIssues.length > 0 && canAdjustQuantity ? (
+                            <TouchableOpacity
+                              style={styles.repairButton}
+                              disabled={busy || !isOnline}
+                              onPress={() => void repairQuantity(item)}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Fix quantity for ${item.product_name_snapshot ?? "product"}`}
+                            >
+                              <Text style={styles.repairButtonText}>{busy ? "Fixing…" : "Fix quantity"}</Text>
+                            </TouchableOpacity>
+                          ) : null}
                           {!commercial.orderable ? (
                             <Text style={styles.warningText}>
                               {commercial.message ?? "Current pricing is unavailable for this line."}
@@ -252,6 +287,8 @@ const styles = StyleSheet.create({
   lineMeta: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted, marginTop: 2 },
   warningText: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.warning, marginTop: 4 },
   lineActions: { flexDirection: "row", gap: spacing.md, marginTop: 6 },
+  repairButton: { alignSelf: "flex-start", minHeight: touchTarget, justifyContent: "center", marginTop: 6, paddingHorizontal: 12, borderRadius: 8, backgroundColor: colors.surfacePremium },
+  repairButtonText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeXs, color: colors.action },
   actionText: { fontSize: 16, color: colors.action, fontWeight: "700", minWidth: touchTarget, textAlign: "center" },
   removeText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeXs, color: colors.error },
   hintText: { fontFamily: typography.fontFamilySans, fontSize: 10, color: colors.textMuted, marginTop: 4 },

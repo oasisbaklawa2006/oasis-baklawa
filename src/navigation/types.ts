@@ -14,7 +14,7 @@ export type MainTabParamList = {
       }
     | undefined;
   Dashboard: undefined;
-  Support: undefined;
+  Support: { orderId?: string } | undefined;
   Account: undefined;
 };
 

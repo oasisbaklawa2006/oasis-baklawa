@@ -7,7 +7,7 @@ import { Screen } from "@/components/Screen";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { fetchCustomerOrderItems, fetchCustomerOrderStatus } from "@/lib/api/orders";
 import { formatInr } from "@/lib/customer-projections";
-import { FULFILMENT_TIMELINE_STAGES, fulfilmentStageIndex } from "@/lib/order-stages";
+import { FULFILMENT_TIMELINE_STAGES, buyerFulfilmentStageLabel, fulfilmentStageIndex } from "@/lib/order-stages";
 import { derivePayableState } from "@/lib/payment-gateway-boundary";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { customerGateway } from "@/services/customerGateway";
@@ -78,7 +78,7 @@ export function OrderDetailScreen({ navigation, route }: Props) {
           <View style={styles.summary}>
             <Text style={styles.value}>₹{order.order_value.toLocaleString("en-IN")}</Text>
             <Text style={styles.meta}>
-              {order.customer_stage.replace(/_/g, " ")} · {order.payment_stage.replace(/_/g, " ")}
+              {buyerFulfilmentStageLabel(order.customer_stage)}
             </Text>
           </View>
           <Text style={styles.section}>Fulfilment timeline</Text>

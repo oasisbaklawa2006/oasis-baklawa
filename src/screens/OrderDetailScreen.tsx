@@ -81,7 +81,7 @@ export function OrderDetailScreen({ navigation, route }: Props) {
               {buyerFulfilmentStageLabel(order.customer_stage)}
             </Text>
           </View>
-          <Text style={styles.section}>Fulfilment timeline</Text>
+          <Text style={styles.section}>Order progress</Text>
           {FULFILMENT_TIMELINE_STAGES.map((stage, index) => (
             <View key={stage.key} style={styles.timelineRow}>
               <View style={[styles.dot, stageIndex >= 0 && index <= stageIndex && styles.dotActive]} />
@@ -97,43 +97,43 @@ export function OrderDetailScreen({ navigation, route }: Props) {
           ) : null}
           {financeError ? (
             <Text style={styles.financeLine} accessibilityRole="alert">
-              Finance facts unavailable: {financeError}
+              Payment details are temporarily unavailable: {financeError}
             </Text>
           ) : null}
           {financeFacts?.customer_safe_projection ? (
             <View style={styles.financeCard}>
-              <Text style={styles.section}>Finance facts</Text>
+              <Text style={styles.section}>Payment summary</Text>
               <Text style={styles.financeMeta}>
                 {financeFacts.finance_status?.replace(/_/g, " ") ?? "Status pending"}
               </Text>
               {financeFacts.commercial_value !== null ? (
-                <Text style={styles.financeLine}>Commercial value: {formatInr(financeFacts.commercial_value)}</Text>
+                <Text style={styles.financeLine}>Order total: {formatInr(financeFacts.commercial_value)}</Text>
               ) : null}
               {financeFacts.required_advance !== null ? (
-                <Text style={styles.financeLine}>Required advance: {formatInr(financeFacts.required_advance)}</Text>
+                <Text style={styles.financeLine}>Advance required: {formatInr(financeFacts.required_advance)}</Text>
               ) : null}
               {financeFacts.covered_amount !== null ? (
-                <Text style={styles.financeLine}>Covered amount: {formatInr(financeFacts.covered_amount)}</Text>
+                <Text style={styles.financeLine}>Amount covered: {formatInr(financeFacts.covered_amount)}</Text>
               ) : null}
               {financeFacts.verified_payment_amount !== null ? (
-                <Text style={styles.financeLine}>Verified payments: {formatInr(financeFacts.verified_payment_amount)}</Text>
+                <Text style={styles.financeLine}>Payments received: {formatInr(financeFacts.verified_payment_amount)}</Text>
               ) : null}
               {financeFacts.advance_covered !== null ? (
                 <Text style={styles.financeLine}>
-                  Advance covered: {financeFacts.advance_covered ? "Yes" : "No"}
+                  Advance paid: {financeFacts.advance_covered ? "Yes" : "No"}
                 </Text>
               ) : null}
               {payable && payable.balanceDue !== null ? (
                 <Text style={styles.financeLine}>Balance due: {formatInr(payable.balanceDue)}</Text>
               ) : null}
               {financeFacts.pi_status ? (
-                <Text style={styles.financeLine}>PI status: {financeFacts.pi_status.replace(/_/g, " ")}</Text>
+                <Text style={styles.financeLine}>Proforma invoice status: {financeFacts.pi_status.replace(/_/g, " ")}</Text>
               ) : null}
               {financeFacts.pi_number ? (
-                <Text style={styles.financeLine}>PI reference: {financeFacts.pi_number}</Text>
+                <Text style={styles.financeLine}>Proforma invoice: {financeFacts.pi_number}</Text>
               ) : null}
               <OasisButton
-                label="View payable state"
+                label="View payment"
                 variant="secondary"
                 onPress={() =>
                   navigation.navigate("OrderPayment", {

@@ -88,6 +88,53 @@ export function DashboardScreen({ navigation }: Props) {
         {loading ? <LoadingState message="Loading your trade desk…" /> : null}
         {error && !loading ? <ErrorState message={error} onRetry={load} /> : null}
 
+        {ordersNeedingAdvance[0] ? (
+          <View style={styles.nextActionCard}>
+            <Text style={styles.nextActionEyebrow}>YOUR NEXT STEP</Text>
+            <Text style={styles.nextActionTitle}>Your order is ready to proceed</Text>
+            <Text style={styles.nextActionCopy}>
+              Complete the required advance so we can begin preparing your order.
+            </Text>
+            <Text style={styles.nextActionAmount}>
+              ₹{ordersNeedingAdvance[0].order_value.toLocaleString("en-IN")}
+            </Text>
+            <Text style={styles.nextActionMeta}>Order #{ordersNeedingAdvance[0].order_number}</Text>
+            <TouchableOpacity
+              style={styles.nextActionButton}
+              onPress={() =>
+                navigation.navigate("OrderPayment", {
+                  orderId: ordersNeedingAdvance[0].order_id,
+                  orderNumber: ordersNeedingAdvance[0].order_number,
+                })
+              }
+              accessibilityRole="button"
+            >
+              <Text style={styles.nextActionButtonText}>View payment</Text>
+            </TouchableOpacity>
+          </View>
+        ) : openOrders[0] ? (
+          <TouchableOpacity
+            style={styles.nextActionCard}
+            onPress={() => navigation.navigate("OrderDetail", { orderId: openOrders[0].order_id, order: openOrders[0] })}
+            accessibilityRole="button"
+          >
+            <Text style={styles.nextActionEyebrow}>YOUR ORDER</Text>
+            <Text style={styles.nextActionTitle}>Your order is being prepared</Text>
+            <Text style={styles.nextActionCopy}>Order #{openOrders[0].order_number} · View progress</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.nextActionCard}
+            onPress={() => navigation.navigate("Catalogue")}
+            accessibilityRole="button"
+          >
+            <Text style={styles.nextActionEyebrow}>READY WHEN YOU ARE</Text>
+            <Text style={styles.nextActionTitle}>Ready for your next order?</Text>
+            <Text style={styles.nextActionCopy}>Explore the Oasis trade collection.</Text>
+          </TouchableOpacity>
+        )}
+
+        <Text style={styles.section}>Quick actions</Text>
         <View style={styles.quickActions}>
           {GENIE_ENABLED ? (
             <ActionChip label="Oasis Genie" onPress={() => navigation.navigate("AiOrder")} />
@@ -106,39 +153,17 @@ export function DashboardScreen({ navigation }: Props) {
 
         {statement?.statement_facts_only && statement.wallet_balance !== null ? (
           <View style={styles.statCardWide}>
-            <Text style={styles.statLabel}>Wallet balance (statement facts)</Text>
+            <Text style={styles.statLabel}>Wallet balance</Text>
             <Text style={styles.statValue}>₹{statement.wallet_balance.toLocaleString("en-IN")}</Text>
           </View>
         ) : (
           <View style={styles.unavailableCard}>
             <Text style={styles.unavailableTitle}>Wallet & credit</Text>
             <Text style={styles.unavailableMessage}>
-              Wallet balance appears here when customer_statement_v1 exposes governed wallet facts.
+              Your wallet balance will appear here when available.
             </Text>
           </View>
         )}
-
-        {ordersNeedingAdvance.length > 0 ? (
-          <View style={styles.alertCard}>
-            <Text style={styles.alertTitle}>Sales orders requiring advance</Text>
-            {ordersNeedingAdvance.slice(0, 3).map((o) => (
-              <TouchableOpacity
-                key={o.order_id}
-                onPress={() =>
-                  navigation.navigate("OrderPayment", {
-                    orderId: o.order_id,
-                    orderNumber: o.order_number,
-                  })
-                }
-                accessibilityRole="button"
-              >
-                <Text style={styles.alertLine}>
-                  #{o.order_number} · ₹{o.order_value.toLocaleString("en-IN")} · {o.payment_stage.replace(/_/g, " ")}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ) : null}
 
         {delayedOrders.length > 0 ? (
           <View style={styles.warningCard}>
@@ -180,7 +205,7 @@ export function DashboardScreen({ navigation }: Props) {
         />
 
         <TouchableOpacity style={styles.cartFab} onPress={() => navigation.navigate("Cart")} accessibilityRole="button">
-          <Text style={styles.cartFabText}>View draft cart</Text>
+          <Text style={styles.cartFabText}>View cart</Text>
         </TouchableOpacity>
       </Screen>
     </BuyerGate>
@@ -208,6 +233,14 @@ const styles = StyleSheet.create({
   banner: { backgroundColor: colors.warningSurface, borderRadius: 10, padding: spacing.md, marginTop: spacing.md },
   bannerText: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.warning },
   error: { color: colors.error, marginTop: spacing.sm },
+  nextActionCard: { backgroundColor: colors.surfacePremium, borderRadius: 18, padding: spacing.lg, marginTop: spacing.lg, borderWidth: 1, borderColor: colors.accentChampagne },
+  nextActionEyebrow: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeXs, color: colors.accentBronze, letterSpacing: 1.1 },
+  nextActionTitle: { marginTop: spacing.sm, fontFamily: typography.fontFamilySerifBold, fontSize: typography.sizeXl, color: colors.textPrimary },
+  nextActionCopy: { marginTop: spacing.sm, fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textSecondary, lineHeight: 20 },
+  nextActionAmount: { marginTop: spacing.md, fontFamily: typography.fontFamilySansBold, fontSize: typography.sizeXxl, color: colors.textPrimary },
+  nextActionMeta: { marginTop: 2, fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textMuted },
+  nextActionButton: { minHeight: 48, marginTop: spacing.md, borderRadius: 24, backgroundColor: colors.dark, alignItems: "center", justifyContent: "center" },
+  nextActionButtonText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeMd, color: colors.accentGold },
   quickActions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md },
   chip: { backgroundColor: colors.action, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20, minHeight: 44, justifyContent: "center" },
   chipText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.white },
@@ -223,7 +256,7 @@ const styles = StyleSheet.create({
   section: { fontFamily: typography.fontFamilySerifBold, fontSize: typography.sizeLg, color: colors.textPrimary, marginTop: spacing.lg, marginBottom: spacing.sm },
   announcement: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textSecondary, marginBottom: 4 },
   productCard: { width: 120, marginRight: spacing.md },
-  productImage: { width: 120, height: 100 },
+  productImage: { width: 120, height: 120 },
   productName: { fontFamily: typography.fontFamilySansMedium, fontSize: typography.sizeXs, color: colors.textPrimary, marginTop: 6 },
   empty: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textMuted },
   cartFab: { backgroundColor: colors.textPrimary, padding: spacing.md, borderRadius: 10, alignItems: "center", marginTop: spacing.lg, marginBottom: spacing.xl, minHeight: 44, justifyContent: "center" },

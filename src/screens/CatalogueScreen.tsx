@@ -128,12 +128,12 @@ export function CatalogueScreen({ navigation }: Props) {
 
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")} requireApprovedBuyer={false}>
-      <Screen title="Catalogue" subtitle="Categories · Tiered pricing · MOQ" scroll={false}>
+      <Screen title="Catalogue" subtitle="Explore the Oasis trade collection" scroll={false}>
         {error && !loading ? <ErrorState message={error} onRetry={loadCatalogue} /> : null}
         {successMessage ? <Text style={styles.success}>{successMessage}</Text> : null}
         <TextInput
           style={styles.search}
-          placeholder="Search products, SKU, category…"
+          placeholder="Search products or collections…"
           placeholderTextColor={colors.textMuted}
           value={searchQuery}
           onChangeText={setSearchQuery}

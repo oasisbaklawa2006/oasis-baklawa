@@ -118,14 +118,14 @@ export function CartScreen({ navigation }: Props) {
 
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
-      <Screen title="Cart" subtitle="Server draft · MOQ · Carton readiness" safeAreaEdges={["top", "bottom"]}>
+      <Screen title="Cart" subtitle="Review quantities and ordering requirements" safeAreaEdges={["top", "bottom"]}>
         {error && !loading ? <ErrorState message={error} onRetry={onRefresh} /> : null}
         {loading ? (
           <LoadingState message="Loading cart…" />
         ) : !draft || draft.lines.length === 0 ? (
           <EmptyState
             title="Your cart is empty"
-            message="Add products from the catalogue to build a server-backed draft."
+            message="Add products from the catalogue to start your order."
             actionLabel="Browse catalogue"
             onAction={() => navigation.navigate("MainTabs", { screen: "Catalogue" })}
           />
@@ -190,7 +190,7 @@ export function CartScreen({ navigation }: Props) {
                             </TouchableOpacity>
                           </View>
                           <Text style={styles.hintText}>
-                            {canAdjustQuantity ? `MOQ ${moq} · step ${increment}` : "Pricing rules unavailable"}
+                            {canAdjustQuantity ? `Minimum ${moq} · order in multiples of ${increment}` : "Pricing rules unavailable"}
                           </Text>
                         </View>
                         <Text style={styles.lineTotal}>₹{item.line_total.toLocaleString("en-IN")}</Text>
@@ -210,7 +210,7 @@ export function CartScreen({ navigation }: Props) {
               ))}
 
             <View style={styles.summary}>
-              <Text style={styles.summaryLabel}>Order Total (server draft)</Text>
+              <Text style={styles.summaryLabel}>Order total</Text>
               <Text style={styles.summaryValue}>₹{draft.order_total.toLocaleString("en-IN")}</Text>
             </View>
 
@@ -227,7 +227,7 @@ export function CartScreen({ navigation }: Props) {
         )}
 
         <OasisButton
-          label={checkoutReady ? "Review order" : "Complete carton/MOQ rules to continue"}
+          label={checkoutReady ? "Review order" : "Adjust quantities to continue"}
           onPress={() => navigation.navigate("CommercialReview")}
           disabled={!checkoutReady || !isOnline}
           accessibilityHint="Reviews your commercial details before checkout"

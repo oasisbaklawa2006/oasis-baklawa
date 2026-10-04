@@ -14,7 +14,8 @@ import { colors, spacing, typography } from "@/theme";
 type Props = NativeStackScreenProps<RootStackParamList, "CommunicationLog">;
 export function CommunicationLogScreen({ navigation, route }: Props) {
  const { entityId }=route.params; const [tickets,setTickets]=useState<CustomerSupportTicket[]>([]); const [queries,setQueries]=useState<CustomerGeneralQuery[]>([]); const [loading,setLoading]=useState(true); const [error,setError]=useState<string|null>(null);
- const load=useCallback(async()=>{setError(null);try{const [t,q]=await Promise.all([customerGateway.tickets(),customerGateway.generalQueries()]);setTickets(t??[]);setQueries(q??[]);}catch(e){setError(parseRpcError(e).message);}finally{setLoading(false);}},[]);
+ /** Loads independent communication sources without discarding a successful source when its sibling fails. */
+ const load=useCallback(async()=>{setError(null);const [t,q]=await Promise.allSettled([customerGateway.tickets(),customerGateway.generalQueries()]);if(t.status==="fulfilled")setTickets(t.value??[]);if(q.status==="fulfilled")setQueries(q.value??[]);const failures=[t,q].filter((r):r is PromiseRejectedResult=>r.status==="rejected");if(failures.length)setError(failures.map(r=>parseRpcError(r.reason).message).join(" "));setLoading(false);},[]);
  useEffect(()=>{void load();},[load]);
  const entries=useMemo(()=>{const all=buildBuyerCommunicationLog(tickets,queries);return entityId==="all"?all:all.filter(e=>e.ticket?.order_id===entityId||e.id===entityId);},[entityId,queries,tickets]);
  return <BuyerGate onLogin={()=>navigation.navigate("Login")} onRegister={()=>navigation.navigate("Register")}><Screen title="Communication Log" subtitle="Your Oasis support history" scroll={false}>

@@ -12,6 +12,7 @@ const SUPPORT_PHONE = "+919999792959";
 const SUPPORT_WHATSAPP =
   "https://wa.me/919891162212?text=Hello%20Oasis%20Baklawa%2C%20I%20have%20submitted%20a%20trade%20access%20request%20and%20would%20like%20help%20with%20approval.";
 
+/** Explains the buyer application review state and safe support options. */
 export function AccessPendingScreen({ navigation, route }: Props) {
   return (
     <Screen title="Access Review" subtitle="Your application is being reviewed">
@@ -90,14 +91,14 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: 10,
     backgroundColor: colors.textPrimary,
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: "center",
   },
   whatsapp: {
     padding: spacing.md,
     borderRadius: 10,
     backgroundColor: colors.success,
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: "center",
   },
   primaryText: {
@@ -110,7 +111,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: "center",
   },
   secondaryText: {

@@ -80,7 +80,7 @@ export function DashboardScreen({ navigation }: Props) {
 
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")} requireApprovedBuyer={false}>
-      <Screen title="Welcome to Oasis" subtitle={snapshot?.state === "approved_buyer" ? "Oasis Trade Partner · B2B" : "Your Oasis trade account"}>
+      <Screen title={snapshot?.company?.business_name ? `Welcome, ${snapshot.company.business_name}` : "Welcome to Oasis"} subtitle={snapshot?.state === "approved_buyer" ? "Oasis Trade Partner · B2B · Approved" : "Your Oasis trade account"}>
         {snapshot?.message && snapshot.state !== "approved_buyer" ? (
           <View style={styles.banner}>
             <Text style={styles.bannerText}>{snapshot.message}</Text>
@@ -149,9 +149,15 @@ export function DashboardScreen({ navigation }: Props) {
           <ActionChip label="Reorder" onPress={() => navigation.navigate("QuickOrder")} />
           <ActionChip label="Track Order" onPress={() => navigation.navigate("Orders")} />
           <ActionChip label="Support" onPress={() => navigation.navigate("Support")} />
-          {GENIE_ENABLED ? <ActionChip label="Oasis Genie" onPress={() => navigation.navigate("AiOrder")} /> : null}
         </View>
+        {GENIE_ENABLED ? (
+          <TouchableOpacity style={styles.genieEntry} onPress={() => navigation.navigate("AiOrder")} accessibilityRole="button">
+            <Text style={styles.genieEyebrow}>OASIS GENIE</Text>
+            <Text style={styles.genieTitle}>Build an order with assistance</Text>
+          </TouchableOpacity>
+        ) : null}
 
+        <Text style={styles.section}>Account overview</Text>
         <View style={styles.statsRow}>
           <StatCard label="Lifetime order value" value={`₹${lifetimeValue.toLocaleString("en-IN")}`} />
           <StatCard label="Open orders" value={String(openOrders.length)} />
@@ -248,7 +254,10 @@ const styles = StyleSheet.create({
   nextActionButton: { minHeight: 48, marginTop: spacing.md, borderRadius: 24, backgroundColor: colors.dark, alignItems: "center", justifyContent: "center" },
   nextActionButtonText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeMd, color: colors.accentGold },
   quickActions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md },
-  chip: { backgroundColor: colors.action, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20, minHeight: 48, justifyContent: "center" },
+  chip: { width: "48%", flexGrow: 1, backgroundColor: colors.action, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20, minHeight: 56, justifyContent: "center", alignItems: "center" },
+  genieEntry: { backgroundColor: colors.surfaceUtility, borderRadius: 14, borderWidth: 1, borderColor: colors.borderLight, padding: spacing.md, minHeight: 64, justifyContent: "center", marginTop: spacing.sm },
+  genieEyebrow: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeXs, color: colors.accentBronze, letterSpacing: 1 },
+  genieTitle: { fontFamily: typography.fontFamilySerifBold, fontSize: typography.sizeMd, color: colors.textPrimary, marginTop: 4 },
   chipText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.white },
   orderSnapshot: { backgroundColor: colors.surfacePremium, borderRadius: 14, padding: spacing.md, marginTop: spacing.md, borderWidth: 1, borderColor: colors.borderLight },
   orderSnapshotTitle: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeMd, color: colors.textPrimary, marginTop: 4 },

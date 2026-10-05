@@ -26,6 +26,7 @@ function createAttemptId(): string {
   return `native-${createIdempotencyKey()}`;
 }
 
+/** Runs buyer-first mobile/email preflight, OTP verification and safe account routing. */
 export function LoginScreen({ navigation }: Props) {
   const { refresh } = useBuyerSession();
   const [channel, setChannel] = useState<Channel | null>(null);
@@ -207,7 +208,7 @@ export function LoginScreen({ navigation }: Props) {
   }
 
   return (
-    <Screen title="Buyer Log In" subtitle="Use the mobile number or email approved with your Oasis B2B access request">
+    <Screen title="Buyer Log In" subtitle="Sign in with the mobile number approved for your Oasis trade account">
       {channel === null && (
         <View style={styles.form}>
           <TouchableOpacity
@@ -216,8 +217,8 @@ export function LoginScreen({ navigation }: Props) {
             accessibilityRole="button"
             accessibilityLabel="Mobile OTP"
           >
-            <Text style={styles.choiceTitle}>Mobile OTP</Text>
-            <Text style={styles.choiceSubtitle}>Approved buyers verify through MSG91.</Text>
+            <Text style={styles.choiceTitle}>Continue with mobile</Text>
+            <Text style={styles.choiceSubtitle}>Recommended · receive a secure one-time code.</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.choiceCard}
@@ -225,8 +226,8 @@ export function LoginScreen({ navigation }: Props) {
             accessibilityRole="button"
             accessibilityLabel="Email OTP"
           >
-            <Text style={styles.choiceTitle}>Email OTP</Text>
-            <Text style={styles.choiceSubtitle}>Approved buyers verify through MSG91 email OTP.</Text>
+            <Text style={styles.choiceTitle}>Use email instead</Text>
+            <Text style={styles.choiceSubtitle}>Use the email approved for your trade account.</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -249,6 +250,10 @@ export function LoginScreen({ navigation }: Props) {
           />
 
           {stage === "otp" && (
+            <Text style={styles.otpHint}>Enter the 6-digit code sent to your registered {channel === "mobile" ? "mobile number" : "email"}.</Text>
+          )}
+
+          {stage === "otp" && (
             <TextInput
               style={[styles.input, styles.otpInput]}
               placeholder="Enter OTP"
@@ -256,6 +261,8 @@ export function LoginScreen({ navigation }: Props) {
               value={otp}
               onChangeText={(v) => setOtp(v.replace(/\D/g, "").slice(0, 6))}
               maxLength={6}
+              autoComplete="one-time-code"
+              textContentType="oneTimeCode"
               accessibilityLabel="One-time password"
             />
           )}
@@ -311,6 +318,7 @@ export function LoginScreen({ navigation }: Props) {
       ) : null}
 
       <View style={styles.footer}>
+        <Text style={styles.staffHint}>Oasis employee? Use the separate Admin Login provided by your organisation.</Text>
         <TouchableOpacity
           onPress={() => navigation.navigate("Register")}
           accessibilityRole="button"
@@ -365,6 +373,8 @@ function mapSessionError(raw: string): string {
 
 const styles = StyleSheet.create({
   form: { gap: spacing.md },
+  otpHint: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textSecondary, lineHeight: 20 },
+  staffHint: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted, textAlign: "center", lineHeight: 18 },
   choiceCard: {
     borderWidth: 1,
     borderColor: colors.border,

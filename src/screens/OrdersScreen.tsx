@@ -18,13 +18,7 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
-function istStagnancy(updatedAt: string): string {
-  const updated = new Date(updatedAt).getTime();
-  const now = Date.now();
-  const hours = Math.max(0, Math.floor((now - updated) / (1000 * 60 * 60)));
-  return `${hours}h in current stage (IST)`;
-}
-
+/** Presents buyer-safe order progress, payment entry and order line-item context. */
 export function OrdersScreen({ navigation, route }: Props) {
   const checkoutSuccess = route.params?.checkoutSuccess;
   const [orders, setOrders] = useState<CustomerOrderStatus[]>([]);
@@ -92,9 +86,9 @@ export function OrdersScreen({ navigation, route }: Props) {
         {checkoutSuccess ? (
           <View style={styles.successCard}>
             <Text style={styles.successTitle}>
-              {checkoutSuccess.isDuplicateSubmission ? "Order already submitted" : "Sales Order created"}
+              {checkoutSuccess.isDuplicateSubmission ? "Order already submitted" : "Order confirmed"}
             </Text>
-            <Text style={styles.successLine}>SO #{checkoutSuccess.orderNumber}</Text>
+            <Text style={styles.successLine}>Order #{checkoutSuccess.orderNumber}</Text>
             <Text style={styles.successLine}>
               Value ₹{checkoutSuccess.salesOrderValue.toLocaleString("en-IN")} · Advance ₹
               {checkoutSuccess.advanceRequired.toLocaleString("en-IN")}
@@ -131,7 +125,6 @@ export function OrdersScreen({ navigation, route }: Props) {
                   <Text style={styles.stageMeta}>
                     {buyerFulfilmentStageLabel(item.customer_stage)}
                   </Text>
-                  <Text style={styles.stagnancy}>{istStagnancy(item.updated_at)}</Text>
 
                   <View style={styles.timeline}>
                     {FULFILMENT_TIMELINE_STAGES.map((stage, index) => (
@@ -212,7 +205,6 @@ const styles = StyleSheet.create({
   orderNumber: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeMd, color: colors.textPrimary },
   orderValue: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeMd, color: colors.action },
   stageMeta: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted, marginTop: 4 },
-  stagnancy: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.warning, marginTop: 4 },
   timeline: { marginTop: 14, gap: spacing.sm },
   timelineRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.border },

@@ -15,13 +15,14 @@ import { defaultOrderQuantity, resolveCommercialRules, validateOrderQuantity } f
 import { nextValidQuantity } from "@/lib/draft-utils";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { useCustomerFavourites } from "@/hooks/useCustomerFavourites";
-import { colors, spacing, typography } from "@/theme";
+import { colors, spacing, typography, touchTarget } from "@/theme";
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<MainTabParamList, "Catalogue">,
   NativeStackScreenProps<RootStackParamList>
 >;
 
+/** Presents the published catalogue with buyer-safe commercial ordering controls. */
 export function CatalogueScreen({ navigation }: Props) {
   const { isApprovedBuyer } = useBuyerSession();
   const { isFavourite, toggleFavourite } = useCustomerFavourites();
@@ -230,8 +231,8 @@ export function CatalogueScreen({ navigation }: Props) {
                         >
                           <Text style={styles.stepperButtonText}>+</Text>
                         </TouchableOpacity>
-                        <Text style={styles.moqNote}>MOQ {moq}</Text>
                       </View>
+                      <Text style={styles.moqNote}>Minimum {moq} · then add {increment} at a time</Text>
                       <TouchableOpacity
                         style={styles.addButton}
                         disabled={adding}
@@ -281,9 +282,9 @@ const styles = StyleSheet.create({
   list: { paddingVertical: 12, gap: 14 },
   row: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
   favouriteButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: touchTarget,
+    height: touchTarget,
+    borderRadius: touchTarget / 2,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.surfaceUtility,
@@ -291,21 +292,21 @@ const styles = StyleSheet.create({
   },
   favouriteIcon: { fontSize: 18, color: colors.textMuted },
   favouriteIconActive: { color: colors.action },
-  rowImage: { width: 72, height: 72, borderRadius: 10 },
+  rowImage: { width: 112, height: 112, borderRadius: 12 },
   rowInfo: { flex: 1 },
   rowTitle: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.textPrimary },
   rowMeta: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted, marginTop: 2 },
   priceBadge: { alignSelf: "flex-start", backgroundColor: colors.successSurface, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, marginTop: 4 },
   priceBadgeText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeXs, color: colors.success },
   stepper: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8 },
-  stepperButton: { width: 44, height: 44, borderRadius: 6, backgroundColor: colors.surfacePremium, alignItems: "center", justifyContent: "center" },
+  stepperButton: { width: touchTarget, height: touchTarget, borderRadius: 6, backgroundColor: colors.surfacePremium, alignItems: "center", justifyContent: "center" },
   stepperButtonText: { fontSize: 16, color: colors.action, fontWeight: "700" },
   stepperValue: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, minWidth: 30, textAlign: "center" },
-  moqNote: { fontFamily: typography.fontFamilySans, fontSize: 10, color: colors.textMuted, marginLeft: 6 },
-  addButton: { marginTop: 8, backgroundColor: colors.action, paddingVertical: 8, borderRadius: 8, alignItems: "center", minHeight: 44, justifyContent: "center" },
+  moqNote: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted, marginTop: 4 },
+  addButton: { marginTop: 8, backgroundColor: colors.action, paddingVertical: 8, borderRadius: 8, alignItems: "center", minHeight: touchTarget, justifyContent: "center" },
   addButtonText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.white, fontSize: typography.sizeSm },
   empty: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textMuted, paddingVertical: 20, textAlign: "center" },
-  fab: { position: "absolute", bottom: 16, right: 0, left: 0, marginHorizontal: 20, backgroundColor: colors.textPrimary, paddingVertical: 14, borderRadius: 10, alignItems: "center", minHeight: 44, justifyContent: "center" },
+  fab: { position: "absolute", bottom: 16, right: 0, left: 0, marginHorizontal: 20, backgroundColor: colors.textPrimary, paddingVertical: 14, borderRadius: 10, alignItems: "center", minHeight: touchTarget, justifyContent: "center" },
   fabText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.white },
   error: { color: colors.error, marginTop: 8, fontSize: typography.sizeSm },
   unavailablePrice: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.warning, marginTop: 4 },

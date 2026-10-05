@@ -29,6 +29,13 @@ export type RootStackParamList = {
   SessionRecovery: { message: string };
   MainTabs: NavigatorScreenParams<MainTabParamList>;
   ProductDetail: { productId: string };
+  Favourites: undefined;
+  CatalogueFilters: undefined;
+  SeasonalCollection: undefined;
+  PrivateLabel: undefined;
+  PackagingDecoration: undefined;
+  CollectionHub: undefined;
+  Recommended: undefined;
   OrderDetail: { orderId: string; order?: CustomerOrderStatus };
   QuickOrder: undefined;
   AiOrder: undefined;

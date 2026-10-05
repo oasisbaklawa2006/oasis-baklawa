@@ -12,6 +12,7 @@ import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { fetchPublishedProducts } from "@/lib/api/catalogue";
 import { fetchCustomerOrderStatus } from "@/lib/api/orders";
 import { buyerFulfilmentStageLabel, isOpenFulfilmentStage } from "@/lib/order-stages";
+import { recentlyAddedProducts } from "@/lib/buyer-merchandising";
 import { GENIE_ENABLED } from "@/lib/genie-parse-availability";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { customerGateway } from "@/services/customerGateway";
@@ -23,10 +24,6 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
-const ANNOUNCEMENTS = [
-  "Festival gifting collections now open for pre-order",
-  "New artisan range available for approved buyers",
-];
 
 /** Presents the buyer home surface with one next-best action and concise commercial context. */
 export function DashboardScreen({ navigation }: Props) {
@@ -76,7 +73,7 @@ export function DashboardScreen({ navigation }: Props) {
       return hours > 48 && isOpenFulfilmentStage(o.customer_stage);
     });
   }, [orders]);
-  const continueBuying = useMemo(() => products.slice(0, 6), [products]);
+  const recentProducts = useMemo(() => recentlyAddedProducts(products, 6), [products]);
 
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")} requireApprovedBuyer={false}>
@@ -146,7 +143,7 @@ export function DashboardScreen({ navigation }: Props) {
         <Text style={styles.section}>Quick actions</Text>
         <View style={styles.quickActions}>
           <ActionChip label="New Order" onPress={() => navigation.navigate("Catalogue")} />
-          <ActionChip label="Reorder" onPress={() => navigation.navigate("QuickOrder")} />
+          <ActionChip label="Quick Order" onPress={() => navigation.navigate("QuickOrder")} />
           <ActionChip label="Track Order" onPress={() => navigation.navigate("Orders")} />
           <ActionChip label="Support" onPress={() => navigation.navigate("Support")} />
         </View>
@@ -188,18 +185,11 @@ export function DashboardScreen({ navigation }: Props) {
           </View>
         ) : null}
 
-        <Text style={styles.section}>Announcements</Text>
-        {ANNOUNCEMENTS.map((a) => (
-          <Text key={a} style={styles.announcement}>
-            {a}
-          </Text>
-        ))}
-
-        <Text style={styles.section}>Continue buying</Text>
+        <Text style={styles.section}>Recently added</Text>
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
-          data={continueBuying}
+          data={recentProducts}
           keyExtractor={(item) => item.product_id}
           renderItem={({ item }) => (
             <TouchableOpacity
@@ -271,7 +261,6 @@ const styles = StyleSheet.create({
   alertTitle: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeMd, color: colors.textPrimary },
   alertLine: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textSecondary, marginTop: 4 },
   section: { fontFamily: typography.fontFamilySerifBold, fontSize: typography.sizeLg, color: colors.textPrimary, marginTop: spacing.lg, marginBottom: spacing.sm },
-  announcement: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textSecondary, marginBottom: 4 },
   productCard: { width: 120, marginRight: spacing.md },
   productImage: { width: 120, height: 120 },
   productName: { fontFamily: typography.fontFamilySansMedium, fontSize: typography.sizeXs, color: colors.textPrimary, marginTop: 6 },

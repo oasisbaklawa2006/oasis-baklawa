@@ -30,4 +30,22 @@ describe("customerGateway tranche-5 and P106 bindings", () => {
     assert.match(gatewaySource, /createPaymentIntent/);
     assert.match(gatewaySource, /paymentIntentStatus/);
   });
+  it("turns unsupported Buyer service surfaces into governed live request workflows", () => {
+    const panelSource = readFileSync(join(__dirname, "../components/BuyerServiceRequestPanel.tsx"), "utf8");
+    assert.match(panelSource, /customerGateway\.generalQueries\(\)/);
+    assert.match(panelSource, /customerGateway\.submitGeneralQuery/);
+    assert.match(panelSource, /getGeneralQueryIdempotencyKey/);
+
+    for (const file of [
+      "PrivateLabelScreen.tsx",
+      "PackagingDecorationScreen.tsx",
+      "TransporterScreen.tsx",
+      "AddressesScreen.tsx",
+    ]) {
+      const source = readFileSync(join(__dirname, "../screens", file), "utf8");
+      assert.match(source, /BuyerServiceRequestPanel/);
+      assert.doesNotMatch(source, /not available yet|not published yet/i);
+    }
+  });
+
 });

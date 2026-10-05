@@ -1,11 +1,11 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { CompositeScreenProps } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { MainTabParamList, RootStackParamList } from "@/navigation/types";
 import { Screen } from "@/components/Screen";
-import { UnavailableState } from "@/components/StateViews";
+import { EmptyState } from "@/components/StateViews";
 import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { fetchCustomerCompany, fetchCustomerTeam } from "@/lib/api/buyer";
 import { supabase } from "@/lib/supabase";
@@ -23,16 +23,35 @@ export function AccountScreen({ navigation }: Props) {
   const [company, setCompany] = useState<CustomerCompany | null>(null);
   const [team, setTeam] = useState<CustomerTeamMember[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [accountLoading, setAccountLoading] = useState(false);
+  const [accountLoaded, setAccountLoaded] = useState(false);
+  const loadSeq = useRef(0);
 
   const load = useCallback(async () => {
-    if (snapshot?.state !== "approved_buyer") return;
+    const seq = ++loadSeq.current;
+    if (snapshot?.state !== "approved_buyer") {
+      setCompany(null);
+      setTeam([]);
+      setAccountLoading(false);
+      setAccountLoaded(false);
+      setError(null);
+      return;
+    }
+
+    setAccountLoading(true);
+    setAccountLoaded(false);
     setError(null);
     try {
       const [companyRow, teamRows] = await Promise.all([fetchCustomerCompany(), fetchCustomerTeam()]);
+      if (seq !== loadSeq.current) return;
       setCompany(companyRow);
       setTeam(teamRows);
+      setAccountLoaded(true);
     } catch (e) {
+      if (seq !== loadSeq.current) return;
       setError(parseRpcError(e).message);
+    } finally {
+      if (seq === loadSeq.current) setAccountLoading(false);
     }
   }, [snapshot?.state]);
 
@@ -41,6 +60,9 @@ export function AccountScreen({ navigation }: Props) {
   }, [load]);
 
   async function signOut() {
+    ++loadSeq.current;
+    setAccountLoading(false);
+    setAccountLoaded(false);
     let signOutError: string | null = null;
     try {
       await supabase.auth.signOut();
@@ -49,6 +71,7 @@ export function AccountScreen({ navigation }: Props) {
     }
     setCompany(null);
     setTeam([]);
+    setAccountLoaded(false);
     try {
       await refresh();
     } catch {
@@ -111,7 +134,7 @@ export function AccountScreen({ navigation }: Props) {
         data={team}
         scrollEnabled={false}
         keyExtractor={(item) => item.profile_id}
-        ListEmptyComponent={<UnavailableState title="No team members" message="Team roster is unavailable or empty." />}
+        ListEmptyComponent={accountLoaded && !accountLoading ? <EmptyState title="No team members" message="Approved team members will appear here when access is created." /> : null}
         renderItem={({ item }) => (
           <View style={styles.teamRow}>
             <Text style={styles.teamName}>{item.full_name ?? item.email ?? "Member"}</Text>

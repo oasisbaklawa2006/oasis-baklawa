@@ -108,7 +108,7 @@ describe("golden journey invariants", () => {
     }
   });
 
-  it("binds buyer merchandising to explicit live signals without invented claims", () => {
+  it("binds buyer merchandising and service fallbacks to governed live signals", () => {
     const seasonal = readFileSync(join(ROOT, "screens/SeasonalCollectionScreen.tsx"), "utf8");
     assert.match(seasonal, /fetchPublishedProducts/);
     assert.match(seasonal, /seasonalProducts/);
@@ -121,8 +121,9 @@ describe("golden journey invariants", () => {
 
     for (const file of ["PrivateLabelScreen.tsx", "PackagingDecorationScreen.tsx"]) {
       const source = readFileSync(join(ROOT, "screens", file), "utf8");
-      assert.match(source, /not published|does not (identify|expose)/i);
-      assert.doesNotMatch(source, /is_private_label|packaging_option/i);
+      assert.match(source, /BuyerServiceRequestPanel/);
+      assert.match(source, /does not (expose|currently project)|not exposed/i);
+      assert.doesNotMatch(source, /is_private_label|private_label_allowed|packaging_option_id|packaging_price/i);
     }
 
     const dashboard = readFileSync(join(ROOT, "screens/DashboardScreen.tsx"), "utf8");

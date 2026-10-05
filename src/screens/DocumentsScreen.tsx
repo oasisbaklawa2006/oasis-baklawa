@@ -88,7 +88,8 @@ function OrderDocumentsSection({
   );
 }
 
-function StatementSection({ statement }: { statement: CustomerStatement | null }) {
+/** Summarizes statement availability and routes buyers to the dedicated statement surface. */
+function StatementSection({ statement, onOpen }: { statement: CustomerStatement | null; onOpen: () => void }) {
   const statementStatus: DocumentAvailability = statement?.statement_facts_only ? "available" : "upstream-unavailable";
 
   return (
@@ -102,6 +103,11 @@ function StatementSection({ statement }: { statement: CustomerStatement | null }
             : "Statements will appear here when they are available."
         }
       />
+      {statement?.statement_facts_only ? (
+        <TouchableOpacity style={styles.statementOpen} onPress={onOpen} accessibilityRole="button">
+          <Text style={styles.statementOpenText}>View statement</Text>
+        </TouchableOpacity>
+      ) : null}
       {statement?.statement_facts_only ? (
         <View style={styles.statementFacts}>
           <Text style={styles.sectionTitle}>Account statement</Text>
@@ -217,7 +223,7 @@ export function DocumentsScreen({ navigation }: Props) {
                 />
               </View>
             )}
-            <StatementSection statement={statement} />
+            <StatementSection statement={statement} onOpen={() => navigation.navigate("Statement")} />
             {!hasOrders ? (
               <EmptyState
                 title="No orders yet"
@@ -284,6 +290,8 @@ const styles = StyleSheet.create({
   },
   emptyDocuments: { gap: spacing.sm },
   statementSection: { gap: spacing.sm, marginTop: spacing.md },
+  statementOpen: { minHeight: 48, justifyContent: "center", alignItems: "center", borderRadius: 10, backgroundColor: colors.action },
+  statementOpenText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.white },
   statementFacts: {
     backgroundColor: colors.surfacePremium,
     borderRadius: 12,

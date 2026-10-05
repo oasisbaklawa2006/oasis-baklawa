@@ -23,6 +23,7 @@ import { CheckoutScreen } from "@/screens/CheckoutScreen";
 import { CommercialReviewScreen } from "@/screens/CommercialReviewScreen";
 import { OrderConfirmationScreen } from "@/screens/OrderConfirmationScreen";
 import { DocumentsScreen } from "@/screens/DocumentsScreen";
+import { StatementScreen } from "@/screens/StatementScreen";
 import { QuotationsScreen } from "@/screens/QuotationsScreen";
 import { QuotationDetailScreen } from "@/screens/QuotationDetailScreen";
 import { OrderPaymentScreen } from "@/screens/OrderPaymentScreen";
@@ -68,6 +69,7 @@ export function RootNavigator() {
         <Stack.Screen name="Checkout" component={CheckoutScreen} />
         <Stack.Screen name="OrderConfirmation" component={OrderConfirmationScreen} />
         <Stack.Screen name="Documents" component={DocumentsScreen} />
+        <Stack.Screen name="Statement" component={StatementScreen} />
         <Stack.Screen name="Quotations" component={QuotationsScreen} />
         <Stack.Screen name="QuotationDetail" component={QuotationDetailScreen} />
         <Stack.Screen name="OrderPayment" component={OrderPaymentScreen} />

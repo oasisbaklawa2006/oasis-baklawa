@@ -31,6 +31,7 @@ export type RootStackParamList = {
   ProductDetail: { productId: string };
   Favourites: undefined;
   CatalogueFilters: undefined;
+  CollectionHub: undefined;
   OrderDetail: { orderId: string; order?: CustomerOrderStatus };
   QuickOrder: undefined;
   AiOrder: undefined;

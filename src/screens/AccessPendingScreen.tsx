@@ -20,13 +20,13 @@ export function AccessPendingScreen({ navigation, route }: Props) {
         <Text style={styles.kicker}>ACCESS REVIEW IN PROGRESS</Text>
         <Text style={styles.copy}>
           {route.params?.message ??
-            "Our team verifies your business identity, GST and supporting documents before assigning your buyer category and confidential price grade."}
+            "Our team is reviewing your trade account details before activating private catalogue access."}
         </Text>
         <View style={styles.card}>
           <Text style={styles.cardTitle}>What happens next</Text>
-          <Text style={styles.item}>1. Business and document review</Text>
-          <Text style={styles.item}>2. Buyer category and price-grade assignment</Text>
-          <Text style={styles.item}>3. Account approval and private catalogue access</Text>
+          <Text style={styles.item}>1. Business details review</Text>
+          <Text style={styles.item}>2. Trade account setup</Text>
+          <Text style={styles.item}>3. Private catalogue access</Text>
         </View>
         <TouchableOpacity
           style={styles.primary}

@@ -22,6 +22,7 @@ import { colors, spacing, typography, touchTarget } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Cart">;
 
+/** Presents the buyer cart, authoritative ordering constraints, and recoverable quantity actions. */
 export function CartScreen({ navigation }: Props) {
   const { isOnline } = useNetwork();
   const [draft, setDraft] = useState<CustomerOrderDraft | null>(null);
@@ -30,6 +31,7 @@ export function CartScreen({ navigation }: Props) {
   const [busyLineId, setBusyLineId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  /** Refreshes the current draft without replacing the screen with a loading state. */
   async function onRefresh() {
     await loadDraft({ showLoader: false });
   }
@@ -63,6 +65,7 @@ export function CartScreen({ navigation }: Props) {
     return groups;
   }, [draft, pricesByProduct]);
 
+  /** Moves a cart line by one authoritative order increment while respecting its MOQ. */
   async function changeQuantity(lineId: string, productId: string, delta: number, currentQty: number) {
     const price = pricesByProduct[productId];
     const commercial = resolveCommercialRules(price);

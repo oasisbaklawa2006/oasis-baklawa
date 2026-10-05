@@ -135,7 +135,7 @@ export function DashboardScreen({ navigation }: Props) {
           </TouchableOpacity>
         )}
 
-        {openOrders[0] ? (
+        {ordersNeedingAdvance[0] && openOrders[0] ? (
           <TouchableOpacity style={styles.orderSnapshot} onPress={() => navigation.navigate("OrderDetail", { orderId: openOrders[0].order_id, order: openOrders[0] })} accessibilityRole="button">
             <Text style={styles.statLabel}>ACTIVE ORDER</Text>
             <Text style={styles.orderSnapshotTitle}>#{openOrders[0].order_number} · {buyerFulfilmentStageLabel(openOrders[0].customer_stage)}</Text>
@@ -146,7 +146,7 @@ export function DashboardScreen({ navigation }: Props) {
         <Text style={styles.section}>Quick actions</Text>
         <View style={styles.quickActions}>
           <ActionChip label="New Order" onPress={() => navigation.navigate("Catalogue")} />
-          <ActionChip label="Reorder" onPress={() => navigation.navigate("Orders")} />
+          <ActionChip label="Reorder" onPress={() => navigation.navigate("QuickOrder")} />
           <ActionChip label="Track Order" onPress={() => navigation.navigate("Orders")} />
           <ActionChip label="Support" onPress={() => navigation.navigate("Support")} />
         </View>

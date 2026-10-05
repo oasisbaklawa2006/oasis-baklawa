@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { CompositeScreenProps } from "@react-navigation/native";
@@ -25,21 +25,33 @@ export function AccountScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [accountLoading, setAccountLoading] = useState(false);
   const [accountLoaded, setAccountLoaded] = useState(false);
+  const loadSeq = useRef(0);
 
   const load = useCallback(async () => {
-    if (snapshot?.state !== "approved_buyer") return;
+    const seq = ++loadSeq.current;
+    if (snapshot?.state !== "approved_buyer") {
+      setCompany(null);
+      setTeam([]);
+      setAccountLoading(false);
+      setAccountLoaded(false);
+      setError(null);
+      return;
+    }
+
     setAccountLoading(true);
     setAccountLoaded(false);
     setError(null);
     try {
       const [companyRow, teamRows] = await Promise.all([fetchCustomerCompany(), fetchCustomerTeam()]);
+      if (seq !== loadSeq.current) return;
       setCompany(companyRow);
       setTeam(teamRows);
       setAccountLoaded(true);
     } catch (e) {
+      if (seq !== loadSeq.current) return;
       setError(parseRpcError(e).message);
     } finally {
-      setAccountLoading(false);
+      if (seq === loadSeq.current) setAccountLoading(false);
     }
   }, [snapshot?.state]);
 
@@ -48,6 +60,9 @@ export function AccountScreen({ navigation }: Props) {
   }, [load]);
 
   async function signOut() {
+    ++loadSeq.current;
+    setAccountLoading(false);
+    setAccountLoaded(false);
     let signOutError: string | null = null;
     try {
       await supabase.auth.signOut();

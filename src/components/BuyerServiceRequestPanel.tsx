@@ -27,7 +27,8 @@ interface BuyerServiceRequestPanelProps {
 /**
  * Converts unsupported account/catalogue master-data surfaces into a real,
  * governed Buyer request workflow without pretending the request has already
- * changed authoritative company/product data.
+ * changed authoritative company/product data. This is the deliberate live
+ * fallback until Core exposes the corresponding customer-safe master projection.
  */
 export function BuyerServiceRequestPanel({
   category,

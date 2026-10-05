@@ -20,12 +20,13 @@ import { colors, spacing, typography } from "@/theme";
 type Props = NativeStackScreenProps<RootStackParamList, "OrderPayment">;
 
 /** Returns buyer-facing language for each supported payment purpose. */
+/** Maps known payment states to calm buyer-facing language without inferring success from substrings. */
 function friendlyStatus(value: string | null | undefined): string {
   if (!value) return "Pending";
   const normalized = value.toLowerCase();
-  if (normalized.includes("success") || normalized.includes("paid") || normalized.includes("verified") || normalized.includes("complete")) return "Payment received";
-  if (normalized.includes("fail") || normalized.includes("cancel") || normalized.includes("reject")) return "Payment needs attention";
-  if (normalized.includes("process") || normalized.includes("pending") || normalized.includes("created") || normalized.includes("await")) return "Confirmation pending";
+  if (["success", "succeeded", "paid", "verified", "completed", "complete"].includes(normalized)) return "Payment received";
+  if (["failed", "cancelled", "canceled", "rejected", "unsuccessful"].includes(normalized)) return "Payment needs attention";
+  if (["processing", "pending", "created", "awaiting_gateway", "awaiting_confirmation", "unpaid"].includes(normalized)) return "Confirmation pending";
   return "Status available";
 }
 

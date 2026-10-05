@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
@@ -46,27 +46,34 @@ export function QuotationDetailScreen({ navigation, route }: Props) {
   const [acceptKey, setAcceptKey] = useState<ResolvedQuoteIdempotency | null>(null);
   const [declineKey, setDeclineKey] = useState<ResolvedQuoteIdempotency | null>(null);
   const [handoffId, setHandoffId] = useState<string | null>(null);
+  const actionInFlightRef = useRef(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async (surfaceError = true): Promise<boolean> => {
+    if (surfaceError) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const [detailRow, lineRows] = await Promise.all([
         customerGateway.quotationDetail(quotationId),
         customerGateway.quotationLines(quotationId),
       ]);
       if (!detailRow) {
-        setError("This quotation could not be loaded for your account.");
-        setDetail(null);
-        setLines([]);
-        return;
+        if (surfaceError) {
+          setError("This quotation could not be loaded for your account.");
+          setDetail(null);
+          setLines([]);
+        }
+        return false;
       }
       setDetail(detailRow);
       setLines(lineRows);
+      return true;
     } catch (e) {
-      setError(parseRpcError(e).message);
+      if (surfaceError) setError(parseRpcError(e).message);
+      return false;
     } finally {
-      setLoading(false);
+      if (surfaceError) setLoading(false);
     }
   }, [quotationId]);
 
@@ -103,7 +110,8 @@ export function QuotationDetailScreen({ navigation, route }: Props) {
     : false;
 
   async function onAccept() {
-    if (!detail || !acceptKey?.key || !acceptKey.persisted || actionInFlight) return;
+    if (!detail || !acceptKey?.key || !acceptKey.persisted || actionInFlightRef.current || actionInFlight) return;
+    actionInFlightRef.current = true;
     setAccepting(true);
     setNotice(null);
     try {
@@ -115,12 +123,14 @@ export function QuotationDetailScreen({ navigation, route }: Props) {
       await clearQuoteAcceptIdempotencyKey(quotationId);
       setAcceptKey(await getQuoteAcceptIdempotencyKey(quotationId));
       setHandoffId(result.handoff_id);
-      setNotice(
+      const successNotice =
         result.handoff_status === "pending"
           ? "Acceptance recorded. A governed handoff is pending — order submission remains a separate next step."
-          : "Acceptance recorded."
-      );
-      await load();
+          : "Acceptance recorded.";
+      setNotice(successNotice);
+      if (!(await load(false))) {
+        setNotice(`${successNotice} Latest quotation details could not refresh right now.`);
+      }
     } catch (e) {
       const parsed = parseRpcError(e);
       if (isQuotationVersionStaleError(parsed.raw ?? parsed.message)) {
@@ -130,12 +140,14 @@ export function QuotationDetailScreen({ navigation, route }: Props) {
         setNotice(parsed.message);
       }
     } finally {
+      actionInFlightRef.current = false;
       setAccepting(false);
     }
   }
 
   async function onDecline() {
-    if (!detail || !declineKey?.key || !declineKey.persisted || actionInFlight) return;
+    if (!detail || !declineKey?.key || !declineKey.persisted || actionInFlightRef.current || actionInFlight) return;
+    actionInFlightRef.current = true;
     setDeclining(true);
     setNotice(null);
     try {
@@ -146,8 +158,11 @@ export function QuotationDetailScreen({ navigation, route }: Props) {
       });
       await clearQuoteDeclineIdempotencyKey(quotationId);
       setDeclineKey(await getQuoteDeclineIdempotencyKey(quotationId));
-      setNotice("Quotation declined.");
-      await load();
+      const successNotice = "Quotation declined.";
+      setNotice(successNotice);
+      if (!(await load(false))) {
+        setNotice(`${successNotice} Latest quotation details could not refresh right now.`);
+      }
     } catch (e) {
       const parsed = parseRpcError(e);
       if (isQuotationVersionStaleError(parsed.raw ?? parsed.message)) {
@@ -157,6 +172,7 @@ export function QuotationDetailScreen({ navigation, route }: Props) {
         setNotice(parsed.message);
       }
     } finally {
+      actionInFlightRef.current = false;
       setDeclining(false);
     }
   }

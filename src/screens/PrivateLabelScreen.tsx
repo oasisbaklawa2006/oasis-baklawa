@@ -5,7 +5,6 @@ import { BuyerGate } from "@/components/BuyerGate";
 import { BuyerServiceRequestPanel } from "@/components/BuyerServiceRequestPanel";
 import { OasisButton } from "@/components/OasisButton";
 import { Screen } from "@/components/Screen";
-import { spacing } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "PrivateLabel">;
 

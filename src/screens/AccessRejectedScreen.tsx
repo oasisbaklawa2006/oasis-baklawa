@@ -10,6 +10,7 @@ type Props = NativeStackScreenProps<RootStackParamList, "AccessRejected">;
 
 const SUPPORT_PHONE = "+919999792959";
 
+/** Explains an inactive buyer application and available recovery paths. */
 export function AccessRejectedScreen({ navigation, route }: Props) {
   return (
     <Screen title="Access Not Approved" subtitle="Trade account application">
@@ -57,7 +58,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: 10,
     backgroundColor: colors.textPrimary,
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: "center",
   },
   primaryText: {
@@ -70,7 +71,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: "center",
   },
   secondaryText: {

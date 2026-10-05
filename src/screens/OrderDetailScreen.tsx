@@ -105,7 +105,7 @@ export function OrderDetailScreen({ navigation, route }: Props) {
             <View style={styles.financeCard}>
               <Text style={styles.section}>Payment summary</Text>
               <Text style={styles.financeMeta}>
-                {financeFacts.finance_status?.replace(/_/g, " ") ?? "Status pending"}
+                {financeFacts.advance_covered ? "Advance received" : "Payment status available"}
               </Text>
               {financeFacts.commercial_value !== null ? (
                 <Text style={styles.financeLine}>Order total: {formatInr(financeFacts.commercial_value)}</Text>
@@ -128,7 +128,7 @@ export function OrderDetailScreen({ navigation, route }: Props) {
                 <Text style={styles.financeLine}>Balance due: {formatInr(payable.balanceDue)}</Text>
               ) : null}
               {financeFacts.pi_status ? (
-                <Text style={styles.financeLine}>Proforma invoice status: {financeFacts.pi_status.replace(/_/g, " ")}</Text>
+                <Text style={styles.financeLine}>Proforma invoice: {financeFacts.pi_number ? "Available" : "Being prepared"}</Text>
               ) : null}
               {financeFacts.pi_number ? (
                 <Text style={styles.financeLine}>Proforma invoice: {financeFacts.pi_number}</Text>

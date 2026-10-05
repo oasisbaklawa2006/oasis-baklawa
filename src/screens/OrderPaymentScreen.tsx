@@ -19,6 +19,17 @@ import { colors, spacing, typography } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "OrderPayment">;
 
+/** Returns buyer-facing language for each supported payment purpose. */
+function friendlyStatus(value: string | null | undefined): string {
+  if (!value) return "Pending";
+  const normalized = value.toLowerCase();
+  if (normalized.includes("success") || normalized.includes("paid") || normalized.includes("verified") || normalized.includes("complete")) return "Payment received";
+  if (normalized.includes("fail") || normalized.includes("cancel") || normalized.includes("reject")) return "Payment needs attention";
+  if (normalized.includes("process") || normalized.includes("pending") || normalized.includes("created") || normalized.includes("await")) return "Confirmation pending";
+  return "Status available";
+}
+
+/** Returns buyer-facing language for each supported payment purpose. */
 function purposeLabel(purpose: PaymentGatewayPurpose | null | undefined): string {
   switch (purpose) {
     case "advance":
@@ -32,6 +43,7 @@ function purposeLabel(purpose: PaymentGatewayPurpose | null | undefined): string
   }
 }
 
+/** Presents the buyer-safe payment summary and governed payment actions for one order. */
 export function OrderPaymentScreen({ navigation, route }: Props) {
   const { orderId, orderNumber } = route.params;
   const { isOnline } = useNetwork();
@@ -170,7 +182,7 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
         ) : (
           <View style={styles.body}>
             <View style={styles.card}>
-              <Row label="Payment status" value={(boundary.payable.financeStatus ?? "pending").replace(/_/g, " ")} />
+              <Row label="Payment status" value={friendlyStatus(boundary.payable.financeStatus)} />
               <Row label="Payment purpose" value={purposeLabel(boundary.payable.paymentPurpose)} />
               <Row label="Order total" value={formatInr(boundary.payable.commercialValue)} />
               <Row label="Advance required" value={formatInr(boundary.payable.requiredAdvance)} />
@@ -179,9 +191,9 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
               <Row label="Balance due" value={formatInr(boundary.payable.balanceDue)} />
               <Row label="Pay now" value={formatInr(boundary.payable.payableAmount)} emphasis />
               {boundary.payable.piNumber ? <Row label="Proforma invoice" value={boundary.payable.piNumber} /> : null}
-              {boundary.payable.piStatus ? <Row label="Proforma invoice status" value={boundary.payable.piStatus.replace(/_/g, " ")} /> : null}
+              {boundary.payable.piStatus ? <Row label="Proforma invoice status" value={friendlyStatus(boundary.payable.piStatus)} /> : null}
               {boundary.payable.finalPaymentStatus ? (
-                <Row label="Final payment status" value={boundary.payable.finalPaymentStatus.replace(/_/g, " ")} />
+                <Row label="Final payment status" value={friendlyStatus(boundary.payable.finalPaymentStatus)} />
               ) : null}
             </View>
 
@@ -192,7 +204,7 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
             {flow.status ? (
               <View style={styles.statusCard}>
                 <Text style={styles.statusTitle}>Payment status</Text>
-                <Text style={styles.statusMeta}>{flow.status.status.replace(/_/g, " ")}</Text>
+                <Text style={styles.statusMeta}>{friendlyStatus(flow.status.status)}</Text>
                 <Text style={styles.statusMeta}>Amount {formatInr(flow.status.canonical_amount)}</Text>
                 {flow.providerOrderId ? (
                   <Text style={styles.statusMeta}>Payment reference {flow.providerOrderId}</Text>
@@ -240,6 +252,7 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
   );
 }
 
+/** Renders one buyer-facing payment summary row. */
 function Row({ label, value, emphasis }: { label: string; value: string; emphasis?: boolean }) {
   return (
     <View style={styles.row}>

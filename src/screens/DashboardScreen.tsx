@@ -28,6 +28,7 @@ const ANNOUNCEMENTS = [
   "New artisan range available for approved buyers",
 ];
 
+/** Presents the buyer home surface with one next-best action and concise commercial context. */
 export function DashboardScreen({ navigation }: Props) {
   const { snapshot } = useBuyerSession();
   const [products, setProducts] = useState<PublishedProduct[]>([]);
@@ -75,11 +76,11 @@ export function DashboardScreen({ navigation }: Props) {
       return hours > 48 && isOpenFulfilmentStage(o.customer_stage);
     });
   }, [orders]);
-  const bestSellers = useMemo(() => products.slice(0, 6), [products]);
+  const continueBuying = useMemo(() => products.slice(0, 6), [products]);
 
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")} requireApprovedBuyer={false}>
-      <Screen title="Home" subtitle="Your Oasis trade desk">
+      <Screen title="Welcome to Oasis" subtitle={snapshot?.state === "approved_buyer" ? "Oasis Trade Partner · B2B" : "Your Oasis trade account"}>
         {snapshot?.message && snapshot.state !== "approved_buyer" ? (
           <View style={styles.banner}>
             <Text style={styles.bannerText}>{snapshot.message}</Text>
@@ -134,16 +135,20 @@ export function DashboardScreen({ navigation }: Props) {
           </TouchableOpacity>
         )}
 
+        {openOrders[0] ? (
+          <TouchableOpacity style={styles.orderSnapshot} onPress={() => navigation.navigate("OrderDetail", { orderId: openOrders[0].order_id, order: openOrders[0] })} accessibilityRole="button">
+            <Text style={styles.statLabel}>ACTIVE ORDER</Text>
+            <Text style={styles.orderSnapshotTitle}>#{openOrders[0].order_number} · {buyerFulfilmentStageLabel(openOrders[0].customer_stage)}</Text>
+            <Text style={styles.nextActionCopy}>View order progress</Text>
+          </TouchableOpacity>
+        ) : null}
+
         <Text style={styles.section}>Quick actions</Text>
         <View style={styles.quickActions}>
-          {GENIE_ENABLED ? (
-            <ActionChip label="Oasis Genie" onPress={() => navigation.navigate("AiOrder")} />
-          ) : null}
           <ActionChip label="New Order" onPress={() => navigation.navigate("Catalogue")} />
-          <ActionChip label="Quick Order" onPress={() => navigation.navigate("QuickOrder")} />
-          <ActionChip label="Quotations" onPress={() => navigation.navigate("Quotations")} />
+          <ActionChip label="Reorder" onPress={() => navigation.navigate("Orders")} />
           <ActionChip label="Track Order" onPress={() => navigation.navigate("Orders")} />
-          <ActionChip label="Raise Ticket" onPress={() => navigation.navigate("Support")} />
+          <ActionChip label="Support" onPress={() => navigation.navigate("Support")} />
         </View>
 
         <View style={styles.statsRow}>
@@ -183,11 +188,11 @@ export function DashboardScreen({ navigation }: Props) {
           </Text>
         ))}
 
-        <Text style={styles.section}>Best sellers</Text>
+        <Text style={styles.section}>Continue buying</Text>
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
-          data={bestSellers}
+          data={continueBuying}
           keyExtractor={(item) => item.product_id}
           renderItem={({ item }) => (
             <TouchableOpacity
@@ -244,6 +249,8 @@ const styles = StyleSheet.create({
   quickActions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md },
   chip: { backgroundColor: colors.action, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20, minHeight: 48, justifyContent: "center" },
   chipText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.white },
+  orderSnapshot: { backgroundColor: colors.surfacePremium, borderRadius: 14, padding: spacing.md, marginTop: spacing.md, borderWidth: 1, borderColor: colors.borderLight },
+  orderSnapshotTitle: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeMd, color: colors.textPrimary, marginTop: 4 },
   statsRow: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
   statCard: { flex: 1, backgroundColor: colors.surfacePremium, borderRadius: 12, padding: spacing.md },
   statCardWide: { backgroundColor: colors.surfacePremium, borderRadius: 12, padding: spacing.md, marginTop: spacing.md },

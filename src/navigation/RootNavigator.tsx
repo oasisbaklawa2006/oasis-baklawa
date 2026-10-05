@@ -17,6 +17,7 @@ import { SessionRecoveryScreen } from "@/screens/SessionRecoveryScreen";
 import { ProductDetailScreen } from "@/screens/ProductDetailScreen";
 import { FavouritesScreen } from "@/screens/FavouritesScreen";
 import { CatalogueFiltersScreen } from "@/screens/CatalogueFiltersScreen";
+import { CollectionHubScreen } from "@/screens/CollectionHubScreen";
 import { OrderDetailScreen } from "@/screens/OrderDetailScreen";
 import { QuickOrderScreen } from "@/screens/QuickOrderScreen";
 import { AiOrderScreen } from "@/screens/AiOrderScreen";
@@ -65,6 +66,7 @@ export function RootNavigator() {
         <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
         <Stack.Screen name="Favourites" component={FavouritesScreen} />
         <Stack.Screen name="CatalogueFilters" component={CatalogueFiltersScreen} />
+        <Stack.Screen name="CollectionHub" component={CollectionHubScreen} />
         <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
         <Stack.Screen name="QuickOrder" component={QuickOrderScreen} />
         <Stack.Screen name="AiOrder" component={AiOrderScreen} />

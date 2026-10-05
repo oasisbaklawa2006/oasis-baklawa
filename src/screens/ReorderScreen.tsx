@@ -32,8 +32,8 @@ export function ReorderScreen({ navigation, route }: Props) {
         if (!current) return { ...item, orderable: false, reason: "No longer available in the current catalogue." };
         const commercial = resolveCommercialRules(current.price);
         if (!commercial.orderable || !commercial.rules) return { ...item, orderable: false, reason: commercial.message ?? "Current pricing is unavailable." };
-        const validation = validateOrderQuantity(item.quantity, commercial.rules);
-        return validation.valid ? { ...item, orderable: true } : { ...item, orderable: false, reason: "Quantity needs review under current order rules." };
+        const validation = validateOrderQuantity(current.price, item.quantity);
+        return validation.orderable ? { ...item, orderable: true } : { ...item, orderable: false, reason: validation.message ?? "Quantity needs review under current order rules." };
       }));
     } catch (e) { setError(parseRpcError(e).message); }
     finally { setLoading(false); }

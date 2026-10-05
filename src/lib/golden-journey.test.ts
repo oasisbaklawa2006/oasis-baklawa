@@ -108,12 +108,26 @@ describe("golden journey invariants", () => {
     }
   });
 
-  it("keeps unsupported merchandising truthful instead of inventing classifications", () => {
-    for (const file of ["SeasonalCollectionScreen.tsx","PrivateLabelScreen.tsx","PackagingDecorationScreen.tsx","RecommendedScreen.tsx"]) {
+  it("binds buyer merchandising to explicit live signals without invented claims", () => {
+    const seasonal = readFileSync(join(ROOT, "screens/SeasonalCollectionScreen.tsx"), "utf8");
+    assert.match(seasonal, /fetchPublishedProducts/);
+    assert.match(seasonal, /seasonalProducts/);
+
+    const recommended = readFileSync(join(ROOT, "screens/RecommendedScreen.tsx"), "utf8");
+    assert.match(recommended, /customerGateway\.catalogue\(\)/);
+    assert.match(recommended, /customerGateway\.favourites\(\)/);
+    assert.match(recommended, /customerGateway\.orderItems\(\)/);
+    assert.match(recommended, /recommendedProducts/);
+
+    for (const file of ["PrivateLabelScreen.tsx", "PackagingDecorationScreen.tsx"]) {
       const source = readFileSync(join(ROOT, "screens", file), "utf8");
-      assert.match(source, /not (published|available)|does not (identify|expose|provide)/i);
-      assert.doesNotMatch(source, /filter\(.*seasonal|filter\(.*recommended|is_private_label/i);
+      assert.match(source, /not published|does not (identify|expose)/i);
+      assert.doesNotMatch(source, /is_private_label|packaging_option/i);
     }
+
+    const dashboard = readFileSync(join(ROOT, "screens/DashboardScreen.tsx"), "utf8");
+    assert.match(dashboard, /recentlyAddedProducts/);
+    assert.doesNotMatch(dashboard, /Festival gifting collections now open|New artisan range available/);
   });
 
   it("binds product surfaces to governed publication authority only", () => {

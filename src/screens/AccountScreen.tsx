@@ -23,16 +23,23 @@ export function AccountScreen({ navigation }: Props) {
   const [company, setCompany] = useState<CustomerCompany | null>(null);
   const [team, setTeam] = useState<CustomerTeamMember[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [accountLoading, setAccountLoading] = useState(false);
+  const [accountLoaded, setAccountLoaded] = useState(false);
 
   const load = useCallback(async () => {
     if (snapshot?.state !== "approved_buyer") return;
+    setAccountLoading(true);
+    setAccountLoaded(false);
     setError(null);
     try {
       const [companyRow, teamRows] = await Promise.all([fetchCustomerCompany(), fetchCustomerTeam()]);
       setCompany(companyRow);
       setTeam(teamRows);
+      setAccountLoaded(true);
     } catch (e) {
       setError(parseRpcError(e).message);
+    } finally {
+      setAccountLoading(false);
     }
   }, [snapshot?.state]);
 
@@ -49,6 +56,7 @@ export function AccountScreen({ navigation }: Props) {
     }
     setCompany(null);
     setTeam([]);
+    setAccountLoaded(false);
     try {
       await refresh();
     } catch {
@@ -111,7 +119,7 @@ export function AccountScreen({ navigation }: Props) {
         data={team}
         scrollEnabled={false}
         keyExtractor={(item) => item.profile_id}
-        ListEmptyComponent={<EmptyState title="No team members" message="Approved team members will appear here when access is created." />}
+        ListEmptyComponent={accountLoaded && !accountLoading ? <EmptyState title="No team members" message="Approved team members will appear here when access is created." /> : null}
         renderItem={({ item }) => (
           <View style={styles.teamRow}>
             <Text style={styles.teamName}>{item.full_name ?? item.email ?? "Member"}</Text>

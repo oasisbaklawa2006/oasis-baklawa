@@ -59,28 +59,42 @@ export function SupportScreen({ navigation, route }: Props) {
   const [orderDescription, setOrderDescription] = useState("");
   const [submittingTicket, setSubmittingTicket] = useState(false);
   const [ticketNotice, setTicketNotice] = useState<string | null>(null);
+  const ticketSubmitInFlight = useRef(false);
 
   const [queryCategory, setQueryCategory] = useState<CustomerGeneralQueryCategory>("GENERAL");
   const [querySubject, setQuerySubject] = useState("");
   const [queryMessage, setQueryMessage] = useState("");
   const [submittingQuery, setSubmittingQuery] = useState(false);
   const [queryNotice, setQueryNotice] = useState<string | null>(null);
+  const querySubmitInFlight = useRef(false);
+
+  const fetchSupportRows = useCallback(
+    () =>
+      Promise.all([
+        customerGateway.tickets(),
+        customerGateway.generalQueries(),
+        customerGateway.orders(),
+      ]),
+    []
+  );
+
+  const applySupportRows = useCallback(
+    ([ticketRows, queryRows, orderRows]: Awaited<ReturnType<typeof fetchSupportRows>>) => {
+      setTickets(ticketRows ?? []);
+      setGeneralQueries(queryRows ?? []);
+      setOrders(orderRows ?? []);
+    },
+    []
+  );
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [ticketRows, queryRows, orderRows] = await Promise.all([
-        customerGateway.tickets(),
-        customerGateway.generalQueries(),
-        customerGateway.orders(),
-      ]);
-      setTickets(ticketRows ?? []);
-      setGeneralQueries(queryRows ?? []);
-      setOrders(orderRows ?? []);
+      applySupportRows(await fetchSupportRows());
     } catch (e) {
       setError(parseRpcError(e).message);
     }
-  }, []);
+  }, [applySupportRows, fetchSupportRows]);
 
   useEffect(() => {
     const incomingOrderId = route.params?.orderId;
@@ -135,6 +149,8 @@ export function SupportScreen({ navigation, route }: Props) {
       setTicketNotice("Please describe your issue.");
       return;
     }
+    if (ticketSubmitInFlight.current) return;
+    ticketSubmitInFlight.current = true;
     setSubmittingTicket(true);
     setTicketNotice(null);
     try {
@@ -153,12 +169,15 @@ export function SupportScreen({ navigation, route }: Props) {
       });
       await clearSupportTicketIdempotencyKey();
       setOrderDescription("");
-      setTicketNotice(
-        result.is_duplicate_submission
-          ? "This support request was already received. We have not created a duplicate."
-          : "Your order support request has been submitted."
-      );
-      await load();
+      const submittedNotice = result.is_duplicate_submission
+        ? "This support request was already received. We have not created a duplicate."
+        : "Your order support request has been submitted.";
+      setTicketNotice(submittedNotice);
+      try {
+        applySupportRows(await fetchSupportRows());
+      } catch {
+        setTicketNotice(`${submittedNotice} Communication history could not refresh right now.`);
+      }
     } catch (e) {
       if (isSupportTicketRetryOutcomeUnknownError(e)) {
         setTicketNotice(
@@ -172,6 +191,7 @@ export function SupportScreen({ navigation, route }: Props) {
         setTicketNotice(parseRpcError(e).message);
       }
     } finally {
+      ticketSubmitInFlight.current = false;
       setSubmittingTicket(false);
     }
   }
@@ -188,6 +208,8 @@ export function SupportScreen({ navigation, route }: Props) {
       setQueryNotice("Message must be at least 10 characters.");
       return;
     }
+    if (querySubmitInFlight.current) return;
+    querySubmitInFlight.current = true;
     setSubmittingQuery(true);
     setQueryNotice(null);
     try {
@@ -201,15 +223,19 @@ export function SupportScreen({ navigation, route }: Props) {
       await clearGeneralQueryIdempotencyKey();
       setQuerySubject("");
       setQueryMessage("");
-      setQueryNotice(
-        result.is_duplicate_submission
-          ? "This enquiry was already received. We have not created a duplicate."
-          : "Your general enquiry has been submitted."
-      );
-      await load();
+      const submittedNotice = result.is_duplicate_submission
+        ? "This enquiry was already received. We have not created a duplicate."
+        : "Your general enquiry has been submitted.";
+      setQueryNotice(submittedNotice);
+      try {
+        applySupportRows(await fetchSupportRows());
+      } catch {
+        setQueryNotice(`${submittedNotice} Communication history could not refresh right now.`);
+      }
     } catch (e) {
       setQueryNotice(parseRpcError(e).message);
     } finally {
+      querySubmitInFlight.current = false;
       setSubmittingQuery(false);
     }
   }

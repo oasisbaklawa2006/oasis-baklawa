@@ -6,6 +6,7 @@ import type { RootStackParamList } from "@/navigation/types";
 import { resolveBuyerSession } from "@/lib/api/buyer";
 import { hasCompletedOnboarding } from "@/lib/onboarding-storage";
 import { routeFromBuyerSnapshot } from "@/lib/session-routing";
+import { parseRpcError } from "@/lib/rpc-errors";
 import { supabase } from "@/lib/supabase";
 import { colors, typography } from "@/theme";
 
@@ -15,22 +16,30 @@ export function SplashScreen({ navigation }: Props) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (cancelled) return;
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        if (cancelled) return;
 
-      if (!data.session) {
+        if (!data.session) {
+          const onboarded = await hasCompletedOnboarding();
+          if (cancelled) return;
+          navigation.replace(onboarded ? "Welcome" : "Onboarding");
+          return;
+        }
+
+        const snapshot = await resolveBuyerSession();
+        if (cancelled) return;
+
         const onboarded = await hasCompletedOnboarding();
         if (cancelled) return;
-        navigation.replace(onboarded ? "Welcome" : "Onboarding");
-        return;
+        routeFromBuyerSnapshot(navigation, snapshot, onboarded);
+      } catch (error) {
+        if (cancelled) return;
+        navigation.replace("SessionRecovery", {
+          message: parseRpcError(error).message,
+        });
       }
-
-      const snapshot = await resolveBuyerSession();
-      if (cancelled) return;
-
-      const onboarded = await hasCompletedOnboarding();
-      if (cancelled) return;
-      routeFromBuyerSnapshot(navigation, snapshot, onboarded);
     })();
     return () => {
       cancelled = true;

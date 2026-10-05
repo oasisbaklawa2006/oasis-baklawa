@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
@@ -39,6 +39,7 @@ export function RegisterScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [tradeDeclaration, setTradeDeclaration] = useState(false);
   const [dataConsent, setDataConsent] = useState(false);
+  const submitInFlight = useRef(false);
 
   function update<K extends keyof AccessRequestForm>(key: K, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -55,6 +56,8 @@ export function RegisterScreen({ navigation }: Props) {
   // This form works fully logged out — Request B2B Access has no
   // authentication prerequisite and grants no Buyer authority itself.
   async function submit() {
+    if (submitInFlight.current) return;
+    submitInFlight.current = true;
     setSubmitting(true);
     setError(null);
     try {
@@ -72,6 +75,7 @@ export function RegisterScreen({ navigation }: Props) {
     } catch (e) {
       setError(parseRpcError(e).message);
     } finally {
+      submitInFlight.current = false;
       setSubmitting(false);
     }
   }

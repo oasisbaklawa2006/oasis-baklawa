@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
@@ -19,8 +19,11 @@ export function SessionRecoveryScreen({ navigation, route }: Props) {
   const [retrying, setRetrying] = useState(false);
   const [message, setMessage] = useState(route.params.message);
   const [error, setError] = useState<string | null>(null);
+  const retryInFlight = useRef(false);
 
   async function retry() {
+    if (retryInFlight.current) return;
+    retryInFlight.current = true;
     setRetrying(true);
     setError(null);
     try {
@@ -35,6 +38,7 @@ export function SessionRecoveryScreen({ navigation, route }: Props) {
     } catch (e) {
       setError(parseRpcError(e).message);
     } finally {
+      retryInFlight.current = false;
       setRetrying(false);
     }
   }

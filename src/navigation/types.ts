@@ -44,6 +44,7 @@ export type RootStackParamList = {
   Quotations: undefined;
   QuotationDetail: { quotationId: string; quotationNumber: string };
   OrderPayment: { orderId: string; orderNumber: string };
+  PaymentResult: { orderId: string; orderNumber: string; outcome: "success" | "failed"; amount?: number | null };
   DeliveredClosure: { orderId: string };
   Reorder: { orderId: string };
   CommunicationLog: { entityId: string };

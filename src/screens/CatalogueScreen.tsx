@@ -140,6 +140,10 @@ export function CatalogueScreen({ navigation }: Props) {
           onChangeText={setSearchQuery}
           accessibilityLabel="Search catalogue"
         />
+        <View style={styles.discoveryRow}>
+          <TouchableOpacity style={styles.discoveryButton} onPress={() => navigation.navigate("CatalogueFilters")} accessibilityRole="button"><Text style={styles.discoveryText}>Filters</Text></TouchableOpacity>
+          {isApprovedBuyer ? <TouchableOpacity style={styles.discoveryButton} onPress={() => navigation.navigate("Favourites")} accessibilityRole="button"><Text style={styles.discoveryText}>Favourites</Text></TouchableOpacity> : null}
+        </View>
         {loading ? (
           <LoadingState message="Loading catalogue…" />
         ) : (
@@ -262,6 +266,9 @@ export function CatalogueScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  discoveryRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm },
+  discoveryButton: { minHeight: touchTarget, justifyContent: "center", paddingHorizontal: spacing.md, borderRadius: 20, borderWidth: 1, borderColor: colors.borderLight, backgroundColor: colors.surfacePremium },
+  discoveryText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.action },
   categoryRow: { marginTop: 12, marginBottom: 4, flexGrow: 0 },
   search: {
     marginTop: spacing.sm,

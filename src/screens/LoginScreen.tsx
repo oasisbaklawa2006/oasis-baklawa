@@ -22,6 +22,7 @@ const SUPPORT_PHONE = "+919999792959";
 const SUPPORT_WHATSAPP =
   "https://wa.me/919891162212?text=Hello%20Oasis%20Baklawa%2C%20I%20need%20help%20logging%20in.";
 
+/** Creates a per-attempt idempotency identifier for buyer authentication requests. */
 function createAttemptId(): string {
   return `native-${createIdempotencyKey()}`;
 }
@@ -49,6 +50,7 @@ export function LoginScreen({ navigation }: Props) {
     return () => clearTimeout(timer);
   }, [stage, reqId, resendCycle]);
 
+  /** Resets the selected buyer authentication channel and transient OTP state. */
   function resetChannel() {
     setChannel(null);
     setIdentifier("");
@@ -61,6 +63,7 @@ export function LoginScreen({ navigation }: Props) {
     setBlockedState(null);
   }
 
+  /** Normalizes and validates the identifier expected by the selected OTP channel. */
   function validatedIdentifier(targetChannel: Channel): string | null {
     if (targetChannel === "email") {
       const normalized = normalizeEmail(identifier);
@@ -72,6 +75,7 @@ export function LoginScreen({ navigation }: Props) {
     return phone.last10.length === 10 ? `91${phone.last10}` : null;
   }
 
+  /** Runs authoritative preflight before requesting an OTP for an eligible buyer. */
   async function requestOtp(targetChannel: Channel) {
     setError(null);
     setBlockedState(null);
@@ -122,6 +126,7 @@ export function LoginScreen({ navigation }: Props) {
     }
   }
 
+  /** Verifies the provider OTP before bridging the approved buyer session. */
   async function verifyOtp(targetChannel: Channel) {
     if (!reqId) {
       setError("OTP session expired. Please request a new code.");
@@ -138,6 +143,7 @@ export function LoginScreen({ navigation }: Props) {
     }
   }
 
+  /** Bridges the verified provider session into the buyer session and routes from its snapshot. */
   async function completeLogin(targetChannel: Channel, accessToken: string, normalizedIdentifier: string, attemptId: string) {
     try {
       await bridgeMsg91SessionAndClaim(targetChannel, accessToken, normalizedIdentifier, attemptId);
@@ -150,6 +156,7 @@ export function LoginScreen({ navigation }: Props) {
     }
   }
 
+  /** Revalidates buyer eligibility before allowing an OTP resend. */
   async function resendOtp(targetChannel: Channel) {
     if (!reqId) return;
 
@@ -345,6 +352,7 @@ export function LoginScreen({ navigation }: Props) {
   );
 }
 
+/** Maps provider-facing OTP failures to calm buyer-facing recovery copy. */
 function mapMsg91Error(raw: string): string {
   if (raw === "msg91_widget_not_configured") {
     return "OTP login isn't available on this build yet. Please contact Oasis support.";
@@ -357,6 +365,7 @@ function mapMsg91Error(raw: string): string {
   return raw;
 }
 
+/** Maps session-bridge failures to buyer-safe recovery copy. */
 function mapSessionError(raw: string): string {
   if (raw.startsWith("APPROVED_B2B_IDENTITY_CLAIM_FAILED")) {
     return "We verified your code but couldn't activate your buyer account. Please contact Oasis support.";

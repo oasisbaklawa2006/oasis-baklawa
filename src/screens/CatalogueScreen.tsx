@@ -153,6 +153,7 @@ export function CatalogueScreen({ navigation, route }: Props) {
           <TouchableOpacity style={styles.discoveryButton} onPress={() => navigation.navigate("CatalogueFilters")} accessibilityRole="button"><Text style={styles.discoveryText}>Filters</Text></TouchableOpacity>
           {isApprovedBuyer ? <TouchableOpacity style={styles.discoveryButton} onPress={() => navigation.navigate("Favourites")} accessibilityRole="button"><Text style={styles.discoveryText}>Favourites</Text></TouchableOpacity> : null}
         </View>
+        <View style={styles.merchRow}>{[["Seasonal","SeasonalCollection"],["Private Label","PrivateLabel"],["Packaging","PackagingDecoration"],["Recommended","Recommended"]].map(([label,route])=><TouchableOpacity key={route} style={styles.merchLink} accessibilityRole="button" onPress={()=>navigation.navigate(route as any)}><Text style={styles.merchText}>{label}</Text></TouchableOpacity>)}</View>
         {loading ? (
           <LoadingState message="Loading catalogue…" />
         ) : (
@@ -278,6 +279,9 @@ const styles = StyleSheet.create({
   discoveryRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm },
   discoveryButton: { minHeight: touchTarget, justifyContent: "center", paddingHorizontal: spacing.md, borderRadius: 20, borderWidth: 1, borderColor: colors.borderLight, backgroundColor: colors.surfacePremium },
   discoveryText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.action },
+  merchRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.sm },
+  merchLink: { minHeight: touchTarget, justifyContent: "center", paddingHorizontal: spacing.sm },
+  merchText: { fontFamily: typography.fontFamilySansMedium, fontSize: typography.sizeXs, color: colors.textSecondary, textDecorationLine: "underline" },
   categoryRow: { marginTop: 12, marginBottom: 4, flexGrow: 0 },
   search: {
     marginTop: spacing.sm,

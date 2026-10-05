@@ -202,6 +202,34 @@ describe("golden journey invariants", () => {
     assert.match(aiOrder, /GENIE_ENABLED/);
     assert.match(aiOrder, /navigation\.replace\("MainTabs", \{ screen: "Dashboard" \}\)/);
   });
+
+  it("fails cold-start errors into recovery instead of leaving Splash unresolved", () => {
+    const splash = readFileSync(join(ROOT, "screens/SplashScreen.tsx"), "utf8");
+    assert.match(splash, /parseRpcError/);
+    assert.match(splash, /navigation\.replace\("SessionRecovery"/);
+    assert.match(splash, /if \(error\) throw error/);
+  });
+
+  it("guards high-impact buyer mutations synchronously before React re-render", () => {
+    const support = readFileSync(join(ROOT, "screens/SupportScreen.tsx"), "utf8");
+    const register = readFileSync(join(ROOT, "screens/RegisterScreen.tsx"), "utf8");
+    const quote = readFileSync(join(ROOT, "screens/QuotationDetailScreen.tsx"), "utf8");
+    const recovery = readFileSync(join(ROOT, "screens/SessionRecoveryScreen.tsx"), "utf8");
+
+    assert.match(support, /ticketSubmitInFlight\.current/);
+    assert.match(support, /querySubmitInFlight\.current/);
+    assert.match(register, /submitInFlight\.current/);
+    assert.match(quote, /actionInFlightRef\.current/);
+    assert.match(recovery, /retryInFlight\.current/);
+  });
+
+  it("keeps successful support and quotation mutations successful when history refresh fails", () => {
+    const support = readFileSync(join(ROOT, "screens/SupportScreen.tsx"), "utf8");
+    const quote = readFileSync(join(ROOT, "screens/QuotationDetailScreen.tsx"), "utf8");
+    assert.match(support, /Communication history could not refresh right now/);
+    assert.match(quote, /Latest quotation details could not refresh right now/);
+    assert.match(quote, /load\(false\)/);
+  });
 });
 
 describe("double-submit money safety", () => {

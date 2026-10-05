@@ -21,6 +21,7 @@ import { colors, spacing, typography, touchTarget } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ProductDetail">;
 
+/** Formats a published buyer price using the product currency with a safe fallback. */
 function formatMoney(value: number, currency: string) {
   try {
     return new Intl.NumberFormat("en-IN", { style: "currency", currency, maximumFractionDigits: 2 }).format(value);

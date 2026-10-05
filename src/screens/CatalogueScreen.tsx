@@ -22,6 +22,7 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
+/** Presents the published catalogue with buyer-safe commercial ordering controls. */
 export function CatalogueScreen({ navigation }: Props) {
   const { isApprovedBuyer } = useBuyerSession();
   const { isFavourite, toggleFavourite } = useCustomerFavourites();
@@ -230,8 +231,8 @@ export function CatalogueScreen({ navigation }: Props) {
                         >
                           <Text style={styles.stepperButtonText}>+</Text>
                         </TouchableOpacity>
-                        <Text style={styles.moqNote}>Minimum {moq} · multiples of {increment}</Text>
                       </View>
+                      <Text style={styles.moqNote}>Minimum {moq} · then add {increment} at a time</Text>
                       <TouchableOpacity
                         style={styles.addButton}
                         disabled={adding}
@@ -301,7 +302,7 @@ const styles = StyleSheet.create({
   stepperButton: { width: touchTarget, height: touchTarget, borderRadius: 6, backgroundColor: colors.surfacePremium, alignItems: "center", justifyContent: "center" },
   stepperButtonText: { fontSize: 16, color: colors.action, fontWeight: "700" },
   stepperValue: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, minWidth: 30, textAlign: "center" },
-  moqNote: { fontFamily: typography.fontFamilySans, fontSize: 10, color: colors.textMuted, marginLeft: 6 },
+  moqNote: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted, marginTop: 4 },
   addButton: { marginTop: 8, backgroundColor: colors.action, paddingVertical: 8, borderRadius: 8, alignItems: "center", minHeight: touchTarget, justifyContent: "center" },
   addButtonText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.white, fontSize: typography.sizeSm },
   empty: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textMuted, paddingVertical: 20, textAlign: "center" },

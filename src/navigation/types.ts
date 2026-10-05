@@ -2,7 +2,7 @@ import type { NavigatorScreenParams } from "@react-navigation/native";
 import type { CustomerOrderStatus } from "@/types/database.types";
 
 export type MainTabParamList = {
-  Catalogue: undefined;
+  Catalogue: { category?: string } | undefined;
   Orders:
     | {
         checkoutSuccess?: {

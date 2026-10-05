@@ -30,6 +30,7 @@ import { StatementScreen } from "@/screens/StatementScreen";
 import { QuotationsScreen } from "@/screens/QuotationsScreen";
 import { QuotationDetailScreen } from "@/screens/QuotationDetailScreen";
 import { OrderPaymentScreen } from "@/screens/OrderPaymentScreen";
+import { PaymentResultScreen } from "@/screens/PaymentResultScreen";
 import { DeliveredClosureScreen } from "@/screens/DeliveredClosureScreen";
 import { ReorderScreen } from "@/screens/ReorderScreen";
 import { CommunicationLogScreen } from "@/screens/CommunicationLogScreen";
@@ -80,6 +81,7 @@ export function RootNavigator() {
         <Stack.Screen name="Quotations" component={QuotationsScreen} />
         <Stack.Screen name="QuotationDetail" component={QuotationDetailScreen} />
         <Stack.Screen name="OrderPayment" component={OrderPaymentScreen} />
+        <Stack.Screen name="PaymentResult" component={PaymentResultScreen} />
         <Stack.Screen name="DeliveredClosure" component={DeliveredClosureScreen} />
         <Stack.Screen name="Reorder" component={ReorderScreen} />
         <Stack.Screen name="CommunicationLog" component={CommunicationLogScreen} />

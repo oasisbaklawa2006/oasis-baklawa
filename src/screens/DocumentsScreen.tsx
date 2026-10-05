@@ -98,7 +98,7 @@ function StatementSection({ statement }: { statement: CustomerStatement | null }
         status={statementStatus}
         detail={
           statement?.statement_facts_only
-            ? "Statement facts are available below."
+            ? "Your account statement is available below."
             : "Statements will appear here when they are available."
         }
       />
@@ -135,6 +135,7 @@ function StatementSection({ statement }: { statement: CustomerStatement | null }
   );
 }
 
+/** Presents issued buyer documents and account statement facts without exposing internal document contracts. */
 export function DocumentsScreen({ navigation }: Props) {
   const [orders, setOrders] = useState<CustomerOrderStatus[]>([]);
   const [documents, setDocuments] = useState<CustomerDocument[]>([]);

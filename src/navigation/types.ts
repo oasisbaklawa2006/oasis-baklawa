@@ -2,7 +2,7 @@ import type { NavigatorScreenParams } from "@react-navigation/native";
 import type { CustomerOrderStatus } from "@/types/database.types";
 
 export type MainTabParamList = {
-  Catalogue: undefined;
+  Catalogue: { category?: string } | undefined;
   Orders:
     | {
         checkoutSuccess?: {
@@ -29,6 +29,8 @@ export type RootStackParamList = {
   SessionRecovery: { message: string };
   MainTabs: NavigatorScreenParams<MainTabParamList>;
   ProductDetail: { productId: string };
+  Favourites: undefined;
+  CatalogueFilters: undefined;
   OrderDetail: { orderId: string; order?: CustomerOrderStatus };
   QuickOrder: undefined;
   AiOrder: undefined;

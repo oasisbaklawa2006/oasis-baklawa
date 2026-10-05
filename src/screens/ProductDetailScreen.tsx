@@ -29,6 +29,7 @@ function formatMoney(value: number, currency: string) {
   }
 }
 
+/** Presents one published product and its authoritative buyer ordering actions. */
 export function ProductDetailScreen({ navigation, route }: Props) {
   const { productId } = route.params;
   const { isApprovedBuyer } = useBuyerSession();
@@ -260,8 +261,8 @@ export function ProductDetailScreen({ navigation, route }: Props) {
               >
                 <Text style={styles.stepBtnText}>+</Text>
               </TouchableOpacity>
-              <Text style={styles.moq}>Minimum {moq} · multiples of {increment}</Text>
               </View>
+              <Text style={styles.moq}>Minimum {moq} · then add {increment} at a time</Text>
             </>
             ) : null}
 
@@ -329,7 +330,7 @@ const styles = StyleSheet.create({
   },
   stepBtnText: { fontSize: 20, color: colors.action, fontWeight: "700" },
   qty: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeLg, minWidth: 40, textAlign: "center" },
-  moq: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted },
+  moq: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted, marginTop: 4 },
   button: {
     backgroundColor: colors.action,
     paddingVertical: spacing.md,

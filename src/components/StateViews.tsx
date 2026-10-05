@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     borderRadius: 10,
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: "center",
   },
   buttonText: {

@@ -30,9 +30,17 @@ import { StatementScreen } from "@/screens/StatementScreen";
 import { QuotationsScreen } from "@/screens/QuotationsScreen";
 import { QuotationDetailScreen } from "@/screens/QuotationDetailScreen";
 import { OrderPaymentScreen } from "@/screens/OrderPaymentScreen";
+import { PaymentResultScreen } from "@/screens/PaymentResultScreen";
 import { DeliveredClosureScreen } from "@/screens/DeliveredClosureScreen";
 import { ReorderScreen } from "@/screens/ReorderScreen";
 import { CommunicationLogScreen } from "@/screens/CommunicationLogScreen";
+import { EmployeesScreen } from "@/screens/EmployeesScreen";
+import { AddressesScreen } from "@/screens/AddressesScreen";
+import { TransporterScreen } from "@/screens/TransporterScreen";
+import { SettingsScreen } from "@/screens/SettingsScreen";
+import { FaqContactScreen } from "@/screens/FaqContactScreen";
+import { ShippingPolicyScreen } from "@/screens/ShippingPolicyScreen";
+import { TermsPrivacyScreen } from "@/screens/TermsPrivacyScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -80,9 +88,17 @@ export function RootNavigator() {
         <Stack.Screen name="Quotations" component={QuotationsScreen} />
         <Stack.Screen name="QuotationDetail" component={QuotationDetailScreen} />
         <Stack.Screen name="OrderPayment" component={OrderPaymentScreen} />
+        <Stack.Screen name="PaymentResult" component={PaymentResultScreen} />
         <Stack.Screen name="DeliveredClosure" component={DeliveredClosureScreen} />
         <Stack.Screen name="Reorder" component={ReorderScreen} />
         <Stack.Screen name="CommunicationLog" component={CommunicationLogScreen} />
+        <Stack.Screen name="Employees" component={EmployeesScreen} />
+        <Stack.Screen name="Addresses" component={AddressesScreen} />
+        <Stack.Screen name="Transporter" component={TransporterScreen} />
+        <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen name="FaqContact" component={FaqContactScreen} />
+        <Stack.Screen name="ShippingPolicy" component={ShippingPolicyScreen} />
+        <Stack.Screen name="TermsPrivacy" component={TermsPrivacyScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

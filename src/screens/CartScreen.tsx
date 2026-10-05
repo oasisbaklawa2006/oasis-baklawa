@@ -22,6 +22,7 @@ import { colors, spacing, typography, touchTarget } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Cart">;
 
+/** Presents the buyer cart, authoritative ordering constraints, and recoverable quantity actions. */
 export function CartScreen({ navigation }: Props) {
   const { isOnline } = useNetwork();
   const [draft, setDraft] = useState<CustomerOrderDraft | null>(null);
@@ -30,6 +31,7 @@ export function CartScreen({ navigation }: Props) {
   const [busyLineId, setBusyLineId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  /** Refreshes the current draft without replacing the screen with a loading state. */
   async function onRefresh() {
     await loadDraft({ showLoader: false });
   }
@@ -63,6 +65,7 @@ export function CartScreen({ navigation }: Props) {
     return groups;
   }, [draft, pricesByProduct]);
 
+  /** Moves a cart line by one authoritative order increment while respecting its MOQ. */
   async function changeQuantity(lineId: string, productId: string, delta: number, currentQty: number) {
     const price = pricesByProduct[productId];
     const commercial = resolveCommercialRules(price);
@@ -81,6 +84,30 @@ export function CartScreen({ navigation }: Props) {
     } catch (e) {
       setError(parseRpcError(e).message);
       await loadDraft();
+    } finally {
+      setBusyLineId(null);
+    }
+  }
+
+  /** Repairs one invalid cart line to the next quantity allowed by its authoritative commercial rules. */
+  async function repairQuantity(line: CustomerOrderDraftLine) {
+    const price = pricesByProduct[line.product_id];
+    const commercial = resolveCommercialRules(price);
+    if (!commercial.orderable || !commercial.rules) {
+      setError(commercial.message ?? "Pricing is unavailable for this product.");
+      return;
+    }
+    const { moq, increment } = commercial.rules;
+    const repairedQty =
+      line.quantity < moq ? moq : moq + Math.ceil((line.quantity - moq) / increment) * increment;
+    setBusyLineId(line.line_id);
+    setError(null);
+    try {
+      const updated = await updateCustomerOrderDraftLine(line.line_id, repairedQty);
+      setDraft(updated);
+    } catch (e) {
+      await loadDraft();
+      setError(parseRpcError(e).message);
     } finally {
       setBusyLineId(null);
     }
@@ -144,6 +171,7 @@ export function CartScreen({ navigation }: Props) {
                     const moq = commercial.rules?.moq;
                     const increment = commercial.rules?.increment;
                     const lineIssues = draft.readiness_issues.filter((issue) => issue.product_id === item.product_id);
+                    const hasQuantityIssue = lineIssues.some((issue) => issue.code === "QUANTITY_RULE_VIOLATION");
                     const busy = busyLineId === item.line_id;
                     const canAdjustQuantity = commercial.orderable && moq != null && increment != null;
                     return (
@@ -158,6 +186,17 @@ export function CartScreen({ navigation }: Props) {
                               {issueMessage(issue, price)}
                             </Text>
                           ))}
+                          {hasQuantityIssue && canAdjustQuantity ? (
+                            <TouchableOpacity
+                              style={styles.repairButton}
+                              disabled={busy || !isOnline}
+                              onPress={() => void repairQuantity(item)}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Fix quantity for ${item.product_name_snapshot ?? "product"}`}
+                            >
+                              <Text style={styles.repairButtonText}>{busy ? "Fixing…" : "Fix quantity"}</Text>
+                            </TouchableOpacity>
+                          ) : null}
                           {!commercial.orderable ? (
                             <Text style={styles.warningText}>
                               {commercial.message ?? "Current pricing is unavailable for this line."}
@@ -252,6 +291,8 @@ const styles = StyleSheet.create({
   lineMeta: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted, marginTop: 2 },
   warningText: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.warning, marginTop: 4 },
   lineActions: { flexDirection: "row", gap: spacing.md, marginTop: 6 },
+  repairButton: { alignSelf: "flex-start", minHeight: touchTarget, justifyContent: "center", marginTop: 6, paddingHorizontal: 12, borderRadius: 8, backgroundColor: colors.surfacePremium },
+  repairButtonText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeXs, color: colors.action },
   actionText: { fontSize: 16, color: colors.action, fontWeight: "700", minWidth: touchTarget, textAlign: "center" },
   removeText: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeXs, color: colors.error },
   hintText: { fontFamily: typography.fontFamilySans, fontSize: 10, color: colors.textMuted, marginTop: 4 },

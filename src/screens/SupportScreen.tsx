@@ -84,7 +84,7 @@ export function SupportScreen({ navigation, route }: Props) {
       setGeneralQueries(queryRows ?? []);
       setOrders(orderRows ?? []);
     },
-    [fetchSupportRows]
+    []
   );
 
   const load = useCallback(async () => {

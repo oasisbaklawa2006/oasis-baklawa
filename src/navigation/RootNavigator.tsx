@@ -18,6 +18,10 @@ import { ProductDetailScreen } from "@/screens/ProductDetailScreen";
 import { FavouritesScreen } from "@/screens/FavouritesScreen";
 import { CatalogueFiltersScreen } from "@/screens/CatalogueFiltersScreen";
 import { CollectionHubScreen } from "@/screens/CollectionHubScreen";
+import { SeasonalCollectionScreen } from "@/screens/SeasonalCollectionScreen";
+import { PrivateLabelScreen } from "@/screens/PrivateLabelScreen";
+import { PackagingDecorationScreen } from "@/screens/PackagingDecorationScreen";
+import { RecommendedScreen } from "@/screens/RecommendedScreen";
 import { OrderDetailScreen } from "@/screens/OrderDetailScreen";
 import { QuickOrderScreen } from "@/screens/QuickOrderScreen";
 import { AiOrderScreen } from "@/screens/AiOrderScreen";
@@ -76,6 +80,10 @@ export function RootNavigator() {
         <Stack.Screen name="Favourites" component={FavouritesScreen} />
         <Stack.Screen name="CatalogueFilters" component={CatalogueFiltersScreen} />
         <Stack.Screen name="CollectionHub" component={CollectionHubScreen} />
+        <Stack.Screen name="SeasonalCollection" component={SeasonalCollectionScreen} />
+        <Stack.Screen name="PrivateLabel" component={PrivateLabelScreen} />
+        <Stack.Screen name="PackagingDecoration" component={PackagingDecorationScreen} />
+        <Stack.Screen name="Recommended" component={RecommendedScreen} />
         <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
         <Stack.Screen name="QuickOrder" component={QuickOrderScreen} />
         <Stack.Screen name="AiOrder" component={AiOrderScreen} />

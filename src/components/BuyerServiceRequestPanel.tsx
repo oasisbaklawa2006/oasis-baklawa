@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { OasisButton } from "@/components/OasisButton";
 import { ErrorState, LoadingState } from "@/components/StateViews";
@@ -44,6 +44,7 @@ export function BuyerServiceRequestPanel({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const submitInFlight = useRef(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -76,7 +77,9 @@ export function BuyerServiceRequestPanel({
       setNotice("Please add at least 10 characters so the Oasis team has enough detail to act.");
       return;
     }
+    if (submitInFlight.current) return;
 
+    submitInFlight.current = true;
     setSubmitting(true);
     setNotice(null);
     try {
@@ -89,15 +92,20 @@ export function BuyerServiceRequestPanel({
       });
       await clearGeneralQueryIdempotencyKey();
       setMessage("");
-      setNotice(
-        result.is_duplicate_submission
-          ? "This request was already received. A duplicate was not created."
-          : "Your request has been submitted to Oasis."
-      );
-      await load();
+      const submittedNotice = result.is_duplicate_submission
+        ? "This request was already received. A duplicate was not created."
+        : "Your request has been submitted to Oasis.";
+      setNotice(submittedNotice);
+
+      try {
+        setQueries(await customerGateway.generalQueries());
+      } catch {
+        setNotice(`${submittedNotice} Request history could not refresh right now.`);
+      }
     } catch (e) {
       setNotice(parseRpcError(e).message);
     } finally {
+      submitInFlight.current = false;
       setSubmitting(false);
     }
   }

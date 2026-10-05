@@ -12,7 +12,6 @@ import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { fetchPublishedProducts } from "@/lib/api/catalogue";
 import { fetchCustomerOrderStatus } from "@/lib/api/orders";
 import { buyerFulfilmentStageLabel, isOpenFulfilmentStage } from "@/lib/order-stages";
-import { GENIE_ENABLED } from "@/lib/genie-parse-availability";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { customerGateway } from "@/services/customerGateway";
 import type { CustomerOrderStatus, CustomerStatement, PublishedProduct } from "@/types/database.types";

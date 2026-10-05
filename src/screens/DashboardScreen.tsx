@@ -31,7 +31,6 @@ const ANNOUNCEMENTS = [
 /** Presents the buyer home surface with one next-best action and concise commercial context. */
 export function DashboardScreen({ navigation }: Props) {
   const { snapshot } = useBuyerSession();
-  void GENIE_ENABLED; // Preserve the certified fail-closed Oasis Genie master-gate binding.
   const [products, setProducts] = useState<PublishedProduct[]>([]);
   const [orders, setOrders] = useState<CustomerOrderStatus[]>([]);
   const [statement, setStatement] = useState<CustomerStatement | null>(null);
@@ -150,6 +149,7 @@ export function DashboardScreen({ navigation }: Props) {
           <ActionChip label="Reorder" onPress={() => navigation.navigate("QuickOrder")} />
           <ActionChip label="Track Order" onPress={() => navigation.navigate("Orders")} />
           <ActionChip label="Support" onPress={() => navigation.navigate("Support")} />
+          {GENIE_ENABLED ? <ActionChip label="Oasis Genie" onPress={() => navigation.navigate("AiOrder")} /> : null}
         </View>
 
         <View style={styles.statsRow}>

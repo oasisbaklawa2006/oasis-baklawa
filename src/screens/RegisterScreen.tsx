@@ -31,6 +31,7 @@ const EMPTY_FORM: AccessRequestForm = {
   registeredAddress: "",
 };
 
+/** Collects a logged-out B2B access request without granting buyer authority. */
 export function RegisterScreen({ navigation }: Props) {
   const [form, setForm] = useState<AccessRequestForm>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
@@ -101,7 +102,7 @@ export function RegisterScreen({ navigation }: Props) {
   }
 
   return (
-    <Screen title="Request B2B Access" subtitle="No login required — apply for your wholesale trade account">
+    <Screen title="Request B2B Access" subtitle="Apply for an Oasis wholesale trade account">
       <View style={styles.form}>
         <TextInput
           style={styles.input}

@@ -149,6 +149,7 @@ export function CatalogueScreen({ navigation, route }: Props) {
           accessibilityLabel="Search catalogue"
         />
         <View style={styles.discoveryRow}>
+          <TouchableOpacity style={styles.discoveryButton} onPress={() => navigation.navigate("CollectionHub")} accessibilityRole="button"><Text style={styles.discoveryText}>Collections</Text></TouchableOpacity>
           <TouchableOpacity style={styles.discoveryButton} onPress={() => navigation.navigate("CatalogueFilters")} accessibilityRole="button"><Text style={styles.discoveryText}>Filters</Text></TouchableOpacity>
           {isApprovedBuyer ? <TouchableOpacity style={styles.discoveryButton} onPress={() => navigation.navigate("Favourites")} accessibilityRole="button"><Text style={styles.discoveryText}>Favourites</Text></TouchableOpacity> : null}
         </View>

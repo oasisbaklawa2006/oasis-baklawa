@@ -26,6 +26,16 @@ const STACK_ROUTES = [
   "QuotationDetail",
   "OrderPayment",
   "SessionRecovery",
+  "CommercialReview",
+  "OrderConfirmation",
+  "DeliveredClosure",
+  "Reorder",
+  "CommunicationLog",
+  "CollectionHub",
+  "SeasonalCollection",
+  "PrivateLabel",
+  "PackagingDecoration",
+  "Recommended",
 ] as const;
 
 function walkScreens(dir: string): string[] {
@@ -95,6 +105,14 @@ describe("golden journey invariants", () => {
     const navSource = readFileSync(join(ROOT, "navigation/RootNavigator.tsx"), "utf8");
     for (const route of STACK_ROUTES) {
       assert.match(navSource, new RegExp(`name="${route}"`));
+    }
+  });
+
+  it("keeps unsupported merchandising truthful instead of inventing classifications", () => {
+    for (const file of ["SeasonalCollectionScreen.tsx","PrivateLabelScreen.tsx","PackagingDecorationScreen.tsx","RecommendedScreen.tsx"]) {
+      const source = readFileSync(join(ROOT, "screens", file), "utf8");
+      assert.match(source, /not (published|available)|does not (identify|expose|provide)/i);
+      assert.doesNotMatch(source, /filter\(.*seasonal|filter\(.*recommended|is_private_label/i);
     }
   });
 

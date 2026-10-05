@@ -62,8 +62,12 @@ export function CatalogueScreen({ navigation, route }: Props) {
   }, [loadCatalogue]);
 
   useEffect(() => {
-    if (route.params?.category) setActiveCategory(route.params.category);
-  }, [route.params?.category]);
+    const category = route.params?.category;
+    if (category) {
+      setActiveCategory(category);
+      navigation.setParams({ category: undefined });
+    }
+  }, [navigation, route.params?.category]);
 
   const categories = useMemo(() => {
     const set = new Set(products.map((p) => p.category).filter((c): c is string => Boolean(c)));

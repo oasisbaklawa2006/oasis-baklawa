@@ -5,7 +5,7 @@ import type { CompositeScreenProps } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { MainTabParamList, RootStackParamList } from "@/navigation/types";
 import { Screen } from "@/components/Screen";
-import { UnavailableState } from "@/components/StateViews";
+import { EmptyState } from "@/components/StateViews";
 import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { fetchCustomerCompany, fetchCustomerTeam } from "@/lib/api/buyer";
 import { supabase } from "@/lib/supabase";
@@ -111,7 +111,7 @@ export function AccountScreen({ navigation }: Props) {
         data={team}
         scrollEnabled={false}
         keyExtractor={(item) => item.profile_id}
-        ListEmptyComponent={<UnavailableState title="No team members" message="Team roster is unavailable or empty." />}
+        ListEmptyComponent={<EmptyState title="No team members" message="Approved team members will appear here when access is created." />}
         renderItem={({ item }) => (
           <View style={styles.teamRow}>
             <Text style={styles.teamName}>{item.full_name ?? item.email ?? "Member"}</Text>

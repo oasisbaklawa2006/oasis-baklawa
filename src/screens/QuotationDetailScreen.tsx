@@ -122,6 +122,7 @@ export function QuotationDetailScreen({ navigation, route }: Props) {
       });
       await clearQuoteAcceptIdempotencyKey(quotationId);
       setAcceptKey(await getQuoteAcceptIdempotencyKey(quotationId));
+      setDetail((current) => (current ? { ...current, is_actionable: false } : current));
       setHandoffId(result.handoff_id);
       const successNotice =
         result.handoff_status === "pending"
@@ -158,6 +159,7 @@ export function QuotationDetailScreen({ navigation, route }: Props) {
       });
       await clearQuoteDeclineIdempotencyKey(quotationId);
       setDeclineKey(await getQuoteDeclineIdempotencyKey(quotationId));
+      setDetail((current) => (current ? { ...current, is_actionable: false } : current));
       const successNotice = "Quotation declined.";
       setNotice(successNotice);
       if (!(await load(false))) {

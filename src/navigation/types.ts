@@ -45,6 +45,13 @@ export type RootStackParamList = {
   QuotationDetail: { quotationId: string; quotationNumber: string };
   OrderPayment: { orderId: string; orderNumber: string };
   PaymentResult: { orderId: string; orderNumber: string; outcome: "success" | "failed"; amount?: number | null };
+  Employees: undefined;
+  Addresses: undefined;
+  Transporter: undefined;
+  Settings: undefined;
+  FaqContact: undefined;
+  ShippingPolicy: undefined;
+  TermsPrivacy: undefined;
   DeliveredClosure: { orderId: string };
   Reorder: { orderId: string };
   CommunicationLog: { entityId: string };

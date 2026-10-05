@@ -21,6 +21,9 @@ jobs:
     name: Tranche-5 binding and authenticated certification
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    concurrency:
+      group: buyer-golden-path-${{ github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: true
     env:
       BUYER_CERT_SESSION_FILE: /tmp/oasis-buyer-mobile-cert-session.json
     steps:

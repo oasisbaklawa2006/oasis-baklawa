@@ -17,7 +17,7 @@ import { parseRpcError } from "@/lib/rpc-errors";
 import { customerGateway } from "@/services/customerGateway";
 import { useNetwork } from "@/context/NetworkContext";
 import { useCustomerFavourites } from "@/hooks/useCustomerFavourites";
-import { colors, spacing, typography } from "@/theme";
+import { colors, spacing, typography, touchTarget } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ProductDetail">;
 
@@ -260,7 +260,7 @@ export function ProductDetailScreen({ navigation, route }: Props) {
               >
                 <Text style={styles.stepBtnText}>+</Text>
               </TouchableOpacity>
-              <Text style={styles.moq}>MOQ {moq}</Text>
+              <Text style={styles.moq}>Minimum {moq} · multiples of {increment}</Text>
               </View>
             </>
             ) : null}
@@ -296,7 +296,7 @@ export function ProductDetailScreen({ navigation, route }: Props) {
 
 const styles = StyleSheet.create({
   content: { paddingBottom: spacing.xl, gap: spacing.md },
-  hero: { width: "100%", height: 240, marginTop: spacing.md },
+  hero: { width: "100%", aspectRatio: 1, marginTop: spacing.md, borderRadius: 16 },
   favouriteButton: { alignSelf: "flex-start" },
   favouriteIcon: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.textSecondary },
   favouriteIconActive: { color: colors.action },
@@ -320,8 +320,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   stepBtn: {
-    width: 44,
-    height: 44,
+    width: touchTarget,
+    height: touchTarget,
     borderRadius: 8,
     backgroundColor: colors.surfacePremium,
     alignItems: "center",
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
     marginTop: spacing.md,
-    minHeight: 44,
+    minHeight: touchTarget,
     justifyContent: "center",
   },
   buttonDisabled: { opacity: 0.5 },
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderRadius: 10,
     alignItems: "center",
-    minHeight: 44,
+    minHeight: touchTarget,
     justifyContent: "center",
   },
   secondaryButtonText: { fontFamily: typography.fontFamilySansSemiBold, color: colors.action },

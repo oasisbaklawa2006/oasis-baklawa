@@ -45,6 +45,7 @@ export type RootStackParamList = {
   QuotationDetail: { quotationId: string; quotationNumber: string };
   OrderPayment: { orderId: string; orderNumber: string };
   DeliveredClosure: { orderId: string };
+  Reorder: { orderId: string };
   CommunicationLog: { entityId: string };
 };
 

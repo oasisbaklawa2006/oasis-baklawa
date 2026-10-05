@@ -146,6 +146,14 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
         boundary.payable.paymentPurpose
       );
       setFlow(nextFlow);
+      if (nextFlow.phase === "succeeded") {
+        navigation.replace("PaymentResult", { orderId, orderNumber, outcome: "success", amount: nextFlow.status?.canonical_amount ?? null });
+        return;
+      }
+      if (nextFlow.phase === "failed" && nextFlow.status) {
+        navigation.replace("PaymentResult", { orderId, orderNumber, outcome: "failed", amount: nextFlow.status.canonical_amount });
+        return;
+      }
       await load();
     } catch (e) {
       setFlow((prev) => ({

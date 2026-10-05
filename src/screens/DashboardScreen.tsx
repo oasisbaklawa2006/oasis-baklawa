@@ -143,7 +143,7 @@ export function DashboardScreen({ navigation }: Props) {
         <Text style={styles.section}>Quick actions</Text>
         <View style={styles.quickActions}>
           <ActionChip label="New Order" onPress={() => navigation.navigate("Catalogue")} />
-          <ActionChip label="Reorder" onPress={() => navigation.navigate("Orders")} />
+          <ActionChip label="Quick Order" onPress={() => navigation.navigate("QuickOrder")} />
           <ActionChip label="Track Order" onPress={() => navigation.navigate("Orders")} />
           <ActionChip label="Support" onPress={() => navigation.navigate("Support")} />
         </View>

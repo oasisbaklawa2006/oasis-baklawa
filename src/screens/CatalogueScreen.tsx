@@ -23,7 +23,7 @@ type Props = CompositeScreenProps<
 >;
 
 /** Presents the published catalogue with buyer-safe commercial ordering controls. */
-export function CatalogueScreen({ navigation }: Props) {
+export function CatalogueScreen({ navigation, route }: Props) {
   const { isApprovedBuyer } = useBuyerSession();
   const { isFavourite, toggleFavourite } = useCustomerFavourites();
   const [products, setProducts] = useState<CatalogueProduct[]>([]);
@@ -60,6 +60,10 @@ export function CatalogueScreen({ navigation }: Props) {
   useEffect(() => {
     loadCatalogue();
   }, [loadCatalogue]);
+
+  useEffect(() => {
+    if (route.params?.category) setActiveCategory(route.params.category);
+  }, [route.params?.category]);
 
   const categories = useMemo(() => {
     const set = new Set(products.map((p) => p.category).filter((c): c is string => Boolean(c)));

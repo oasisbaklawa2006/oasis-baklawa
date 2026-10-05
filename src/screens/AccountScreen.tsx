@@ -100,6 +100,12 @@ export function AccountScreen({ navigation }: Props) {
         <Text style={styles.chevron}>›</Text>
       </TouchableOpacity>
 
+      {[["Employees","Employees"],["Addresses","Addresses"],["Preferred transporter","Transporter"],["Settings & policies","Settings"]].map(([label, route]) => (
+        <TouchableOpacity key={route} style={styles.linkRow} onPress={() => navigation.navigate(route as any)} accessibilityRole="button">
+          <Text style={styles.linkText}>{label}</Text><Text style={styles.chevron}>›</Text>
+        </TouchableOpacity>
+      ))}
+
       <Text style={styles.section}>Team access</Text>
       <FlatList
         data={team}

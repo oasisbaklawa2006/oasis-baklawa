@@ -31,6 +31,7 @@ import { QuotationsScreen } from "@/screens/QuotationsScreen";
 import { QuotationDetailScreen } from "@/screens/QuotationDetailScreen";
 import { OrderPaymentScreen } from "@/screens/OrderPaymentScreen";
 import { DeliveredClosureScreen } from "@/screens/DeliveredClosureScreen";
+import { ReorderScreen } from "@/screens/ReorderScreen";
 import { CommunicationLogScreen } from "@/screens/CommunicationLogScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -80,6 +81,7 @@ export function RootNavigator() {
         <Stack.Screen name="QuotationDetail" component={QuotationDetailScreen} />
         <Stack.Screen name="OrderPayment" component={OrderPaymentScreen} />
         <Stack.Screen name="DeliveredClosure" component={DeliveredClosureScreen} />
+        <Stack.Screen name="Reorder" component={ReorderScreen} />
         <Stack.Screen name="CommunicationLog" component={CommunicationLogScreen} />
       </Stack.Navigator>
     </NavigationContainer>

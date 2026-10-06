@@ -1,0 +1,40 @@
+name: Generate Native Auth Payment Dependencies
+
+on:
+  push:
+    branches:
+      - feature/buyer-native-auth-payments-20261006
+    paths:
+      - .github/workflows/tmp-native-auth-payment-deps.yml
+
+permissions:
+  contents: write
+
+jobs:
+  install:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/buyer-native-auth-payments-20261006
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install Expo-compatible native dependencies
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund
+          npx expo install react-native-razorpay expo-web-browser expo-linking expo-auth-session expo-apple-authentication
+      - name: Commit lockfile changes
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package.json package-lock.json
+          if git diff --cached --quiet; then
+            echo 'Dependencies already resolved.'
+            exit 0
+          fi
+          git commit -m 'build(buyer): add native auth and Razorpay dependencies'
+          git push origin HEAD:feature/buyer-native-auth-payments-20261006

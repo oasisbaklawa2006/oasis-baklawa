@@ -24,7 +24,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
-      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       RELEASE_SHA_INPUT: ${{ inputs.release_sha }}
 
     steps:
@@ -82,6 +81,8 @@ jobs:
 
       - name: Authenticate to EAS without exposing token
         shell: bash
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           set -euo pipefail
           test -n "${EXPO_TOKEN:-}" || {
@@ -94,6 +95,8 @@ jobs:
 
       - name: Build Android preview APK
         shell: bash
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           set -euo pipefail
           npx --yes "eas-cli@${EAS_CLI_VERSION}" build \

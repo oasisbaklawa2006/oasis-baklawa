@@ -119,12 +119,19 @@ describe("golden journey invariants", () => {
     assert.match(recommended, /customerGateway\.orderItems\(\)/);
     assert.match(recommended, /recommendedProducts/);
 
-    for (const file of ["PrivateLabelScreen.tsx", "PackagingDecorationScreen.tsx"]) {
-      const source = readFileSync(join(ROOT, "screens", file), "utf8");
-      assert.match(source, /BuyerServiceRequestPanel/);
-      assert.match(source, /does not (expose|currently project)|not exposed/i);
-      assert.doesNotMatch(source, /is_private_label|private_label_allowed|packaging_option_id|packaging_price/i);
-    }
+    const privateLabel = readFileSync(join(ROOT, "screens/PrivateLabelScreen.tsx"), "utf8");
+    assert.match(privateLabel, /BuyerServiceRequestPanel/);
+    assert.match(privateLabel, /fetchCustomerPrivateLabelProducts|customerGateway\.privateLabelProducts/);
+    assert.match(privateLabel, /private_label_moq/);
+    assert.match(privateLabel, /private_label_price/);
+    assert.doesNotMatch(privateLabel, /private_label_cost|upfront_cost/i);
+
+    const packaging = readFileSync(join(ROOT, "screens/PackagingDecorationScreen.tsx"), "utf8");
+    assert.match(packaging, /BuyerServiceRequestPanel/);
+    assert.match(packaging, /fetchCustomerPackagingOffers|customerGateway\.packagingOffers/);
+    assert.match(packaging, /selling_price/);
+    assert.match(packaging, /minimum_order_quantity/);
+    assert.doesNotMatch(packaging, /price_b2b|internal_cost/i);
 
     const dashboard = readFileSync(join(ROOT, "screens/DashboardScreen.tsx"), "utf8");
     assert.match(dashboard, /recentlyAddedProducts/);

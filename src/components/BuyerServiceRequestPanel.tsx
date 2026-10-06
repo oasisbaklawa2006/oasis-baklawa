@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { OasisButton } from "@/components/OasisButton";
-import { ErrorState, LoadingState } from "@/components/StateViews";
+import { LoadingState } from "@/components/StateViews";
 import {
   customerGeneralQueryStatusLabel,
   type CustomerGeneralQueryCategory,
@@ -27,8 +27,10 @@ interface BuyerServiceRequestPanelProps {
 /**
  * Converts unsupported account/catalogue master-data surfaces into a real,
  * governed Buyer request workflow without pretending the request has already
- * changed authoritative company/product data. This is the deliberate live
- * fallback until Core exposes the corresponding customer-safe master projection.
+ * changed authoritative company/product data.
+ *
+ * Request submission remains available even when history retrieval fails.
+ * History is a secondary read surface and must never become a write-path gate.
  */
 export function BuyerServiceRequestPanel({
   category,
@@ -42,16 +44,17 @@ export function BuyerServiceRequestPanel({
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const submitInFlight = useRef(false);
 
   const load = useCallback(async () => {
-    setError(null);
+    setLoading(true);
+    setHistoryError(null);
     try {
       setQueries(await customerGateway.generalQueries());
     } catch (e) {
-      setError(parseRpcError(e).message);
+      setHistoryError(parseRpcError(e).message);
     } finally {
       setLoading(false);
     }
@@ -99,7 +102,9 @@ export function BuyerServiceRequestPanel({
 
       try {
         setQueries(await customerGateway.generalQueries());
-      } catch {
+        setHistoryError(null);
+      } catch (e) {
+        setHistoryError(parseRpcError(e).message);
         setNotice(`${submittedNotice} Request history could not refresh right now.`);
       }
     } catch (e) {
@@ -108,14 +113,6 @@ export function BuyerServiceRequestPanel({
       submitInFlight.current = false;
       setSubmitting(false);
     }
-  }
-
-  if (loading) {
-    return <LoadingState message="Loading your requests…" />;
-  }
-
-  if (error) {
-    return <ErrorState message={error} onRetry={() => { setLoading(true); void load(); }} />;
   }
 
   return (
@@ -137,7 +134,18 @@ export function BuyerServiceRequestPanel({
       </Text>
 
       <Text style={styles.historyTitle}>{historyTitle}</Text>
-      {history.length === 0 ? (
+      {loading ? (
+        <LoadingState message="Loading your requests…" />
+      ) : historyError ? (
+        <View style={styles.historyWarning}>
+          <Text style={styles.historyWarningTitle}>Request history could not be loaded.</Text>
+          <Text style={styles.historyWarningText}>{historyError}</Text>
+          <Text style={styles.historyWarningText}>
+            You can still submit a new request above. History availability does not affect submission.
+          </Text>
+          <OasisButton label="Retry request history" variant="secondary" onPress={load} />
+        </View>
+      ) : history.length === 0 ? (
         <Text style={styles.empty}>No previous requests of this type.</Text>
       ) : (
         history.map((query) => (
@@ -193,6 +201,25 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamilySerifBold,
     fontSize: typography.sizeLg,
     color: colors.textPrimary,
+  },
+  historyWarning: {
+    padding: spacing.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    backgroundColor: colors.surfacePremium,
+    gap: spacing.sm,
+  },
+  historyWarningTitle: {
+    fontFamily: typography.fontFamilySansSemiBold,
+    fontSize: typography.sizeSm,
+    color: colors.textPrimary,
+  },
+  historyWarningText: {
+    fontFamily: typography.fontFamilySans,
+    fontSize: typography.sizeSm,
+    color: colors.textSecondary,
+    lineHeight: 20,
   },
   empty: {
     fontFamily: typography.fontFamilySans,

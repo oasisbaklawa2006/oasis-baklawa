@@ -1,0 +1,48 @@
+name: Inspect Active EAS Android Build
+
+on:
+  push:
+    branches:
+      - uat/eas-inspect-20261006
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 64c82fdfc53487e8df781eba5e97952de6f5b362
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Inspect latest Android EAS builds
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${EXPO_TOKEN:-}" ]; then
+            echo "::error::Missing EXPO_TOKEN"
+            exit 1
+          fi
+          npx eas-cli@24.11.0 build:list --platform android --limit 10 --json --non-interactive > /tmp/builds.json
+          node <<'NODE'
+          const fs=require('fs');
+          const rows=JSON.parse(fs.readFileSync('/tmp/builds.json','utf8'));
+          const out=(Array.isArray(rows)?rows:[]).map(b=>({
+            id:b.id,
+            status:b.status,
+            platform:b.platform,
+            buildProfile:b.buildProfile,
+            gitCommitHash:b.gitCommitHash,
+            createdAt:b.createdAt,
+            updatedAt:b.updatedAt,
+            artifacts:b.artifacts || null
+          }));
+          console.log(JSON.stringify(out,null,2));
+          NODE

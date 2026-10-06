@@ -1,0 +1,162 @@
+name: Android Buyer UAT APK
+
+on:
+  push:
+    branches:
+      - uat/android-apk-20261006
+
+permissions:
+  contents: read
+
+jobs:
+  build-android-uat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+    steps:
+      - name: Checkout certified Buyer main
+        uses: actions/checkout@v4
+        with:
+          ref: 64c82fdfc53487e8df781eba5e97952de6f5b362
+          fetch-depth: 1
+
+      - name: Verify exact source SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          EXPECTED_SHA="64c82fdfc53487e8df781eba5e97952de6f5b362"
+          if [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
+            echo "::error::Source SHA mismatch."
+            exit 1
+          fi
+          echo "Certified source SHA: $ACTUAL_SHA"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Run Buyer quality contract
+        run: npm run quality
+
+      - name: Verify Expo token is available
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${EXPO_TOKEN:-}" ]; then
+            echo "::error::Missing GitHub Actions secret EXPO_TOKEN. Add a valid Expo access token to this repository as Actions secret EXPO_TOKEN."
+            exit 1
+          fi
+          echo "Expo authentication token is configured."
+
+      - name: Verify required EAS preview variables exist
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          npx eas-cli@21.0.2 env:list preview --scope project --format short > /tmp/eas-project-env.txt 2>/tmp/eas-project-env.err
+          npx eas-cli@21.0.2 env:list preview --scope account --format short > /tmp/eas-account-env.txt 2>/tmp/eas-account-env.err || true
+          cat /tmp/eas-project-env.txt /tmp/eas-account-env.txt > /tmp/eas-effective-env.txt
+
+          missing=()
+          for name in EXPO_PUBLIC_MSG91_WIDGET_ID EXPO_PUBLIC_MSG91_TOKEN_AUTH EXPO_PUBLIC_SUPABASE_ANON_KEY; do
+            if grep -Fq "$name" /tmp/eas-effective-env.txt; then
+              echo "$name: present"
+            else
+              missing+=("$name")
+            fi
+          done
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            printf '::error::Missing EAS preview variable(s): %s\n' "${missing[*]}"
+            echo "::error::Set the missing variable(s) in Expo project 369e4480-3bbf-49cd-8a10-5bac5f8290a1 under Project settings -> Environment variables -> preview, or with eas env:set --environment preview."
+            exit 1
+          fi
+
+          echo "Required Buyer mobile EAS preview variable names are present."
+
+      - name: Reject known Central web MSG91 widget when readable
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f /tmp/widget.txt
+          if npx eas-cli@21.0.2 env:get preview --variable-name EXPO_PUBLIC_MSG91_WIDGET_ID --scope project --format short --non-interactive > /tmp/widget.txt 2>/dev/null; then
+            :
+          elif npx eas-cli@21.0.2 env:get preview --variable-name EXPO_PUBLIC_MSG91_WIDGET_ID --scope account --format short --non-interactive > /tmp/widget.txt 2>/dev/null; then
+            :
+          fi
+
+          if [ -f /tmp/widget.txt ] && grep -Fq "3664766e464b383030383331" /tmp/widget.txt; then
+            echo "::error::EXPO_PUBLIC_MSG91_WIDGET_ID is the blocked Central WEB widget. Configure the dedicated Buyer Mobile Integration widget before building."
+            exit 1
+          fi
+          echo "No readable match to the blocked Central web widget was found. The remote build post-install validator will re-check the actual build value."
+
+      - name: Force Genie off in EAS preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx eas-cli@21.0.2 env:set preview             --name EXPO_PUBLIC_GENIE_PARSE_ENABLED             --value false             --visibility plaintext             --scope project             --non-interactive > /dev/null
+          echo "EXPO_PUBLIC_GENIE_PARSE_ENABLED set to false for preview."
+
+      - name: Start and wait for fresh EAS Android APK build
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx eas-cli@21.0.2 build             --platform android             --profile preview             --non-interactive             --wait             --json > /tmp/eas-build.json
+
+          node <<'NODE'
+          const fs = require('fs');
+          const raw = JSON.parse(fs.readFileSync('/tmp/eas-build.json', 'utf8'));
+          const build = Array.isArray(raw) ? raw[0] : raw;
+          if (!build || !build.id) {
+            throw new Error('EAS build completed without a build ID.');
+          }
+          fs.writeFileSync('/tmp/eas-build-id.txt', String(build.id));
+          console.log('EAS_BUILD_ID=' + build.id);
+          NODE
+
+          BUILD_ID="$(cat /tmp/eas-build-id.txt)"
+          npx eas-cli@21.0.2 build:view "$BUILD_ID" --json > /tmp/eas-build-view.json
+
+          node <<'NODE'
+          const fs = require('fs');
+          const build = JSON.parse(fs.readFileSync('/tmp/eas-build-view.json', 'utf8'));
+          const id = build.id;
+          const artifactUrl =
+            build?.artifacts?.buildUrl ||
+            build?.artifacts?.applicationArchiveUrl ||
+            build?.artifacts?.applicationArchive?.url ||
+            build?.artifact?.url ||
+            null;
+          const pageUrl = id ? `https://expo.dev/accounts/oasisbaklawa/projects/oasis-baklawa/builds/${id}` : null;
+
+          if (!id) throw new Error('Unable to resolve the final EAS build ID.');
+          if (!artifactUrl) throw new Error('Build succeeded but no APK artifact URL was returned.');
+
+          const output = [
+            `SOURCE_SHA=64c82fdfc53487e8df781eba5e97952de6f5b362`,
+            `EAS_BUILD_ID=${id}`,
+            `DIRECT_APK_URL=${artifactUrl}`,
+            `EAS_BUILD_PAGE=${pageUrl}`,
+          ].join('\n') + '\n';
+
+          fs.writeFileSync('eas-build-result.txt', output);
+          console.log(`EAS_BUILD_ID=${id}`);
+          console.log(`DIRECT_APK_URL=${artifactUrl}`);
+          console.log(`EAS_BUILD_PAGE=${pageUrl}`);
+          NODE
+
+      - name: Upload non-secret build result
+        uses: actions/upload-artifact@v4
+        with:
+          name: buyer-android-uat-build-result
+          path: eas-build-result.txt
+          if-no-files-found: error

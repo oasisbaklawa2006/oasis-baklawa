@@ -123,8 +123,7 @@ jobs:
               "eas_build_id=" + (.id // "unknown"),
               "status=" + (.status // "unknown"),
               "platform=" + (.platform // "unknown"),
-              "profile=preview",
-              "artifact_url=" + (.artifacts.buildUrl // .artifacts.applicationArchiveUrl // "unavailable")
+              "profile=preview"
             ]
             | .[]
           ' /tmp/eas-build.json > android-uat-build-summary.txt
@@ -139,6 +138,7 @@ jobs:
             echo "~~~"
             echo
             echo "Build configuration validation also runs inside EAS via eas-build-post-install; missing/wrong MSG91 Mobile Integration or Supabase public configuration therefore fails the build."
+            echo "APK retrieval is intentionally excluded from public GitHub evidence. Authorized testers must use authenticated Expo/EAS access with the recorded build ID."
           } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Upload sanitized build evidence

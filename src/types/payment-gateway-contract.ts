@@ -13,7 +13,7 @@ export const BUYER_BOUND_PAYMENT_GATEWAY_RPCS: readonly CorePaymentGatewayRpcNam
   ...CORE_PAYMENT_GATEWAY_RPCS,
 ];
 
-export const DEFAULT_PAYMENT_PROVIDER_CODE = "razorpay" as const;
+export const DEFAULT_PAYMENT_PROVIDER_CODE = "generic" as const;
 
 export type PaymentGatewayPurpose = "advance" | "balance" | "final_payment";
 

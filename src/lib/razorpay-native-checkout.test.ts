@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { resolveRazorpayRuntimeEnabled } from "./razorpay-runtime";
+import { resolveRazorpayRuntimeEnabled } from "./razorpay-runtime-flag";
 
 describe("native Razorpay checkout boundary", () => {
   it("keeps the public build flag fail-closed", () => {

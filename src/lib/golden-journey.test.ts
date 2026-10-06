@@ -140,12 +140,12 @@ describe("golden journey invariants", () => {
 
   it("keeps owner-data service lanes actionable while new projections are unavailable", () => {
     const privateLabel = readFileSync(join(ROOT, "screens/PrivateLabelScreen.tsx"), "utf8");
-    assert.match(privateLabel, /Published private-label offers are not available yet/);
+    assert.match(privateLabel, /Published private-label offers could not be loaded/);
     assert.match(privateLabel, /BuyerServiceRequestPanel/);
     assert.match(privateLabel, /product\/SKU, expected quantity, branding or artwork requirement/i);
 
     const packaging = readFileSync(join(ROOT, "screens/PackagingDecorationScreen.tsx"), "utf8");
-    assert.match(packaging, /Published packaging offers are not available yet/);
+    assert.match(packaging, /Published packaging offers could not be loaded/);
     assert.match(packaging, /BuyerServiceRequestPanel/);
     assert.match(packaging, /box\/tray format, branding or decoration/i);
 

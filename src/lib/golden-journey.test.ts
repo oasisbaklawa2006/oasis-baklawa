@@ -153,6 +153,9 @@ describe("golden journey invariants", () => {
     assert.match(employees, /BuyerServiceRequestPanel/);
     assert.match(employees, /category="ACCOUNT"/);
     assert.match(employees, /Team access self-service request/);
+    assert.match(employees, /ListHeaderComponent/);
+    assert.match(employees, /ListFooterComponent/);
+    assert.match(employees, /data=\{loading \|\| error \? \[\] : rows\}/);
     assert.doesNotMatch(employees, /\.from\(/);
   });
 

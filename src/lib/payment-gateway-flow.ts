@@ -9,6 +9,11 @@ import {
   resolvePaymentIdempotencyKey,
 } from "@/lib/payment-idempotency";
 import { parseRpcError } from "@/lib/rpc-errors";
+import { openRazorpayNativeCheckout } from "@/lib/razorpay-native-checkout";
+import {
+  prepareRazorpayCheckoutOrder,
+  RAZORPAY_RUNTIME_ENABLED,
+} from "@/lib/razorpay-runtime";
 import type { CustomerFinanceFacts } from "@/types/database.types";
 import {
   DEFAULT_PAYMENT_PROVIDER_CODE,
@@ -47,17 +52,90 @@ export async function initiateGovernedPayment(input: InitiatePaymentInput): Prom
   }
 
   const correlationId = createIdempotencyKey();
-  const intentInput: CreatePaymentGatewayIntentInput = {
-    orderId: input.orderId,
-    piId: input.piId,
-    commercialVersionId: input.commercialVersionId,
-    paymentPurpose: input.paymentPurpose,
-    providerCode: DEFAULT_PAYMENT_PROVIDER_CODE,
-    correlationId,
-    idempotencyKey: resolved.key,
-  };
 
   try {
+    if (RAZORPAY_RUNTIME_ENABLED) {
+      const order = await prepareRazorpayCheckoutOrder({
+        ...input,
+        correlationId,
+        idempotencyKey: resolved.key,
+      });
+
+      try {
+        await openRazorpayNativeCheckout(order);
+      } catch {
+        const status = await fetchPaymentGatewayPayableStatus(order.intentId).catch(() => null);
+        const terminal = status ? isTerminalPaymentStatus(status.status) : null;
+
+        if (terminal === "success") {
+          await clearPaymentIdempotencyKey(input.orderId, input.paymentPurpose).catch(() => undefined);
+          return {
+            phase: "succeeded",
+            paymentIntentId: order.intentId,
+            providerOrderId: order.providerOrderId,
+            status,
+            message: "Payment status confirmed by Core.",
+          };
+        }
+        if (terminal === "failure") {
+          return {
+            phase: "failed",
+            paymentIntentId: order.intentId,
+            providerOrderId: order.providerOrderId,
+            status,
+            message: "Core confirmed that the payment did not complete.",
+          };
+        }
+        return {
+          phase: "awaiting_gateway",
+          paymentIntentId: order.intentId,
+          providerOrderId: order.providerOrderId,
+          status,
+          message: "The payment window closed before Core confirmed settlement. Check payment status before retrying.",
+        };
+      }
+
+      const status = await fetchPaymentGatewayPayableStatus(order.intentId).catch(() => null);
+      const terminal = status ? isTerminalPaymentStatus(status.status) : null;
+
+      if (terminal === "success") {
+        await clearPaymentIdempotencyKey(input.orderId, input.paymentPurpose).catch(() => undefined);
+        return {
+          phase: "succeeded",
+          paymentIntentId: order.intentId,
+          providerOrderId: order.providerOrderId,
+          status,
+          message: "Payment status confirmed by Core.",
+        };
+      }
+      if (terminal === "failure") {
+        return {
+          phase: "failed",
+          paymentIntentId: order.intentId,
+          providerOrderId: order.providerOrderId,
+          status,
+          message: "Core confirmed that the payment did not complete.",
+        };
+      }
+
+      return {
+        phase: "polling",
+        paymentIntentId: order.intentId,
+        providerOrderId: order.providerOrderId,
+        status,
+        message: "Razorpay returned from checkout. Waiting for signed provider confirmation before marking the payment received.",
+      };
+    }
+
+    const intentInput: CreatePaymentGatewayIntentInput = {
+      orderId: input.orderId,
+      piId: input.piId,
+      commercialVersionId: input.commercialVersionId,
+      paymentPurpose: input.paymentPurpose,
+      providerCode: DEFAULT_PAYMENT_PROVIDER_CODE,
+      correlationId,
+      idempotencyKey: resolved.key,
+    };
     const intent = await createPaymentGatewayPayableIntent(intentInput);
     const status = await fetchPaymentGatewayPayableStatus(intent.intent_id).catch(() => null);
 
@@ -68,7 +146,7 @@ export async function initiateGovernedPayment(input: InitiatePaymentInput): Prom
       status,
       message: intent.already_created
         ? "Payment intent already exists for this attempt. Refresh status to confirm coverage."
-        : "Payment intent created with Core. Complete the gateway session, then refresh status here.",
+        : "Payment intent created with Core. Provider checkout remains disabled for this build; refresh status after an authorized payment channel is used.",
     };
   } catch (error) {
     return {

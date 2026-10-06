@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Linking, StyleSheet, Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import { BuyerGate } from "@/components/BuyerGate";
@@ -121,6 +121,28 @@ export function OrderPaymentScreen({ navigation, route }: Props) {
         paymentPurpose: boundary.payable.paymentPurpose,
       });
       setFlow(nextFlow);
+      if (nextFlow.checkoutUrl) {
+        try {
+          const supported = await Linking.canOpenURL(nextFlow.checkoutUrl);
+          if (!supported) {
+            setFlow((prev) => ({
+              ...prev,
+              checkoutUrl: null,
+              message:
+                "Secure checkout could not be opened on this device. No payment has been marked successful.",
+            }));
+          } else {
+            await Linking.openURL(nextFlow.checkoutUrl);
+          }
+        } catch {
+          setFlow((prev) => ({
+            ...prev,
+            checkoutUrl: null,
+            message:
+              "Secure checkout could not be opened. No payment has been marked successful.",
+          }));
+        }
+      }
       if (nextFlow.phase === "succeeded" || nextFlow.phase === "awaiting_gateway") {
         await load();
       }

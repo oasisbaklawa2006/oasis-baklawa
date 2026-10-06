@@ -138,6 +138,24 @@ describe("golden journey invariants", () => {
     assert.doesNotMatch(dashboard, /Festival gifting collections now open|New artisan range available/);
   });
 
+  it("keeps owner-data service lanes actionable while new projections are unavailable", () => {
+    const privateLabel = readFileSync(join(ROOT, "screens/PrivateLabelScreen.tsx"), "utf8");
+    assert.match(privateLabel, /Published private-label offers are not available yet/);
+    assert.match(privateLabel, /BuyerServiceRequestPanel/);
+    assert.match(privateLabel, /product\/SKU, expected quantity, branding or artwork requirement/i);
+
+    const packaging = readFileSync(join(ROOT, "screens/PackagingDecorationScreen.tsx"), "utf8");
+    assert.match(packaging, /Published packaging offers are not available yet/);
+    assert.match(packaging, /BuyerServiceRequestPanel/);
+    assert.match(packaging, /box\/tray format, branding or decoration/i);
+
+    const employees = readFileSync(join(ROOT, "screens/EmployeesScreen.tsx"), "utf8");
+    assert.match(employees, /BuyerServiceRequestPanel/);
+    assert.match(employees, /category="ACCOUNT"/);
+    assert.match(employees, /Team access self-service request/);
+    assert.doesNotMatch(employees, /\.from\(/);
+  });
+
   it("binds product surfaces to governed publication authority only", () => {
     const catalogueApi = readFileSync(join(ROOT, "lib/api/catalogue.ts"), "utf8");
     assert.match(catalogueApi, /published_products_v1/);

@@ -1,5 +1,18 @@
 import { callRpc } from "@/lib/rpc";
 import {
+  deleteCustomerDeliveryAddress,
+  deleteCustomerSavedTransporter,
+  fetchCustomerDeliveryAddresses,
+  fetchCustomerPackagingOffers,
+  fetchCustomerPrivateLabelProducts,
+  fetchCustomerSavedTransporters,
+  fetchCustomerShippingPreference,
+  upsertCustomerDeliveryAddress,
+  upsertCustomerSavedTransporter,
+  type UpsertDeliveryAddressInput,
+  type UpsertSavedTransporterInput,
+} from "@/lib/api/account-preferences";
+import {
   createPaymentGatewayPayableIntent,
   fetchPaymentGatewayPayableStatus,
 } from "@/lib/api/payment-gateway";
@@ -63,6 +76,19 @@ export const customerGateway = {
     normalizePublishedProducts(await callRpc("published_products_v1")),
   prices: async (): Promise<BuyerProductPrice[]> =>
     normalizeBuyerProductPrices(await callRpc("buyer_product_prices_v1")),
+  deliveryAddresses: () => fetchCustomerDeliveryAddresses(),
+  saveDeliveryAddress: (input: UpsertDeliveryAddressInput) =>
+    upsertCustomerDeliveryAddress(input),
+  deleteDeliveryAddress: (addressId: string) =>
+    deleteCustomerDeliveryAddress(addressId),
+  shippingPreference: () => fetchCustomerShippingPreference(),
+  savedTransporters: () => fetchCustomerSavedTransporters(),
+  saveTransporter: (input: UpsertSavedTransporterInput) =>
+    upsertCustomerSavedTransporter(input),
+  deleteTransporter: (transporterId: string) =>
+    deleteCustomerSavedTransporter(transporterId),
+  privateLabelProducts: () => fetchCustomerPrivateLabelProducts(),
+  packagingOffers: () => fetchCustomerPackagingOffers(),
   orders: () => callRpc("customer_order_status_v1"),
   orderItems: () => callRpc("customer_order_items_v1"),
   commercialFacts: (): Promise<CustomerCommercialFacts[]> => callRpc("customer_sales_order_commercial_facts_v1"),

@@ -29,7 +29,7 @@ jobs:
 
     steps:
       - name: Checkout dispatched commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
@@ -47,7 +47,7 @@ jobs:
           test "$(git rev-parse refs/remotes/origin/main)" = "${GITHUB_SHA}"
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "20"
           cache: npm
@@ -136,7 +136,7 @@ jobs:
           } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Upload sanitized build evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: android-uat-eas-build-${{ github.sha }}
           path: android-uat-build-summary.txt

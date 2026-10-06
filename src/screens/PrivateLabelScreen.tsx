@@ -48,7 +48,7 @@ export function PrivateLabelScreen({ navigation }: Props) {
           <LoadingState message="Loading private-label offers…" />
         ) : error ? (
           <View style={styles.warningCard}>
-            <Text style={styles.warningTitle}>Published private-label offers are not available yet.</Text>
+            <Text style={styles.warningTitle}>Published private-label offers could not be loaded.</Text>
             <Text style={styles.warningText}>{error}</Text>
             <Text style={styles.warningText}>
               You can still submit the exact product, quantity, branding, pack-format and delivery requirement below. The request is auditable and does not invent commercial terms.

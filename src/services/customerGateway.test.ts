@@ -36,6 +36,10 @@ describe("customerGateway tranche-5 and P106 bindings", () => {
     assert.match(panelSource, /customerGateway\.generalQueries\(\)/);
     assert.match(panelSource, /customerGateway\.submitGeneralQuery/);
     assert.match(panelSource, /getGeneralQueryIdempotencyKey/);
+    assert.match(panelSource, /historyError/);
+    assert.match(panelSource, /History availability does not affect submission/);
+    assert.match(panelSource, /Retry request history/);
+    assert.doesNotMatch(panelSource, /if \(error\) \{[\s\S]*return <ErrorState/);
 
     for (const file of [
       "PrivateLabelScreen.tsx",

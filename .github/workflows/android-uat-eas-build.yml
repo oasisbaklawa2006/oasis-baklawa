@@ -101,29 +101,35 @@ jobs:
             --profile preview \
             --non-interactive \
             --wait \
-            --json > /tmp/eas-build.json
+            --json > /tmp/eas-build-start.json
+
+          BUILD_ID="$(jq -r '(if type == "array" then .[0] else . end).id // empty' /tmp/eas-build-start.json)"
+          test -n "${BUILD_ID}" || {
+            echo "::error::EAS build did not return a build ID." >&2
+            exit 1
+          }
+
+          npx --yes "eas-cli@${EAS_CLI_VERSION}" build:view "${BUILD_ID}" --json > /tmp/eas-build.json
 
           jq -e '
-            (if type == "array" then .[0] else . end) as $build
-            | ($build.id | type == "string")
-              and (($build.status // "") | ascii_downcase == "finished")
-              and (($build.platform // "") | ascii_downcase == "android")
+            (.id | type == "string")
+              and ((.status // "") | ascii_downcase == "finished")
+              and ((.platform // "") | ascii_downcase == "android")
           ' /tmp/eas-build.json >/dev/null
 
           jq -r '
-            (if type == "array" then .[0] else . end) as $build
-            | [
-                "release_sha=" + env.GITHUB_SHA,
-                "eas_build_id=" + ($build.id // "unknown"),
-                "status=" + ($build.status // "unknown"),
-                "platform=" + ($build.platform // "unknown"),
-                "profile=preview",
-                "artifact_url=" + ($build.artifacts.buildUrl // $build.artifacts.applicationArchiveUrl // "unavailable")
-              ]
+            [
+              "release_sha=" + env.GITHUB_SHA,
+              "eas_build_id=" + (.id // "unknown"),
+              "status=" + (.status // "unknown"),
+              "platform=" + (.platform // "unknown"),
+              "profile=preview",
+              "artifact_url=" + (.artifacts.buildUrl // .artifacts.applicationArchiveUrl // "unavailable")
+            ]
             | .[]
           ' /tmp/eas-build.json > android-uat-build-summary.txt
 
-          rm -f /tmp/eas-build.json /tmp/eas-whoami.txt
+          rm -f /tmp/eas-build-start.json /tmp/eas-build.json /tmp/eas-whoami.txt
 
           {
             echo "## Android UAT EAS build"

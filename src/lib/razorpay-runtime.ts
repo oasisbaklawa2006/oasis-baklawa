@@ -1,7 +1,10 @@
 import { supabase } from "@/lib/supabase";
+import {
+  RAZORPAY_RUNTIME_ENABLED,
+  resolveRazorpayRuntimeEnabled,
+} from "@/lib/razorpay-runtime-flag";
 
-export const RAZORPAY_RUNTIME_ENABLED =
-  process.env.EXPO_PUBLIC_RAZORPAY_CHECKOUT_ENABLED === "true";
+export { RAZORPAY_RUNTIME_ENABLED, resolveRazorpayRuntimeEnabled };
 
 export type RazorpayCheckoutOrder = {
   intentId: string;

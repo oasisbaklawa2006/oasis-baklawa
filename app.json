@@ -19,8 +19,14 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.oasisbaklawa.customer",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+        "ITSAppUsesNonExemptEncryption": false,
+        "LSApplicationQueriesSchemes": [
+          "tez",
+          "phonepe",
+          "paytmmp"
+        ]
+      },
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
@@ -38,6 +44,15 @@
         "projectId": "369e4480-3bbf-49cd-8a10-5bac5f8290a1"
       }
     },
-    "owner": "oasisbaklawa"
+    "owner": "oasisbaklawa",
+    "plugins": [
+      "expo-apple-authentication",
+      [
+        "expo-web-browser",
+        {
+          "experimentalLauncherActivity": false
+        }
+      ]
+    ]
   }
 }

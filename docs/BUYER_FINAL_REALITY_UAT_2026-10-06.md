@@ -129,7 +129,7 @@ Test separate identities/states:
 - OTP wrong/expired/resend -> controlled error/retry; no duplicate session claim.
 - Sign out -> Welcome; protected surfaces no longer expose buyer data.
 
-Do not mark Google/Apple as UAT failures in this build; they are explicitly unimplemented external-auth gaps recorded above.
+Social login is intentionally out of scope. Buyer authentication is phone OTP (MSG91) + email OTP only.
 
 ### C. Catalogue and discovery
 
@@ -309,7 +309,6 @@ The current Buyer code can be software-complete while the following remain exter
 
 - dedicated mobile MSG91 environment values before a physical build;
 - Apple provisioning/device distribution for iPhone;
-- Google/Apple sign-in until provider + identity-binding authority is deliberately implemented;
 - Oasis Genie until `ai-order-parse` is deployed/certified and its feature flag is deliberately enabled;
 - richer address/transporter/private-label/packaging master-data projections, which require new Core authority and are not represented as fake Buyer data.
 

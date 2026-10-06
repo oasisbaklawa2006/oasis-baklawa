@@ -24,6 +24,7 @@ export function EmployeesScreen({ navigation }: Props) {
     try {
       setRows(await fetchCustomerTeam());
     } catch (e) {
+      setRows([]);
       setError(parseRpcError(e).message);
     } finally {
       setLoading(false);
@@ -45,45 +46,48 @@ export function EmployeesScreen({ navigation }: Props) {
         subtitle="People with access to your Oasis trade account"
         scroll={false}
       >
-        {loading ? (
-          <LoadingState />
-        ) : error ? (
-          <ErrorState message={error} onRetry={load} />
-        ) : (
-          <FlatList
-            data={rows}
-            keyExtractor={(item) => item.profile_id}
-            contentContainerStyle={styles.list}
-            ListEmptyComponent={
+        <FlatList
+          data={loading || error ? [] : rows}
+          keyExtractor={(item) => item.profile_id}
+          contentContainerStyle={styles.list}
+          ListHeaderComponent={
+            loading ? (
+              <LoadingState />
+            ) : error ? (
+              <ErrorState message={error} onRetry={load} />
+            ) : null
+          }
+          ListEmptyComponent={
+            !loading && !error ? (
               <EmptyState
                 title="No employees yet"
                 message="Approved team members will appear here when access is created."
               />
-            }
-            ListFooterComponent={
-              <BuyerServiceRequestPanel
-                category="ACCOUNT"
-                subject="Team access self-service request"
-                intro="Use this governed request to add a colleague, remove access, correct contact details or request a role change. Include the employee name, work email, mobile number, requested action and required access role. Oasis will verify authority before changing access."
-                placeholder="Action: add / remove / update / role change. Employee name, work email, mobile number, requested role and any effective date…"
-                submitLabel="Submit team access request"
-                historyTitle="Team access requests"
-              />
-            }
-            renderItem={({ item }) => (
-              <View style={styles.card}>
-                <Text style={styles.name}>
-                  {item.full_name ?? item.email ?? item.mobile_number ?? "Team member"}
-                </Text>
-                <Text style={styles.meta}>
-                  {item.role.replace(/_/g, " ")} · {item.status.replace(/_/g, " ")}
-                </Text>
-                {item.email ? <Text style={styles.meta}>{item.email}</Text> : null}
-                {item.mobile_number ? <Text style={styles.meta}>{item.mobile_number}</Text> : null}
-              </View>
-            )}
-          />
-        )}
+            ) : null
+          }
+          ListFooterComponent={
+            <BuyerServiceRequestPanel
+              category="ACCOUNT"
+              subject="Team access self-service request"
+              intro="Use this governed request to add a colleague, remove access, correct contact details or request a role change. Include the employee name, work email, mobile number, requested action and required access role. Oasis will verify authority before changing access."
+              placeholder="Action: add / remove / update / role change. Employee name, work email, mobile number, requested role and any effective date…"
+              submitLabel="Submit team access request"
+              historyTitle="Team access requests"
+            />
+          }
+          renderItem={({ item }) => (
+            <View style={styles.card}>
+              <Text style={styles.name}>
+                {item.full_name ?? item.email ?? item.mobile_number ?? "Team member"}
+              </Text>
+              <Text style={styles.meta}>
+                {item.role.replace(/_/g, " ")} · {item.status.replace(/_/g, " ")}
+              </Text>
+              {item.email ? <Text style={styles.meta}>{item.email}</Text> : null}
+              {item.mobile_number ? <Text style={styles.meta}>{item.mobile_number}</Text> : null}
+            </View>
+          )}
+        />
       </Screen>
     </BuyerGate>
   );

@@ -1,16 +1,10 @@
 import { supabase } from "@/lib/supabase";
-import {
-  RAZORPAY_RUNTIME_ENABLED,
-  resolveRazorpayRuntimeEnabled,
-} from "@/lib/razorpay-runtime-flag";
 
-export { RAZORPAY_RUNTIME_ENABLED, resolveRazorpayRuntimeEnabled };
-
-export type RazorpayCheckoutOrder = {
+export type PaymentProviderSession = {
   intentId: string;
   providerOrderId: string;
-  keyId: string;
-  amountPaise: number;
+  checkoutUrl: string;
+  amountMinor: number;
   currency: string;
 };
 
@@ -20,19 +14,25 @@ function record(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
-export async function prepareRazorpayCheckoutOrder(input: {
+function httpsUrl(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function preparePaymentProviderSession(input: {
   orderId: string;
   piId: string;
   commercialVersionId: string;
   paymentPurpose: "advance" | "balance" | "final_payment";
   correlationId: string;
   idempotencyKey: string;
-}): Promise<RazorpayCheckoutOrder> {
-  if (!RAZORPAY_RUNTIME_ENABLED) {
-    throw new Error("Razorpay checkout is not enabled in this app build.");
-  }
-
-  const { data, error } = await supabase.functions.invoke("razorpay-create-order", {
+}): Promise<PaymentProviderSession> {
+  const { data, error } = await supabase.functions.invoke("payment-provider-create-session", {
     body: {
       order_id: input.orderId,
       pi_id: input.piId,
@@ -42,35 +42,29 @@ export async function prepareRazorpayCheckoutOrder(input: {
       idempotency_key: input.idempotencyKey,
     },
   });
-  if (error) throw error;
+  if (error) throw new Error("Online payment gateway is inactive or unavailable.");
 
   const row = record(data);
   const intentId = typeof row?.intent_id === "string" ? row.intent_id : null;
   const providerOrderId = typeof row?.provider_order_id === "string" ? row.provider_order_id : null;
-  const keyId = typeof row?.razorpay_key_id === "string" ? row.razorpay_key_id : null;
-  const amountPaise = typeof row?.amount_paise === "number" ? row.amount_paise : null;
+  const checkoutUrl = httpsUrl(row?.checkout_url);
+  const amountMinor = typeof row?.amount_minor === "number" ? row.amount_minor : null;
   const currency = typeof row?.currency === "string" ? row.currency : null;
   const pending = row?.canonical_status === "pending";
-  const backendVerifiedSuccessOnly = row?.payment_success_requires_verified_webhook === true;
+  const serverVerifiedOnly = row?.payment_success_requires_server_verification === true;
 
   if (
     !intentId ||
     !providerOrderId ||
-    !keyId ||
-    amountPaise === null ||
-    amountPaise <= 0 ||
+    !checkoutUrl ||
+    amountMinor === null ||
+    amountMinor <= 0 ||
     !currency ||
     !pending ||
-    !backendVerifiedSuccessOnly
+    !serverVerifiedOnly
   ) {
-    throw new Error("Razorpay order preparation did not return a governed pending payment.");
+    throw new Error("Payment provider session did not return a governed pending payment.");
   }
 
-  return {
-    intentId,
-    providerOrderId,
-    keyId,
-    amountPaise,
-    currency,
-  };
+  return { intentId, providerOrderId, checkoutUrl, amountMinor, currency };
 }

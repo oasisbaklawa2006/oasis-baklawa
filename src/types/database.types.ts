@@ -61,6 +61,58 @@ export type Database = {
         Args: Record<string, never>;
         Returns: CustomerTeamMember[];
       };
+      customer_delivery_addresses_v1: {
+        Args: Record<string, never>;
+        Returns: CustomerDeliveryAddress[];
+      };
+      customer_shipping_preferences_v1: {
+        Args: Record<string, never>;
+        Returns: CustomerShippingPreference[];
+      };
+      customer_private_label_products_v1: {
+        Args: Record<string, never>;
+        Returns: CustomerPrivateLabelProduct[];
+      };
+      customer_packaging_offers_v1: {
+        Args: Record<string, never>;
+        Returns: CustomerPackagingOffer[];
+      };
+      customer_saved_transporters_v1: {
+        Args: Record<string, never>;
+        Returns: CustomerSavedTransporter[];
+      };
+      customer_upsert_delivery_address_v1: {
+        Args: {
+          p_address_id: string;
+          p_label: string;
+          p_street_address: string;
+          p_city: string;
+          p_state: string;
+          p_pincode: string;
+          p_contact_person?: string | null;
+          p_contact_phone?: string | null;
+          p_is_default?: boolean;
+        };
+        Returns: CustomerDeliveryAddress[];
+      };
+      customer_delete_delivery_address_v1: {
+        Args: { p_address_id: string };
+        Returns: boolean;
+      };
+      customer_upsert_saved_transporter_v1: {
+        Args: {
+          p_transporter_id: string;
+          p_transporter_name: string;
+          p_account_number?: string | null;
+          p_is_default?: boolean;
+          p_is_active?: boolean;
+        };
+        Returns: CustomerSavedTransporter[];
+      };
+      customer_delete_saved_transporter_v1: {
+        Args: { p_transporter_id: string };
+        Returns: boolean;
+      };
       get_customer_order_draft_v1: {
         Args: Record<string, never>;
         Returns: CustomerOrderDraftRow[];
@@ -309,6 +361,69 @@ export interface CustomerTeamMember {
   mobile_number: string | null;
   role: string;
   status: string;
+}
+
+export interface CustomerDeliveryAddress {
+  address_id: string;
+  label: string;
+  street_address: string;
+  city: string;
+  state: string;
+  pincode: string;
+  contact_person: string | null;
+  contact_phone: string | null;
+  is_default: boolean;
+  created_at: string;
+}
+
+export interface CustomerShippingPreference {
+  company_id: string;
+  preferred_transporter: string | null;
+  transporter_account_number: string | null;
+}
+
+export interface CustomerSavedTransporter {
+  transporter_id: string;
+  transporter_name: string;
+  account_number: string | null;
+  is_default: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CustomerPrivateLabelProduct {
+  product_id: string;
+  sku: string;
+  product_name: string;
+  hero_image_url: string | null;
+  private_label_moq: number | null;
+  private_label_moq_uom: string | null;
+  private_label_price: number | null;
+  currency: string;
+  customization_allowed: boolean;
+  customization_note: string | null;
+  customization_caution: string | null;
+  lead_time_days: number | null;
+}
+
+export interface CustomerPackagingOffer {
+  product_id: string;
+  sku: string;
+  product_name: string;
+  short_description: string | null;
+  hero_image_url: string | null;
+  category: string | null;
+  primary_uom: string | null;
+  selling_price: number | null;
+  currency: string | null;
+  gst_rate: number | null;
+  tax_inclusive: boolean | null;
+  minimum_order_quantity: number | null;
+  minimum_order_uom: string | null;
+  order_increment: number | null;
+  order_increment_uom: string | null;
+  lead_time_days: number | null;
 }
 
 export interface CustomerOrderDraftRow {

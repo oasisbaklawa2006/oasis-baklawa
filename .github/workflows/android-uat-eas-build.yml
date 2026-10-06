@@ -1,0 +1,144 @@
+name: Android UAT EAS Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: "Exact merged Buyer main SHA to build"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: buyer-android-uat-eas-build
+  cancel-in-progress: false
+
+env:
+  EAS_CLI_VERSION: 21.0.2
+
+jobs:
+  certify-and-build:
+    name: Certify exact main and build Android UAT APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      RELEASE_SHA_INPUT: ${{ inputs.release_sha }}
+
+    steps:
+      - name: Checkout dispatched commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Bind build to exact protected current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main"
+          [[ "${RELEASE_SHA_INPUT}" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          test "${GITHUB_SHA}" = "${RELEASE_SHA_INPUT}"
+          git fetch --quiet origin refs/heads/main:refs/remotes/origin/main
+          test "$(git rev-parse refs/remotes/origin/main)" = "${GITHUB_SHA}"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Re-run complete Buyer release quality
+        run: npm run quality
+
+      - name: Verify Android UAT release contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("fs");
+          const app = JSON.parse(fs.readFileSync("app.json", "utf8")).expo;
+          const eas = JSON.parse(fs.readFileSync("eas.json", "utf8"));
+          const failures = [];
+          if (app?.android?.package !== "com.oasisbaklawa.customer") failures.push("unexpected Android package");
+          if (app?.extra?.eas?.projectId !== "369e4480-3bbf-49cd-8a10-5bac5f8290a1") failures.push("unexpected EAS project");
+          if (app?.owner !== "oasisbaklawa") failures.push("unexpected Expo owner");
+          if (eas?.build?.preview?.distribution !== "internal") failures.push("preview is not internal distribution");
+          if (eas?.build?.preview?.environment !== "preview") failures.push("preview EAS environment mismatch");
+          if (!eas?.build?.preview?.android) failures.push("preview Android profile missing");
+          if (failures.length) {
+            console.error(failures.join("\n"));
+            process.exit(1);
+          }
+          console.log("Android UAT release contract verified.");
+          NODE
+
+      - name: Authenticate to EAS without exposing token
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${EXPO_TOKEN:-}" || {
+            echo "::error::Repository secret EXPO_TOKEN is required for the Android UAT build." >&2
+            exit 1
+          }
+          npx --yes "eas-cli@${EAS_CLI_VERSION}" whoami > /tmp/eas-whoami.txt
+          test -s /tmp/eas-whoami.txt
+          printf '%s\n' "EAS authentication verified."
+
+      - name: Build Android preview APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes "eas-cli@${EAS_CLI_VERSION}" build \
+            --platform android \
+            --profile preview \
+            --non-interactive \
+            --wait \
+            --json > /tmp/eas-build.json
+
+          jq -e '
+            (if type == "array" then .[0] else . end) as $build
+            | ($build.id | type == "string")
+              and (($build.status // "") | ascii_downcase == "finished")
+              and (($build.platform // "") | ascii_downcase == "android")
+          ' /tmp/eas-build.json >/dev/null
+
+          jq -r '
+            (if type == "array" then .[0] else . end) as $build
+            | [
+                "release_sha=" + env.GITHUB_SHA,
+                "eas_build_id=" + ($build.id // "unknown"),
+                "status=" + ($build.status // "unknown"),
+                "platform=" + ($build.platform // "unknown"),
+                "profile=preview",
+                "artifact_url=" + ($build.artifacts.buildUrl // $build.artifacts.applicationArchiveUrl // "unavailable")
+              ]
+            | .[]
+          ' /tmp/eas-build.json > android-uat-build-summary.txt
+
+          rm -f /tmp/eas-build.json /tmp/eas-whoami.txt
+
+          {
+            echo "## Android UAT EAS build"
+            echo
+            echo "~~~text"
+            cat android-uat-build-summary.txt
+            echo "~~~"
+            echo
+            echo "Build configuration validation also runs inside EAS via eas-build-post-install; missing/wrong MSG91 Mobile Integration or Supabase public configuration therefore fails the build."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload sanitized build evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-uat-eas-build-${{ github.sha }}
+          path: android-uat-build-summary.txt
+          if-no-files-found: error
+          retention-days: 90

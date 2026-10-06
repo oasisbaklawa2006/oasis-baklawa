@@ -77,11 +77,9 @@ A read-only production census on 2026-10-06 confirmed the governed payment RPCs 
 | Private-label catalogue | Per-product eligibility, MOQ, customisation terms and commercial authority | Buyer submits/tracks private-label enquiry | **No.** Requires governed product/private-label projection first. |
 | Packaging/decoration catalogue | Packaging SKUs/options, compatibility, MOQ and pricing authority | Buyer submits/tracks packaging enquiry | **No.** Requires governed packaging projection first. |
 | Oasis Genie production runtime | Deployed `ai-order-parse`, provider config, production certification, then feature flag | Genie remains hidden and invocation fails closed | **No activation now.** Backend runtime must be deployed/certified before enabling. |
-| Google login | Buyer OAuth implementation + provider config + account-link/claim rules | Not shown; OTP remains authoritative login | **Not safely activatable from Buyer code alone.** Provider configuration and identity-binding contract are required. |
-| Apple login | Native Apple sign-in implementation + Apple/Supabase provider config + account-link/claim rules | Not shown; OTP remains authoritative login | **Not safely activatable from Buyer code alone.** Apple Developer/provider configuration is required. |
 | Native OTP deployment config | Dedicated MSG91 Mobile Integration widget ID/token and Supabase public key in selected EAS environment | Build validation fails closed if missing or if Central web widget is reused | **Configuration task, not missing frontend code.** |
 
-Production auth identity census currently contains phone/email identities; no Google/Apple Buyer implementation exists in this repository. Provider dashboard enablement itself was not treated as proven by that census.
+Authentication scope is locked to **phone OTP (MSG91) + email OTP only**. Social sign-in is intentionally out of scope and must not be added to Buyer UI, native dependencies, auth configuration or activation planning.
 
 ## 4. Build entry gate for physical UAT
 

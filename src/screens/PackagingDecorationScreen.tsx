@@ -1,38 +1,102 @@
-import React from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import { BuyerGate } from "@/components/BuyerGate";
 import { BuyerServiceRequestPanel } from "@/components/BuyerServiceRequestPanel";
 import { OasisButton } from "@/components/OasisButton";
 import { Screen } from "@/components/Screen";
+import { ErrorState, LoadingState } from "@/components/StateViews";
+import { fetchCustomerPackagingOffers } from "@/lib/api/account-preferences";
+import { formatInr } from "@/lib/customer-projections";
+import { parseRpcError } from "@/lib/rpc-errors";
+import type { CustomerPackagingOffer } from "@/types/database.types";
+import { colors, spacing, typography } from "@/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "PackagingDecoration">;
 
-/**
- * Provides a governed packaging enquiry without inventing packaging SKUs,
- * decoration prices or compatibility that Core does not currently project.
- */
 export function PackagingDecorationScreen({ navigation }: Props) {
+  const [rows, setRows] = useState<CustomerPackagingOffer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setRows(await fetchCustomerPackagingOffers());
+    } catch (e) {
+      setError(parseRpcError(e).message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
   return (
-    <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
-      <Screen
-        title="Packaging & Decoration"
-        subtitle="Packaging, sleeves, boxes and custom presentation"
-      >
-        <BuyerServiceRequestPanel
-          category="CATALOGUE"
-          subject="Packaging and decoration enquiry"
-          intro="A governed packaging-option catalogue is not exposed to the Buyer app yet. Tell us the product, quantity, box or tray format, branding/decoration requirement and target date so the team can confirm real options and commercial terms."
-          placeholder="Example: 250 mixed baklawa boxes, rigid box with gold logo, inner tray required, delivery by 15 December…"
-          submitLabel="Request packaging options"
-          historyTitle="Packaging requests"
-        />
-        <OasisButton
-          label="Browse published products"
-          variant="secondary"
-          onPress={() => navigation.navigate("MainTabs", { screen: "Catalogue" })}
-        />
+    <BuyerGate requireApprovedBuyer onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
+      <Screen title="Packaging & Decoration" subtitle="Published packaging and presentation materials">
+        {loading ? (
+          <LoadingState message="Loading packaging offers…" />
+        ) : error ? (
+          <ErrorState message={error} onRetry={load} />
+        ) : (
+          <>
+            {rows.length === 0 ? (
+              <Text style={styles.empty}>No packaging or decoration SKUs are currently published with Buyer-safe commercial terms.</Text>
+            ) : (
+              rows.map((row) => (
+                <View key={row.product_id} style={styles.card}>
+                  <Text style={styles.name}>{row.product_name}</Text>
+                  <Text style={styles.sku}>{row.sku}</Text>
+                  {row.short_description ? <Text style={styles.description}>{row.short_description}</Text> : null}
+                  <Fact label="Price" value={row.selling_price == null ? "Commercial review required" : formatInr(row.selling_price)} />
+                  <Fact label="MOQ" value={row.minimum_order_quantity == null ? "To be confirmed" : `${row.minimum_order_quantity} ${row.minimum_order_uom ?? row.primary_uom ?? ""}`.trim()} />
+                  <Fact label="Order increment" value={row.order_increment == null ? "—" : `${row.order_increment} ${row.order_increment_uom ?? row.primary_uom ?? ""}`.trim()} />
+                  <Fact label="Lead time" value={row.lead_time_days == null ? "To be confirmed" : `${row.lead_time_days} days`} />
+                  <OasisButton
+                    label="View published product"
+                    variant="secondary"
+                    onPress={() => navigation.navigate("ProductDetail", { productId: row.product_id })}
+                  />
+                </View>
+              ))
+            )}
+
+            <BuyerServiceRequestPanel
+              category="CATALOGUE"
+              subject="Packaging and decoration enquiry"
+              intro="Use this enquiry for packaging not yet published above, custom decoration, compatibility checks or special presentation requirements."
+              placeholder="Product, quantity, box/tray format, branding or decoration requirement and target delivery date…"
+              submitLabel="Request packaging options"
+              historyTitle="Packaging requests"
+            />
+          </>
+        )}
       </Screen>
     </BuyerGate>
   );
 }
+
+function Fact({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.factRow}>
+      <Text style={styles.factLabel}>{label}</Text>
+      <Text style={styles.factValue}>{value}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  empty: { marginTop: spacing.lg, fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textMuted, lineHeight: 20 },
+  card: { marginTop: spacing.md, padding: spacing.lg, borderRadius: 14, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.borderLight, gap: spacing.sm },
+  name: { fontFamily: typography.fontFamilySerifBold, fontSize: typography.sizeLg, color: colors.textPrimary },
+  sku: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeXs, color: colors.textMuted, letterSpacing: 0.5 },
+  description: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textSecondary, lineHeight: 20 },
+  factRow: { flexDirection: "row", justifyContent: "space-between", gap: spacing.md },
+  factLabel: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textMuted },
+  factValue: { flex: 1, textAlign: "right", fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.textPrimary },
+});

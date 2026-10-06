@@ -3,6 +3,7 @@ import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-nativ
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import { Screen } from "@/components/Screen";
+import { SocialBuyerLoginButtons } from "@/components/SocialBuyerLoginButtons";
 import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { routeFromBuyerSnapshot } from "@/lib/session-routing";
 import { invokeBuyerPreflight, type BuyerPreflightChannel, type BuyerPreflightState } from "@/lib/buyer-preflight";
@@ -236,6 +237,7 @@ export function LoginScreen({ navigation }: Props) {
             <Text style={styles.choiceTitle}>Use email instead</Text>
             <Text style={styles.choiceSubtitle}>Use the email approved for your trade account.</Text>
           </TouchableOpacity>
+          <SocialBuyerLoginButtons navigation={navigation} />
         </View>
       )}
 

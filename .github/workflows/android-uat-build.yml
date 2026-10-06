@@ -61,8 +61,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          npx eas-cli@21.0.2 env:list preview --scope project --format short > /tmp/eas-project-env.txt 2>/tmp/eas-project-env.err
-          npx eas-cli@21.0.2 env:list preview --scope account --format short > /tmp/eas-account-env.txt 2>/tmp/eas-account-env.err || true
+          npx eas-cli@24.11.0 env:list preview --scope project --format short > /tmp/eas-project-env.txt 2>/tmp/eas-project-env.err
+          npx eas-cli@24.11.0 env:list preview --scope account --format short > /tmp/eas-account-env.txt 2>/tmp/eas-account-env.err || true
           cat /tmp/eas-project-env.txt /tmp/eas-account-env.txt > /tmp/eas-effective-env.txt
 
           missing=()
@@ -87,9 +87,9 @@ jobs:
         run: |
           set -euo pipefail
           rm -f /tmp/widget.txt
-          if npx eas-cli@21.0.2 env:get preview --variable-name EXPO_PUBLIC_MSG91_WIDGET_ID --scope project --format short --non-interactive > /tmp/widget.txt 2>/dev/null; then
+          if npx eas-cli@24.11.0 env:get preview --variable-name EXPO_PUBLIC_MSG91_WIDGET_ID --scope project --format short --non-interactive > /tmp/widget.txt 2>/dev/null; then
             :
-          elif npx eas-cli@21.0.2 env:get preview --variable-name EXPO_PUBLIC_MSG91_WIDGET_ID --scope account --format short --non-interactive > /tmp/widget.txt 2>/dev/null; then
+          elif npx eas-cli@24.11.0 env:get preview --variable-name EXPO_PUBLIC_MSG91_WIDGET_ID --scope account --format short --non-interactive > /tmp/widget.txt 2>/dev/null; then
             :
           fi
 
@@ -103,14 +103,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npx eas-cli@21.0.2 env:set preview             --name EXPO_PUBLIC_GENIE_PARSE_ENABLED             --value false             --visibility plaintext             --scope project             --non-interactive > /dev/null
+          npx eas-cli@24.11.0 env:set preview             --name EXPO_PUBLIC_GENIE_PARSE_ENABLED             --value false             --visibility plaintext             --scope project             --non-interactive > /dev/null
           echo "EXPO_PUBLIC_GENIE_PARSE_ENABLED set to false for preview."
 
       - name: Start and wait for fresh EAS Android APK build
         shell: bash
         run: |
           set -euo pipefail
-          npx eas-cli@21.0.2 build             --platform android             --profile preview             --non-interactive             --wait             --json > /tmp/eas-build.json
+          npx eas-cli@24.11.0 build             --platform android             --profile preview             --non-interactive             --wait             --json > /tmp/eas-build.json
 
           node <<'NODE'
           const fs = require('fs');
@@ -124,7 +124,7 @@ jobs:
           NODE
 
           BUILD_ID="$(cat /tmp/eas-build-id.txt)"
-          npx eas-cli@21.0.2 build:view "$BUILD_ID" --json > /tmp/eas-build-view.json
+          npx eas-cli@24.11.0 build:view "$BUILD_ID" --json > /tmp/eas-build-view.json
 
           node <<'NODE'
           const fs = require('fs');

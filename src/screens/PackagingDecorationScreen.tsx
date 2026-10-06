@@ -48,7 +48,7 @@ export function PackagingDecorationScreen({ navigation }: Props) {
           <LoadingState message="Loading packaging offers…" />
         ) : error ? (
           <View style={styles.warningCard}>
-            <Text style={styles.warningTitle}>Published packaging offers are not available yet.</Text>
+            <Text style={styles.warningTitle}>Published packaging offers could not be loaded.</Text>
             <Text style={styles.warningText}>{error}</Text>
             <Text style={styles.warningText}>
               You can still submit the exact product, quantity, box/tray format, branding or decoration and target delivery date below. The request stays pending until governed compatibility and commercial terms are confirmed.

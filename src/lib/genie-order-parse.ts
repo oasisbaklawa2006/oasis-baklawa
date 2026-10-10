@@ -33,8 +33,9 @@ export async function invokeGenieOrderParse(request: GenieParseRequest): Promise
   if (!GENIE_PARSE_ENABLED) {
     // Enforcement chokepoint, not just a UI-level gate: this is the one
     // function every Genie parse mode funnels through before reaching
-    // supabase.functions.invoke("ai-order-parse", ...) -- a production edge
-    // function slug confirmed not to exist (see genie-parse-availability.ts).
+    // supabase.functions.invoke("ai-order-parse", ...). The Edge Function
+    // is ACTIVE and JWT-protected in production (verified 2026-10-10), but
+    // backend deployment does not enable the Buyer feature flag.
     // Any future call site, not only AiOrderScreen, is protected by this
     // check, not just by the screen disabling its own button.
     throw new Error(

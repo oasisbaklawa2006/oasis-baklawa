@@ -4,9 +4,10 @@
  * Phase 1: absent or malformed config keeps Genie OFF — no navigation, no
  * overlay interception, and no ai-order-parse invocation.
  *
- * Phase 2: set EXPO_PUBLIC_GENIE_PARSE_ENABLED=true only after the governed
- * Core `ai-order-parse` function (oasis-supabase-core #341) is deployed and
- * provider-configured for the target runtime.
+ * Phase 2: the Core `ai-order-parse` Edge Function is deployed and JWT-
+ * protected, but that alone does not authorize Buyer activation. Enable
+ * EXPO_PUBLIC_GENIE_PARSE_ENABLED=true only after a separate approved
+ * Phase-2 release and target-build/runtime verification.
  *
  * EAS/Expo only exposes EXPO_PUBLIC_* values to the client bundle.
  */

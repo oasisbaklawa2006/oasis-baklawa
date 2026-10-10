@@ -7,6 +7,10 @@ Buyer main baseline at reservation: `fa742d9e4a9b309342044d419db91ae02e2e4e41`.
 Core governed parser baseline: oasis-supabase-core `5ddba9da0f43fe37331bc58ed734c5e04ac86b68`
 (Task 3 / PR #341 — `ai-order-parse`).
 
+## Runtime update — 2026-10-06
+
+**Production runtime (read-only verified 2026-10-10):** the governed `ai-order-parse` Edge Function is ACTIVE, version 3, with JWT verification enabled. This confirms backend availability, **not** the `EXPO_PUBLIC_GENIE_PARSE_ENABLED` value embedded in any installed Buyer build. Buyer source is fail-closed when the flag is absent/false; Phase-2 UI/overlay/customer invocation requires separate explicit activation and exact-build verification.
+
 ## Phase-1 posture (launch protection)
 
 Genie is **OFF** for the Phase-1 production candidate.
@@ -85,7 +89,7 @@ new schema.
 
 ## Phase-2 implementation backlog
 
-1. Enable `EXPO_PUBLIC_GENIE_PARSE_ENABLED=true` only after Core `ai-order-parse` runtime certification and Task-5 production gates clear.
+1. Preserve Buyer Genie OFF as the intended Phase-1 release posture; verify the actual EAS/build-time `EXPO_PUBLIC_GENIE_PARSE_ENABLED` value before claiming any deployed build is OFF. Core `ai-order-parse` is ACTIVE/JWT-protected, but backend availability alone is not Phase-2 product activation authority.
 2. Replace current `AiOrderScreen` with Phase-2 overlay shell (3-second timer, left rail, skip).
 3. Wire in-app microphone capture (physical UAT item).
 4. Persist Genie session/conversation state and `GenieSessionId` orchestration.

@@ -2,8 +2,9 @@
 
 Date: 2026-10-06  
 Repository: `oasisbaklawa2006/oasis-baklawa`  
-Baseline entering this certification batch: `fe70a51cb2bde599c3bce90b6aa56e26b5f12000`  
-Final-device builds MUST use the latest merged `main` SHA after this certification PR merges.
+Baseline entering the original certification batch: `fe70a51cb2bde599c3bce90b6aa56e26b5f12000`  
+Runtime-reality reconciliation checkpoint: Buyer `main` `e0523172dc531da24eef79871790b5f26389bbbd` after PR #57.  
+Final-device builds MUST use the latest merged `main` SHA after Core #399 production activation and post-release verification.
 
 ## 1. Executive result
 
@@ -39,12 +40,12 @@ For this audit:
 | Catalogue Filters | REAL | Operational client filtering over governed catalogue fields. |
 | Collection Hub | REAL | Navigation hub to actual collection surfaces. |
 | Seasonal Collection | REAL | Derived only from explicit published catalogue taxonomy; no guessed seasonal claims. |
-| Private Label | REAL — governed fallback | Auditable private-label enquiry + request history. Does not invent eligible SKUs/MOQs. |
-| Packaging & Decoration | REAL — governed fallback | Auditable packaging/decoration enquiry + request history. Does not invent packaging SKUs/prices. |
+| Private Label | REAL | Live `customer_private_label_products_v1` projection when governed published offers exist, plus auditable enquiry/request history. Missing owner commercial data is never invented. |
+| Packaging & Decoration | REAL | Live `customer_packaging_offers_v1` projection when governed published offers exist, plus auditable packaging/decoration enquiry/request history. Missing owner commercial data is never invented. |
 | Recommended | REAL | Buyer-specific published products derived from favourites and prior order items only. |
 | Order Detail | REAL | Order status/timeline + finance/document/payment/support actions from governed projections. |
 | Quick Order | REAL | Published catalogue search + current buyer commercial rules + live draft mutations. |
-| Oasis Genie / AI Order | FEATURE-GATED | Source remains reserved, but hidden/fail-closed because production `ai-order-parse` is not deployed. |
+| Oasis Genie / AI Order | FEATURE-GATED | Production `ai-order-parse` is deployed and JWT-protected, but Buyer remains deliberately hidden/fail-closed because `EXPO_PUBLIC_GENIE_PARSE_ENABLED` is absent/false. |
 | Cart | REAL | Server draft + published commercial rules and quantity validation. |
 | Commercial Review | REAL | Real review of unresolved commercial/quantity conditions before checkout. |
 | Checkout | REAL | Server draft, advance calculation, persisted idempotency and `submit_customer_order_v1`. |
@@ -66,17 +67,23 @@ For this audit:
 | Shipping Policy | REAL | Intentional static policy content. |
 | Terms & Privacy | REAL | Intentional static legal/policy content. |
 
-## 3. Remaining backend/projection gaps
+## 3. Remaining activation / owner-data gaps
 
-A read-only production census on 2026-10-06 confirmed the governed payment RPCs are present. It did **not** find dedicated Buyer RPCs matching address-book, preferred-transporter, private-label eligibility, or packaging-option projections. The production Edge Function list also does **not** contain `ai-order-parse`.
+Production reality was rechecked on 2026-10-06 after Core #398 and Buyer PRs #56/#57:
 
-| Gap | What is missing | Current safe behaviour | Can Buyer frontend alone complete it now? |
+- `customer_private_label_products_v1`, `customer_packaging_offers_v1`, and `connect_staff_readiness_v1` are live.
+- `ai-order-parse` is live, ACTIVE and JWT-protected; Buyer Genie remains intentionally OFF.
+- Core #399 migration `20261006032935_buyer_fullfeel_runtime_train.sql` is **not** yet in the production migration ledger.
+- The #399 saved-address/saved-transporter/payment-provider helper objects and generic payment Edge Functions are still absent pending the protected #399 release.
+
+| Gap | What is missing | Current safe behaviour | Completion authority |
 |---|---|---|---|
-| Multi-address book | Customer-safe list of billing/shipping/branch addresses plus governed mutation/approval authority | Registered company address is shown; additions/changes become auditable ACCOUNT requests | **No.** Requires Core data model/projection/write authority first. |
-| Saved preferred transporter | Customer-safe transporter projection plus update/approval contract | Buyer submits/tracks DELIVERY preference requests | **No.** Requires Core projection/master authority first. |
-| Private-label catalogue | Per-product eligibility, MOQ, customisation terms and commercial authority | Buyer submits/tracks private-label enquiry | **No.** Requires governed product/private-label projection first. |
-| Packaging/decoration catalogue | Packaging SKUs/options, compatibility, MOQ and pricing authority | Buyer submits/tracks packaging enquiry | **No.** Requires governed packaging projection first. |
-| Oasis Genie production runtime | Deployed `ai-order-parse`, provider config, production certification, then feature flag | Genie remains hidden and invocation fails closed | **No activation now.** Backend runtime must be deployed/certified before enabling. |
+| Multi-address book | #399 customer address write/delete authority | Registered company address remains visible; additions/changes can still become auditable ACCOUNT requests | **Core #399 protected production release.** |
+| Saved transporters | #399 multi-saved transporter projection/write authority | Buyer retains governed DELIVERY request fallback until Core authority is live | **Core #399 protected production release.** |
+| Private-label commercial readiness | Projection is live, but current published private-label data still needs explicit owner selling price/lead-time completion | Published governed facts render; missing commercial facts remain unclaimed and enquiry path stays available | **Owner/catalogue data decision in Studio.** |
+| Packaging commercial readiness | Projection is live, but there are currently no fully governed published packaging offers | Buyer shows only governed published offers and keeps request fallback available | **Owner/catalogue publication, pricing and lead-time decisions in Studio.** |
+| Generic payment runtime | #399 provider config helpers + `payment-provider-create-session` / `payment-provider-webhook`; no provider row or merchant endpoint is invented | Payment remains fail-closed; success still requires signed server event + canonical settlement | **Core #399 release, then deliberate engineering/provider configuration.** |
+| Oasis Genie customer activation | Buyer feature flag remains OFF by design | `ai-order-parse` is live but no customer-facing Genie route/invocation is exposed | **Separate deliberate Phase-2 product activation, not a backend deployment gap.** |
 | Native OTP deployment config | Dedicated MSG91 Mobile Integration widget ID/token and Supabase public key in selected EAS environment | Build validation fails closed if missing or if Central web widget is reused | **Configuration task, not missing frontend code.** |
 
 Authentication scope is locked to **phone OTP (MSG91) + email OTP only**. Social sign-in is intentionally out of scope and must not be added to Buyer UI, native dependencies, auth configuration or activation planning.
@@ -87,15 +94,16 @@ Before generating either device build:
 
 1. Checkout latest merged `main`; record exact full SHA. Do not build from an open PR.
 2. Run `npm ci` (or repository-approved install command) and `npm run quality`; must pass.
-3. Confirm exact-head GitHub gates are green: Mobile Quality, Buyer Quality Gate, Core Backend Authority, Buyer Mobile Golden Path Certification, CodeRabbit, Snyk, Codacy/security checks.
-4. Use EAS `preview` / internal-distribution environment for physical UAT unless production release is explicitly intended.
-5. Required EAS environment values must be present without printing them:
+3. Require all **configured, applicable exact-head GitHub checks** to pass (currently Buyer Quality Gate and Core Backend Authority). Verify actual check-run and branch-protection evidence on the selected build SHA; include any additional checks only when they are installed and report for that ref. Review substantive CodeRabbit/security findings when available, but do not treat missing or rate-limited third-party contexts as a green result or invent a required context. Never bypass a required branch-protection gate.
+4. Use the merged manual workflow `.github/workflows/android-uat-eas-build.yml` with the exact current Buyer `main` SHA. It re-runs `npm run quality`, verifies package/project ownership, uses EAS `preview` internal distribution, and records only sanitized build evidence.
+5. Use EAS `preview` / internal-distribution environment for physical UAT unless production release is explicitly intended.
+6. Required EAS environment values must be present without printing them:
    - `EXPO_PUBLIC_MSG91_WIDGET_ID` — dedicated Buyer **Mobile Integration** widget, never Central web widget.
    - `EXPO_PUBLIC_MSG91_TOKEN_AUTH`.
    - `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
-6. Keep `EXPO_PUBLIC_GENIE_PARSE_ENABLED` absent/false until `ai-order-parse` production deployment is separately certified.
-7. Generate a **new Android APK** and a **new iOS preview build** from the same recorded SHA.
-8. Do **not** use the September RC APK/build at `2da7bb7`; it predates the merged Buyer convergence work.
+7. Keep `EXPO_PUBLIC_GENIE_PARSE_ENABLED` absent/false. The backend parser is deployed, but Genie customer activation remains a separate deliberate Phase-2 decision.
+8. Generate a **new Android APK** from the exact post-Core-activation Buyer `main` SHA. iOS remains a separate physical-UAT/provisioning lane.
+9. Do **not** use the old Android APK at `6588d85e` or the September RC build at `2da7bb7`; both predate the current merged Buyer/runtime convergence work.
 
 ## 5. Test evidence to record for every device
 
@@ -309,7 +317,8 @@ The current Buyer code can be software-complete while the following remain exter
 
 - dedicated mobile MSG91 environment values before a physical build;
 - Apple provisioning/device distribution for iPhone;
-- Oasis Genie until `ai-order-parse` is deployed/certified and its feature flag is deliberately enabled;
-- richer address/transporter/private-label/packaging master-data projections, which require new Core authority and are not represented as fake Buyer data.
+- Oasis Genie customer activation, which remains deliberately OFF even though `ai-order-parse` is already live;
+- #399 address/transporter write authority until the protected production migration release completes;
+- owner-data completion for private-label and packaging commercial readiness, which must be supplied through governed catalogue authority rather than invented in Buyer.
 
 Do not reopen already-certified Buyer screens merely because these external or future-authority items exist.

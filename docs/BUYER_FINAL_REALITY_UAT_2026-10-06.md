@@ -94,7 +94,7 @@ Before generating either device build:
 
 1. Checkout latest merged `main`; record exact full SHA. Do not build from an open PR.
 2. Run `npm ci` (or repository-approved install command) and `npm run quality`; must pass.
-3. Confirm exact-head GitHub gates are green: Buyer Quality, Core Backend Authority, CodeRabbit, Snyk, Codacy and security checks.
+3. Require all **configured, applicable exact-head GitHub checks** to pass (currently Buyer Quality Gate and Core Backend Authority). Verify actual check-run and branch-protection evidence on the selected build SHA; include any additional checks only when they are installed and report for that ref. Review substantive CodeRabbit/security findings when available, but do not treat missing or rate-limited third-party contexts as a green result or invent a required context. Never bypass a required branch-protection gate.
 4. Use the merged manual workflow `.github/workflows/android-uat-eas-build.yml` with the exact current Buyer `main` SHA. It re-runs `npm run quality`, verifies package/project ownership, uses EAS `preview` internal distribution, and records only sanitized build evidence.
 5. Use EAS `preview` / internal-distribution environment for physical UAT unless production release is explicitly intended.
 6. Required EAS environment values must be present without printing them:

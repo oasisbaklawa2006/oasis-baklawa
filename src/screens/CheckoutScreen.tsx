@@ -147,7 +147,7 @@ export function CheckoutScreen({ navigation }: Props) {
 
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
-      <Screen title="Checkout" subtitle="Authoritative draft totals · Advance due" safeAreaEdges={["top", "bottom"]}>
+      <Screen title="Checkout" subtitle="Draft estimate · Final totals confirmed after submission" safeAreaEdges={["top", "bottom"]}>
         {loading ? (
           <LoadingState message="Preparing checkout…" />
         ) : error && !draft ? (
@@ -168,9 +168,9 @@ export function CheckoutScreen({ navigation }: Props) {
             ) : null}
 
             <View style={styles.summaryCard}>
-              <Row label="Order value (SO)" value={`₹${orderValue.toLocaleString("en-IN")}`} />
-              <Row label="Advance due" value={advanceDisplay} emphasis />
-              <Row label="Balance on dispatch" value={`₹${balance.toLocaleString("en-IN")}`} />
+              <Row label="Draft merchandise subtotal (before applicable taxes)" value={`₹${orderValue.toLocaleString("en-IN")}`} />
+              <Row label="Estimated advance on draft subtotal" value={advanceDisplay} emphasis />
+              <Row label="Estimated remaining amount before taxes" value={`₹${balance.toLocaleString("en-IN")}`} />
             </View>
 
             {!draft?.is_checkout_ready ? (
@@ -217,14 +217,14 @@ export function CheckoutScreen({ navigation }: Props) {
             ) : null}
 
             <Text style={styles.note}>
-              Submitting creates your Sales Order with a server-authoritative advance due. Payment capture uses Core gateway intent/status once bound — no client-side financial truth.
+              These draft amounts exclude any taxes added when the Sales Order is created. The final order total and advance may be higher. Review the confirmed Sales Order before payment. Payment is only available after the required commercial documents are issued.
             </Text>
 
             <OasisButton
               label={
                 submitting
                   ? "Submitting order…"
-                  : `Submit Sales Order · Advance ${submitLabelAdvance}`
+                  : `Submit Sales Order · Est. advance ${submitLabelAdvance} + applicable tax`
               }
               onPress={submitOrder}
               disabled={!canSubmit}

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import { BuyerGate } from "@/components/BuyerGate";
@@ -138,6 +138,18 @@ export function CheckoutScreen({ navigation }: Props) {
     }
   }
 
+  function confirmEstimatedSubmission() {
+    if (!canSubmit) return;
+    Alert.alert(
+      "Confirm order with variable final total",
+      "The amounts shown are before applicable taxes. The server may confirm a higher final Sales Order value and advance. You will see the final amounts after submission. Do you want to submit this order?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Submit order", onPress: () => { void submitOrder(); } },
+      ]
+    );
+  }
+
   const submitLabelAdvance =
     advanceState.status === "resolved"
       ? `₹${advanceState.amount.toLocaleString("en-IN")}`
@@ -226,7 +238,7 @@ export function CheckoutScreen({ navigation }: Props) {
                   ? "Submitting order…"
                   : `Submit Sales Order · Est. advance ${submitLabelAdvance} + applicable tax`
               }
-              onPress={submitOrder}
+              onPress={confirmEstimatedSubmission}
               disabled={!canSubmit}
               loading={submitting}
               accessibilityHint="Creates a governed Sales Order using your saved idempotency key"

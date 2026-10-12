@@ -78,16 +78,16 @@ export function CommercialReviewScreen({ navigation }: Props) {
             </View>
             <View style={styles.summary}>
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Order total</Text>
+                <Text style={styles.summaryLabel}>Draft subtotal before applicable taxes</Text>
                 <Text style={styles.total}>₹{draft.order_total.toLocaleString("en-IN")}</Text>
               </View>
               {advance !== null ? (
                 <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Advance required</Text>
+                  <Text style={styles.summaryLabel}>Estimated advance before taxes</Text>
                   <Text style={styles.advance}>₹{advance.toLocaleString("en-IN")}</Text>
                 </View>
               ) : null}
-              <Text style={styles.note}>Taxes and final invoice details will follow the issued commercial documents.</Text>
+              <Text style={styles.note}>These are pre-tax estimates, not a final quote. Applicable taxes may increase the order value and required advance when submitted. The confirmed amounts will appear after submission.</Text>
             </View>
             <OasisButton
               label="Continue to checkout"

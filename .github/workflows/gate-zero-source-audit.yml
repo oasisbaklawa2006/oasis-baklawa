@@ -1,0 +1,84 @@
+name: GATE0 Buyer Android Source-Only Pre-UAT
+
+# Deliberately isolated from production/provider data and credentials.
+# Success certifies execution of STATIC checks, not actual MSG91 or device UAT.
+on:
+  push:
+    branches: [cert/gate0-three-layer-preuat-20261013]
+    paths:
+      - "scripts/gate-zero/**"
+      - "docs/GATE0_THREE_LAYER_PRE_UAT.md"
+      - ".github/workflows/gate-zero-source-audit.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/gate-zero/**"
+      - "docs/GATE0_THREE_LAYER_PRE_UAT.md"
+      - ".github/workflows/gate-zero-source-audit.yml"
+      - "src/screens/LoginScreen.tsx"
+      - "src/lib/msg91-otp-contract.ts"
+      - "src/lib/login-preflight-action.ts"
+      - ".github/workflows/buyer-mobile-golden-path-certification.yml"
+      - ".github/workflows/android-uat-eas-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  source-only-audit:
+    name: Static contracts + source-only readiness ledger (NOT mobile PASS)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+      - name: Confirm immutable checkout and identify main
+        shell: bash
+        env:
+          EXPECTED_HEAD: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          git fetch --quiet origin refs/heads/main:refs/remotes/origin/main
+          base_sha="$(git rev-parse refs/remotes/origin/main)"
+          echo "GATE0_HEAD_SHA=$EXPECTED_HEAD" >> "$GITHUB_ENV"
+          echo "GATE0_MAIN_SHA=$base_sha" >> "$GITHUB_ENV"
+          echo "GATE0_REPORT_DIR=gate-zero-evidence" >> "$GITHUB_ENV"
+          echo "Auditing candidate $EXPECTED_HEAD against release main $base_sha (no secrets or provider calls)."
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install pinned development dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Execute existing static and unit contracts
+        run: |
+          npm run verify:boundary
+          npm run typecheck
+          npm run lint
+          npm run test
+
+      - name: Write truthful Gate Zero evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/gate-zero/certify-source.mjs
+          node scripts/gate-zero/certify-source.mjs
+          cat gate-zero-evidence/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish redacted source-only evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: gate0-source-only-${{ github.sha }}
+          path: gate-zero-evidence/
+          retention-days: 14
+          if-no-files-found: warn

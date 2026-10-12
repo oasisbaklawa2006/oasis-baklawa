@@ -91,10 +91,10 @@ export function DashboardScreen({ navigation }: Props) {
             <Text style={styles.nextActionEyebrow}>YOUR NEXT STEP</Text>
             <Text style={styles.nextActionTitle}>Your order is ready to proceed</Text>
             <Text style={styles.nextActionCopy}>
-              Complete the required advance so we can begin preparing your order.
+              Review the confirmed payment documents and any payable advance before proceeding.
             </Text>
             <Text style={styles.nextActionAmount}>
-              ₹{ordersNeedingAdvance[0].order_value.toLocaleString("en-IN")}
+              Order value · ₹{ordersNeedingAdvance[0].order_value.toLocaleString("en-IN")}
             </Text>
             <Text style={styles.nextActionMeta}>Order #{ordersNeedingAdvance[0].order_number}</Text>
             <TouchableOpacity

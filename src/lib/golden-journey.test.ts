@@ -53,6 +53,7 @@ describe("golden journey invariants", () => {
     assert.equal(
       isCheckoutSubmitEnabled({
         checkoutReady: true,
+        authoritativeQuoteApproved: false,
         orderValue: 2500,
         submitting: false,
         keyReady: true,
@@ -263,6 +264,7 @@ describe("golden journey invariants", () => {
 describe("double-submit money safety", () => {
   const base = {
     checkoutReady: true,
+    authoritativeQuoteApproved: true,
     orderValue: 1000,
     keyReady: true,
     idempotencyKey: "uuid",

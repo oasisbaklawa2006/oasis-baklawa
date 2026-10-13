@@ -12,7 +12,7 @@ import { getCustomerOrderDraft } from "@/lib/api/draft";
 import { fetchBuyerProductPrices } from "@/lib/api/catalogue";
 import { validateDraftLinesAgainstPrices } from "@/lib/buyer-commercial-validation";
 import { clearCheckoutIdempotencyKey, resolveCheckoutIdempotencyKey } from "@/lib/checkout-idempotency";
-import { formatAdvanceDisplay, isCheckoutSubmitEnabled, type AdvanceLoadState } from "@/lib/checkout-submit-guards";
+import { isCheckoutSubmitEnabled, type AdvanceLoadState } from "@/lib/checkout-submit-guards";
 import { parseRpcError } from "@/lib/rpc-errors";
 import { classifyCheckoutSubmitError } from "@/lib/checkout-submit-error";
 import type { BuyerProductPrice, CustomerOrderDraft } from "@/types/database.types";
@@ -90,9 +90,6 @@ export function CheckoutScreen({ navigation }: Props) {
   }, [loadCheckout]);
 
   const orderValue = draft?.order_total ?? 0;
-  const advanceDisplay = formatAdvanceDisplay(advanceState);
-  const resolvedAdvance = advanceState.status === "resolved" ? advanceState.amount : 0;
-  const balance = useMemo(() => Math.max(0, orderValue - resolvedAdvance), [orderValue, resolvedAdvance]);
 
   const commercialValidation = useMemo(() => {
     if (!draft?.lines.length) {
@@ -103,6 +100,9 @@ export function CheckoutScreen({ navigation }: Props) {
 
   const canSubmit = isCheckoutSubmitEnabled({
     checkoutReady: draft?.is_checkout_ready ?? false,
+    // The existing draft RPC is pre-tax and cannot attest buyer approval of the final SO.
+    // Do not enable submission until a server quote with atomic submit binding exists.
+    authoritativeQuoteApproved: false,
     orderValue,
     submitting,
     keyReady,
@@ -138,16 +138,9 @@ export function CheckoutScreen({ navigation }: Props) {
     }
   }
 
-  const submitLabelAdvance =
-    advanceState.status === "resolved"
-      ? `₹${advanceState.amount.toLocaleString("en-IN")}`
-      : advanceState.status === "loading"
-        ? "…"
-        : "Unavailable";
-
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
-      <Screen title="Checkout" subtitle="Authoritative draft totals · Advance due" safeAreaEdges={["top", "bottom"]}>
+      <Screen title="Checkout" subtitle="Draft subtotal only · Final quote unavailable" safeAreaEdges={["top", "bottom"]}>
         {loading ? (
           <LoadingState message="Preparing checkout…" />
         ) : error && !draft ? (
@@ -168,9 +161,10 @@ export function CheckoutScreen({ navigation }: Props) {
             ) : null}
 
             <View style={styles.summaryCard}>
-              <Row label="Order value (SO)" value={`₹${orderValue.toLocaleString("en-IN")}`} />
-              <Row label="Advance due" value={advanceDisplay} emphasis />
-              <Row label="Balance on dispatch" value={`₹${balance.toLocaleString("en-IN")}`} />
+              <Row label="Draft subtotal before tax" value={`₹${orderValue.toLocaleString("en-IN")}`} />
+              <Row label="GST-inclusive Sales Order total" value="Awaiting Core quote" />
+              <Row label="Advance payable" value="Awaiting Core quote" emphasis />
+              <Row label="Remaining balance" value="Awaiting Core quote" />
             </View>
 
             {!draft?.is_checkout_ready ? (
@@ -216,20 +210,19 @@ export function CheckoutScreen({ navigation }: Props) {
               </View>
             ) : null}
 
+            <Text style={styles.warning} accessibilityRole="alert">
+              Order submission is temporarily unavailable. An authoritative GST-inclusive quote must be issued by Core and approved by you before a Sales Order can be submitted. The draft subtotal above is not a final price or payment request.
+            </Text>
             <Text style={styles.note}>
-              Submitting creates your Sales Order with a server-authoritative advance due. Payment capture uses Core gateway intent/status once bound — no client-side financial truth.
+              No Sales Order or payment is created from this screen while quote verification is unavailable.
             </Text>
 
             <OasisButton
-              label={
-                submitting
-                  ? "Submitting order…"
-                  : `Submit Sales Order · Advance ${submitLabelAdvance}`
-              }
+              label={submitting ? "Submitting order…" : "Submit Sales Order (unavailable)"}
               onPress={submitOrder}
               disabled={!canSubmit}
               loading={submitting}
-              accessibilityHint="Creates a governed Sales Order using your saved idempotency key"
+              accessibilityHint="Disabled until a Core GST-inclusive quote is verified and explicitly approved by the buyer"
             />
           </>
         )}

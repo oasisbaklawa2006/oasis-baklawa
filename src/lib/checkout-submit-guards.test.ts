@@ -5,6 +5,7 @@ import { formatAdvanceDisplay, isCheckoutSubmitEnabled } from "./checkout-submit
 describe("checkout submit guards", () => {
   const base = {
     checkoutReady: true,
+    authoritativeQuoteApproved: true,
     orderValue: 1000,
     submitting: false,
     keyReady: true,
@@ -12,6 +13,11 @@ describe("checkout submit guards", () => {
     keyPersisted: true,
     advanceState: { status: "resolved" as const, amount: 500 },
   };
+
+  it("rejects checkout when buyer has not approved the authoritative tax-inclusive quote", () => {
+    assert.equal(isCheckoutSubmitEnabled({ ...base, authoritativeQuoteApproved: false }), false);
+    assert.equal(isCheckoutSubmitEnabled({ ...base, authoritativeQuoteApproved: true }), true);
+  });
 
   it("blocks submit when idempotency key is not durably persisted", () => {
     assert.equal(

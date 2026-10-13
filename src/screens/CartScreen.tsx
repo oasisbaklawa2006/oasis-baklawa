@@ -249,7 +249,7 @@ export function CartScreen({ navigation }: Props) {
               ))}
 
             <View style={styles.summary}>
-              <Text style={styles.summaryLabel}>Order total</Text>
+              <Text style={styles.summaryLabel}>Cart subtotal before tax</Text>
               <Text style={styles.summaryValue}>₹{draft.order_total.toLocaleString("en-IN")}</Text>
             </View>
 
@@ -266,10 +266,10 @@ export function CartScreen({ navigation }: Props) {
         )}
 
         <OasisButton
-          label={checkoutReady ? "Review order" : "Adjust quantities to continue"}
-          onPress={() => navigation.navigate("CommercialReview")}
+          label={checkoutReady ? "Continue to checkout" : "Adjust quantities to continue"}
+          onPress={() => navigation.navigate("Checkout")}
           disabled={!checkoutReady || !isOnline}
-          accessibilityHint="Reviews your commercial details before checkout"
+          accessibilityHint="Opens checkout directly"
         />
       </Screen>
     </BuyerGate>

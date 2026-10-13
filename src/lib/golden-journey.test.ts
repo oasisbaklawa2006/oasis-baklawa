@@ -53,6 +53,7 @@ describe("golden journey invariants", () => {
     assert.equal(
       isCheckoutSubmitEnabled({
         checkoutReady: true,
+        authoritativeQuoteApproved: false,
         orderValue: 2500,
         submitting: false,
         keyReady: true,

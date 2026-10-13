@@ -263,6 +263,7 @@ describe("golden journey invariants", () => {
 describe("double-submit money safety", () => {
   const base = {
     checkoutReady: true,
+    authoritativeQuoteApproved: true,
     orderValue: 1000,
     keyReady: true,
     idempotencyKey: "uuid",

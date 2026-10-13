@@ -103,6 +103,9 @@ export function CheckoutScreen({ navigation }: Props) {
 
   const canSubmit = isCheckoutSubmitEnabled({
     checkoutReady: draft?.is_checkout_ready ?? false,
+    // The existing draft RPC is pre-tax and cannot attest buyer approval of the final SO.
+    // Do not enable submission until a server quote with atomic submit binding exists.
+    authoritativeQuoteApproved: false,
     orderValue,
     submitting,
     keyReady,

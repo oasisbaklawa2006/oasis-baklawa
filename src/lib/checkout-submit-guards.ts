@@ -46,3 +46,14 @@ export function formatAdvanceDisplay(advanceState: AdvanceLoadState): string {
   }
   return `₹${advanceState.amount.toLocaleString("en-IN")}`;
 }
+
+/** Reject malformed Core quote payloads before Buyer checkout renders or approves them. */
+export function hasValidQuoteLines(lines: unknown): lines is Record<string, unknown>[] {
+  return Array.isArray(lines) && lines.length > 0 &&
+    lines.every((line) => line !== null && typeof line === "object" && !Array.isArray(line));
+}
+
+export function hasValidQuoteAmounts(total: number, advance: number): boolean {
+  return Number.isFinite(total) && total > 0 &&
+    Number.isFinite(advance) && advance > 0 && advance <= total;
+}

@@ -1,4 +1,5 @@
 import { callRpc } from "@/lib/rpc";
+import { hasValidQuoteAmounts, hasValidQuoteLines } from "@/lib/checkout-submit-guards";
 import type { SubmitCustomerOrderResult } from "@/types/database.types";
 
 export async function calculateCustomerAdvance(salesOrderValue: number): Promise<number> {
@@ -37,9 +38,8 @@ export async function getAuthoritativeCheckoutQuote(): Promise<AuthoritativeChec
   const total = typeof quote.sales_order_value === 'number' || (typeof quote.sales_order_value === 'string' && quote.sales_order_value.trim() !== '') ? Number(quote.sales_order_value) : NaN;
   const advance = typeof quote.advance_required === 'number' || (typeof quote.advance_required === 'string' && quote.advance_required.trim() !== '') ? Number(quote.advance_required) : NaN;
   if (typeof quote.draft_id !== "string" || !quote.draft_id ||
-      !Array.isArray(quote.lines) || quote.lines.length === 0 ||
-      !Number.isFinite(total) || total <= 0 ||
-      !Number.isFinite(advance) || advance <= 0 ||
+      !hasValidQuoteLines(quote.lines) ||
+      !hasValidQuoteAmounts(total, advance) ||
       typeof quote.fingerprint !== "string" || !/^[0-9a-f]{32}$/.test(quote.fingerprint)) {
     throw new Error("QUOTE_INVALID: server quote is incomplete");
   }

@@ -34,8 +34,8 @@ export async function getAuthoritativeCheckoutQuote(): Promise<AuthoritativeChec
     throw new Error("QUOTE_UNAVAILABLE: server did not return a commercial quote");
   }
   const quote = raw as Record<string, unknown>;
-  const total = Number(quote.sales_order_value);
-  const advance = Number(quote.advance_required);
+  const total = typeof quote.sales_order_value === 'number' || (typeof quote.sales_order_value === 'string' && quote.sales_order_value.trim() !== '') ? Number(quote.sales_order_value) : NaN;
+  const advance = typeof quote.advance_required === 'number' || (typeof quote.advance_required === 'string' && quote.advance_required.trim() !== '') ? Number(quote.advance_required) : NaN;
   if (typeof quote.draft_id !== "string" || !quote.draft_id ||
       !Array.isArray(quote.lines) || quote.lines.length === 0 ||
       !Number.isFinite(total) || total <= 0 ||

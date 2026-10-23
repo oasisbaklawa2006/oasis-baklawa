@@ -22,7 +22,7 @@ export async function submitCustomerOrder(
 /** Server-owned commercial quote; never calculate a final SO amount from the draft subtotal. */
 export type AuthoritativeCheckoutQuote = {
   draft_id: string;
-  lines: Array<Record<string, unknown>>;
+  lines: Record<string, unknown>[];
   sales_order_value: number;
   advance_required: number;
   fingerprint: string;
@@ -43,7 +43,7 @@ export async function getAuthoritativeCheckoutQuote(): Promise<AuthoritativeChec
       typeof quote.fingerprint !== "string" || !/^[0-9a-f]{32}$/.test(quote.fingerprint)) {
     throw new Error("QUOTE_INVALID: server quote is incomplete");
   }
-  return { draft_id: quote.draft_id, lines: quote.lines as Array<Record<string, unknown>>,
+  return { draft_id: quote.draft_id, lines: quote.lines as Record<string, unknown>[],
     sales_order_value: total, advance_required: advance, fingerprint: quote.fingerprint };
 }
 

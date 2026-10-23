@@ -7,7 +7,7 @@ import { OasisButton } from "@/components/OasisButton";
 import { Screen } from "@/components/Screen";
 import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { useNetwork } from "@/context/NetworkContext";
-import { calculateCustomerAdvance, submitCustomerOrder } from "@/lib/api/checkout";
+import { getAuthoritativeCheckoutQuote, submitQuotedCustomerOrder, type AuthoritativeCheckoutQuote } from "@/lib/api/checkout";
 import { getCustomerOrderDraft } from "@/lib/api/draft";
 import { fetchBuyerProductPrices } from "@/lib/api/catalogue";
 import { validateDraftLinesAgainstPrices } from "@/lib/buyer-commercial-validation";
@@ -26,6 +26,8 @@ export function CheckoutScreen({ navigation }: Props) {
   const [draft, setDraft] = useState<CustomerOrderDraft | null>(null);
   const [pricesByProduct, setPricesByProduct] = useState<Record<string, BuyerProductPrice>>({});
   const [advanceState, setAdvanceState] = useState<AdvanceLoadState>({ status: "loading" });
+  const [quote, setQuote] = useState<AuthoritativeCheckoutQuote | null>(null);
+  const [approvedFingerprint, setApprovedFingerprint] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +44,8 @@ export function CheckoutScreen({ navigation }: Props) {
     setDraftAlreadySubmittedElsewhere(false);
     setPersistenceError(null);
     setAdvanceState({ status: "loading" });
+    setQuote(null);
+    setApprovedFingerprint(null);
 
     try {
       const [draftData, prices] = await Promise.all([getCustomerOrderDraft(), fetchBuyerProductPrices()]);
@@ -68,12 +72,17 @@ export function CheckoutScreen({ navigation }: Props) {
       }
 
       try {
-        const advanceAmount = await calculateCustomerAdvance(draftData.order_total);
-        setAdvanceState({ status: "resolved", amount: advanceAmount });
-      } catch (advanceError) {
+        const serverQuote = await getAuthoritativeCheckoutQuote();
+        if (serverQuote.draft_id !== draftData.draft_id) {
+          throw new Error("QUOTE_CHANGED_REFRESH_REQUIRED: cart changed; refresh checkout");
+        }
+        setQuote(serverQuote);
+        setAdvanceState({ status: "resolved", amount: serverQuote.advance_required });
+      } catch (quoteError) {
+        setQuote(null);
         setAdvanceState({
           status: "failed",
-          message: parseRpcError(advanceError).message,
+          message: parseRpcError(quoteError).message,
         });
       }
     } catch (e) {
@@ -102,8 +111,8 @@ export function CheckoutScreen({ navigation }: Props) {
     checkoutReady: draft?.is_checkout_ready ?? false,
     // The existing draft RPC is pre-tax and cannot attest buyer approval of the final SO.
     // Do not enable submission until a server quote with atomic submit binding exists.
-    authoritativeQuoteApproved: false,
-    orderValue,
+    authoritativeQuoteApproved: Boolean(quote && approvedFingerprint === quote.fingerprint),
+    orderValue: quote?.sales_order_value ?? 0,
     submitting,
     keyReady,
     idempotencyKey,
@@ -114,14 +123,14 @@ export function CheckoutScreen({ navigation }: Props) {
   });
 
   async function submitOrder() {
-    if (!canSubmit || !idempotencyKey || !draft?.draft_id || submitInFlightRef.current) return;
+    if (!canSubmit || !idempotencyKey || !draft?.draft_id || !quote || !approvedFingerprint || submitInFlightRef.current) return;
 
     submitInFlightRef.current = true;
     setSubmitting(true);
     setError(null);
     setDraftAlreadySubmittedElsewhere(false);
     try {
-      const result = await submitCustomerOrder(idempotencyKey);
+      const result = await submitQuotedCustomerOrder(idempotencyKey, approvedFingerprint);
       try {
         await clearCheckoutIdempotencyKey(draft.draft_id);
       } catch {
@@ -132,6 +141,7 @@ export function CheckoutScreen({ navigation }: Props) {
       const presentation = classifyCheckoutSubmitError(parseRpcError(e));
       setDraftAlreadySubmittedElsewhere(presentation.concurrentPromotion);
       setError(presentation.message);
+      setApprovedFingerprint(null);
     } finally {
       submitInFlightRef.current = false;
       setSubmitting(false);
@@ -140,7 +150,7 @@ export function CheckoutScreen({ navigation }: Props) {
 
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
-      <Screen title="Checkout" subtitle="Draft subtotal only · Final quote unavailable" safeAreaEdges={["top", "bottom"]}>
+      <Screen title="Checkout" subtitle="Review and approve the final GST-inclusive quotation" safeAreaEdges={["top", "bottom"]}>
         {loading ? (
           <LoadingState message="Preparing checkout…" />
         ) : error && !draft ? (
@@ -162,9 +172,9 @@ export function CheckoutScreen({ navigation }: Props) {
 
             <View style={styles.summaryCard}>
               <Row label="Draft subtotal before tax" value={`₹${orderValue.toLocaleString("en-IN")}`} />
-              <Row label="GST-inclusive Sales Order total" value="Awaiting Core quote" />
-              <Row label="Advance payable" value="Awaiting Core quote" emphasis />
-              <Row label="Remaining balance" value="Awaiting Core quote" />
+              <Row label="GST-inclusive Sales Order total" value={quote ? `₹${quote.sales_order_value.toLocaleString("en-IN")}` : "Awaiting Core quote"} />
+              <Row label="Advance payable" value={quote ? `₹${quote.advance_required.toLocaleString("en-IN")}` : "Awaiting Core quote"} emphasis />
+              <Row label="Remaining balance" value={quote ? `₹${(quote.sales_order_value - quote.advance_required).toLocaleString("en-IN")}` : "Awaiting Core quote"} />
             </View>
 
             {!draft?.is_checkout_ready ? (
@@ -210,15 +220,30 @@ export function CheckoutScreen({ navigation }: Props) {
               </View>
             ) : null}
 
-            <Text style={styles.warning} accessibilityRole="alert">
-              Order submission is temporarily unavailable. An authoritative GST-inclusive quote must be issued by Core and approved by you before a Sales Order can be submitted. The draft subtotal above is not a final price or payment request.
-            </Text>
+            {quote ? (
+              <View style={styles.persistenceBlock}>
+                <Text style={styles.note}>
+                  Confirm the GST-inclusive Sales Order value and required advance above. Approval applies only to this exact server quotation; any change requires a fresh quotation.
+                </Text>
+                <OasisButton
+                  label={approvedFingerprint === quote.fingerprint ? "Quotation approved" : "Approve final quotation"}
+                  variant="secondary"
+                  disabled={!isOnline || !commercialValidation.orderable || !draft?.is_checkout_ready || approvedFingerprint === quote.fingerprint}
+                  onPress={() => setApprovedFingerprint(quote.fingerprint)}
+                />
+                <OasisButton label="Refresh quotation" variant="secondary" onPress={loadCheckout} disabled={submitting} />
+              </View>
+            ) : (
+              <Text style={styles.warning} accessibilityRole="alert">
+                Final quotation is unavailable. Order submission remains blocked. Refresh after Core quote service is ready.
+              </Text>
+            )}
             <Text style={styles.note}>
-              No Sales Order or payment is created from this screen while quote verification is unavailable.
+              A Sales Order is created only after you approve the final quotation and submit. Payment is a separate step.
             </Text>
 
             <OasisButton
-              label={submitting ? "Submitting order…" : "Submit Sales Order (unavailable)"}
+              label={submitting ? "Submitting order…" : "Submit Sales Order"}
               onPress={submitOrder}
               disabled={!canSubmit}
               loading={submitting}

@@ -137,7 +137,7 @@ export type Database = {
         Args: Record<string, never>;
         Returns: {
           draft_id: string;
-          lines: Array<Record<string, Json | undefined>>;
+          lines: Record<string, Json | undefined>[];
           sales_order_value: number;
           advance_required: number;
           fingerprint: string;

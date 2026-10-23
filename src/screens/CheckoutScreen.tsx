@@ -107,18 +107,35 @@ export function CheckoutScreen({ navigation }: Props) {
     return validateDraftLinesAgainstPrices(draft.lines, pricesByProduct);
   }, [draft, pricesByProduct]);
 
+  const quotedLinesMatchDraft = useMemo(() => {
+    if (!quote || !draft || quote.lines.length !== draft.lines.length) return false;
+    const expected = new Map(draft.lines.map((line) => [line.product_id, line.quantity]));
+    if (expected.size !== draft.lines.length) return false;
+    const seen = new Set<string>();
+    return quote.lines.every((line) => {
+      const productId = line.product_id;
+      const quantity = line.quantity;
+      if (typeof productId !== "string" || seen.has(productId) ||
+          (typeof quantity !== "number" && typeof quantity !== "string") ||
+          String(quantity).trim() === "" || !Number.isFinite(Number(quantity)) ||
+          expected.get(productId) !== Number(quantity)) return false;
+      seen.add(productId);
+      return true;
+    });
+  }, [quote, draft]);
+
   const canSubmit = isCheckoutSubmitEnabled({
     checkoutReady: draft?.is_checkout_ready ?? false,
     // The existing draft RPC is pre-tax and cannot attest buyer approval of the final SO.
     // Do not enable submission until a server quote with atomic submit binding exists.
-    authoritativeQuoteApproved: Boolean(quote && approvedFingerprint === quote.fingerprint),
+    authoritativeQuoteApproved: Boolean(quote && quotedLinesMatchDraft && approvedFingerprint === quote.fingerprint),
     orderValue: quote?.sales_order_value ?? 0,
     submitting,
     keyReady,
     idempotencyKey,
     keyPersisted,
     advanceState,
-    commercialValidationPassed: commercialValidation.orderable,
+    commercialValidationPassed: commercialValidation.orderable && quotedLinesMatchDraft,
     isOnline,
   });
 
@@ -222,13 +239,20 @@ export function CheckoutScreen({ navigation }: Props) {
 
             {quote ? (
               <View style={styles.persistenceBlock}>
+                <Text style={styles.note}>Server-quoted items and quantities:</Text>
+                {quote.lines.map((line, index) => (
+                  <Row key={`${String(line.product_id)}-${index}`}
+                    label={`${String(line.product_name ?? line.sku ?? line.product_id)} · Qty ${String(line.quantity)}`}
+                    value={`${String(line.currency ?? "INR")} ${String(line.selling_price ?? "—")} / ${String(line.uom ?? "unit")} · GST ${String(line.gst_rate ?? "—")}%`} />
+                ))}
+                {!quotedLinesMatchDraft ? <Text style={styles.warning} accessibilityRole="alert">Quoted products or quantities differ from the cart. Refresh checkout before approving.</Text> : null}
                 <Text style={styles.note}>
                   Confirm the GST-inclusive Sales Order value and required advance above. Approval applies only to this exact server quotation; any change requires a fresh quotation.
                 </Text>
                 <OasisButton
                   label={approvedFingerprint === quote.fingerprint ? "Quotation approved" : "Approve final quotation"}
                   variant="secondary"
-                  disabled={!isOnline || !commercialValidation.orderable || !draft?.is_checkout_ready || approvedFingerprint === quote.fingerprint}
+                  disabled={!isOnline || !quotedLinesMatchDraft || !commercialValidation.orderable || !draft?.is_checkout_ready || approvedFingerprint === quote.fingerprint}
                   onPress={() => setApprovedFingerprint(quote.fingerprint)}
                 />
                 <OasisButton label="Refresh quotation" variant="secondary" onPress={loadCheckout} disabled={submitting} />

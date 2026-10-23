@@ -5,6 +5,7 @@ import { REQUIRED_RPC_BINDINGS } from "../../src/lib/required-rpc-bindings.ts";
 
 const gatewaySource = readFileSync(join(process.cwd(), "src/services/customerGateway.ts"), "utf8");
 const quotesSource = readFileSync(join(process.cwd(), "src/lib/api/quotes.ts"), "utf8");
+const checkoutSource = readFileSync(join(process.cwd(), "src/lib/api/checkout.ts"), "utf8");
 const boundarySource = readFileSync(join(process.cwd(), "scripts/verify-contract-boundary.mjs"), "utf8");
 const documentsSource = readFileSync(join(process.cwd(), "src/screens/DocumentsScreen.tsx"), "utf8");
 const supportSource = readFileSync(join(process.cwd(), "src/screens/SupportScreen.tsx"), "utf8");
@@ -13,7 +14,7 @@ const paymentSource = readFileSync(join(process.cwd(), "src/lib/api/payment-gate
 const finalPaymentSource = readFileSync(join(process.cwd(), "src/lib/api/final-payment.ts"), "utf8");
 const accountPreferencesSource = readFileSync(join(process.cwd(), "src/lib/api/account-preferences.ts"), "utf8");
 const invokedRpcs = collectGovernedRpcInvocations(
-  `${gatewaySource}\n${quotesSource}\n${paymentSource}\n${finalPaymentSource}\n${accountPreferencesSource}`
+  `${gatewaySource}\n${quotesSource}\n${checkoutSource}\n${paymentSource}\n${finalPaymentSource}\n${accountPreferencesSource}`
 );
 
 const failures = [];

@@ -8,6 +8,7 @@ import { join, relative } from "node:path";
 import { execSync } from "node:child_process";
 import {
   collectGovernedRpcInvocations,
+  resolveCheckoutDirectSubmitRpc,
   missingExecutableQuoteRpcs,
   readCoreQuoteRpcPrerequisites,
 } from "../src/lib/quote-rpc-binding-check";
@@ -53,19 +54,7 @@ try {
 const quotesApiSource = readFileSync(QUOTES_API_PATH, "utf8");
 const checkoutScreenSource = readFileSync(join(ROOT, "src/screens/CheckoutScreen.tsx"), "utf8");
 const checkoutApiSource = readFileSync(join(ROOT, "src/lib/api/checkout.ts"), "utf8");
-const quotedCheckoutPath =
-  /\bawait\s+submitQuotedCustomerOrder\s*\(/.test(checkoutScreenSource) &&
-  /export\s+async\s+function\s+submitQuotedCustomerOrder\s*\(/.test(checkoutApiSource) &&
-  /callRpc\("submit_customer_order_quoted_v1"/.test(checkoutApiSource);
-const legacyCheckoutPath =
-  /\bawait\s+submitCustomerOrder\s*\(/.test(checkoutScreenSource) &&
-  /callRpc\("submit_customer_order_v1"/.test(checkoutApiSource);
-const directOrderSubmitRpc =
-  quotedCheckoutPath !== legacyCheckoutPath
-    ? quotedCheckoutPath
-      ? "submit_customer_order_quoted_v1"
-      : "submit_customer_order_v1"
-    : null;
+const directOrderSubmitRpc = resolveCheckoutDirectSubmitRpc(checkoutScreenSource, checkoutApiSource);
 const allowlist = readAllowlist();
 const boundQuoteRpcs = CORE_QUOTE_RPC_PREREQUISITES.filter((rpc) => allowlist.has(rpc));
 const missingQuoteRpcs = CORE_QUOTE_RPC_PREREQUISITES.filter((rpc) => !allowlist.has(rpc));

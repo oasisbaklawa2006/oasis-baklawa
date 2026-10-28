@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { BUYER_BOUND_QUOTE_RPCS, CORE_QUOTE_RPC_PREREQUISITES, isQuoteBackendAvailable } from "@/types/quote-contract";
-import { missingExecutableQuoteRpcs, readCoreQuoteRpcPrerequisites } from "@/lib/quote-rpc-binding-check";
+import { missingExecutableQuoteRpcs, readCoreQuoteRpcPrerequisites, resolveCheckoutDirectSubmitRpc } from "@/lib/quote-rpc-binding-check";
 
 const ROOT = join(__dirname, "..");
 const QUOTE_CONTRACT_PATH = join(ROOT, "types/quote-contract.ts");
@@ -77,4 +77,40 @@ describe("P106 quotation authority invariants", () => {
     assert.match(packageJson.scripts.quality, /census:p106/);
     assert.match(packageJson.scripts["census:p106"], /p106-quote-authority-census\.ts/);
   });
+
+  const quoted = "submitQuotedCustomerOrder";
+  const legacy = "submitCustomerOrder";
+  const quotedRpc = "submit_customer_order_quoted_v1";
+  const legacyRpc = "submit_customer_order_v1";
+  const screenFor = (name: string) =>
+    `import { ${name} } from "@/lib/api/checkout"; export async function submit() { await ${name}("key"); }`;
+  const apiFor = (name: string, rpc: string) =>
+    `export async function ${name}() { return callRpc("${rpc}", {}); }`;
+
+  const routeCases: { label: string; screen: string; api: string; expected: string | null }[] = [
+    { label: "quoted wrapper binds quoted RPC", screen: screenFor(quoted), api: apiFor(quoted, quotedRpc), expected: quotedRpc },
+    { label: "legacy wrapper binds legacy RPC", screen: screenFor(legacy), api: apiFor(legacy, legacyRpc), expected: legacyRpc },
+    { label: "both submit wrappers fail closed", screen: `import { ${quoted}, ${legacy} } from "@/lib/api/checkout"; await ${quoted}(); await ${legacy}();`,
+      api: apiFor(quoted, quotedRpc) + apiFor(legacy, legacyRpc), expected: null },
+    { label: "no submit wrapper fails closed", screen: "export const unrelated = true;", api: apiFor(quoted, quotedRpc), expected: null },
+    { label: "decoy quoted RPC elsewhere cannot mask wrong wrapper", screen: screenFor(quoted),
+      api: apiFor(quoted, legacyRpc) + apiFor("unrelated", quotedRpc), expected: null },
+    { label: "missing governed import fails closed", screen: `await ${quoted}();`, api: apiFor(quoted, quotedRpc), expected: null },
+    { label: "direct screen legacy RPC fails closed", screen: screenFor(quoted) + `\ncallRpc("${legacyRpc}", {});`,
+      api: apiFor(quoted, quotedRpc), expected: null },
+    { label: "comments do not count as legacy calls", screen: screenFor(quoted) + `\n// await ${legacy}();`,
+      api: apiFor(quoted, quotedRpc), expected: quotedRpc },
+  ];
+  for (const routeCase of routeCases) {
+    it(`resolves checkout submit route: ${routeCase.label}`, () => {
+      assert.equal(resolveCheckoutDirectSubmitRpc(routeCase.screen, routeCase.api), routeCase.expected);
+    });
+  }
+
+  it("resolves the actual checkout screen to its quoted RPC", () => {
+    const screen = readFileSync(join(ROOT, "screens/CheckoutScreen.tsx"), "utf8");
+    const api = readFileSync(join(ROOT, "lib/api/checkout.ts"), "utf8");
+    assert.equal(resolveCheckoutDirectSubmitRpc(screen, api), "submit_customer_order_quoted_v1");
+  });
+
 });

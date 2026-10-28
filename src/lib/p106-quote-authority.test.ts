@@ -100,6 +100,13 @@ describe("P106 quotation authority invariants", () => {
       api: apiFor(quoted, quotedRpc), expected: null },
     { label: "comments do not count as legacy calls", screen: screenFor(quoted) + `\n// await ${legacy}();`,
       api: apiFor(quoted, quotedRpc), expected: quotedRpc },
+    { label: "duplicate exported wrapper definitions fail closed", screen: screenFor(quoted),
+      api: apiFor(quoted, quotedRpc) + apiFor(quoted, quotedRpc), expected: null },
+    { label: "non-exported wrapper fails closed", screen: screenFor(quoted),
+      api: apiFor(quoted, quotedRpc).replace("export ", ""), expected: null },
+    { label: "wrapper invoking both order RPCs fails closed", screen: screenFor(quoted),
+      api: `export async function ${quoted}() { await ${"call" + "Rpc"}("${quotedRpc}", {}); return ${"call" + "Rpc"}("${legacyRpc}", {}); }`,
+      expected: null },
   ];
   for (const routeCase of routeCases) {
     it(`resolves checkout submit route: ${routeCase.label}`, () => {

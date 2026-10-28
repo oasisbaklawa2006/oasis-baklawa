@@ -51,6 +51,21 @@ try {
 }
 
 const quotesApiSource = readFileSync(QUOTES_API_PATH, "utf8");
+const checkoutScreenSource = readFileSync(join(ROOT, "src/screens/CheckoutScreen.tsx"), "utf8");
+const checkoutApiSource = readFileSync(join(ROOT, "src/lib/api/checkout.ts"), "utf8");
+const quotedCheckoutPath =
+  /\bawait\s+submitQuotedCustomerOrder\s*\(/.test(checkoutScreenSource) &&
+  /export\s+async\s+function\s+submitQuotedCustomerOrder\s*\(/.test(checkoutApiSource) &&
+  /callRpc\("submit_customer_order_quoted_v1"/.test(checkoutApiSource);
+const legacyCheckoutPath =
+  /\bawait\s+submitCustomerOrder\s*\(/.test(checkoutScreenSource) &&
+  /callRpc\("submit_customer_order_v1"/.test(checkoutApiSource);
+const directOrderSubmitRpc =
+  quotedCheckoutPath !== legacyCheckoutPath
+    ? quotedCheckoutPath
+      ? "submit_customer_order_quoted_v1"
+      : "submit_customer_order_v1"
+    : null;
 const allowlist = readAllowlist();
 const boundQuoteRpcs = CORE_QUOTE_RPC_PREREQUISITES.filter((rpc) => allowlist.has(rpc));
 const missingQuoteRpcs = CORE_QUOTE_RPC_PREREQUISITES.filter((rpc) => !allowlist.has(rpc));
@@ -59,6 +74,7 @@ const missingExecutableRpcs = missingExecutableQuoteRpcs(quoteContractSource, qu
 const commerceSurfaces: string[] = [];
 const quoteMentions: { file: string; term: string }[] = [];
 const shadowFindings: string[] = [];
+if (!directOrderSubmitRpc) shadowFindings.push("CheckoutScreen direct submit RPC could not be uniquely resolved");
 
 const ALLOWLIST_MANIFESTS = new Set([
   "src/lib/buyer-deployment-rpc-allowlist.ts",
@@ -123,7 +139,7 @@ const report = {
   risks: {
     shadowFindings,
     clientComputedTotalsIn: ["src/lib/draft-utils.ts"],
-    directOrderSubmitPath: "src/screens/CheckoutScreen.tsx → submit_customer_order_v1",
+    directOrderSubmitPath: directOrderSubmitRpc ? `src/screens/CheckoutScreen.tsx → ${directOrderSubmitRpc}` : "UNVERIFIED",
     commercialFactsBindingUnused: "customer_sales_order_commercial_facts_v1 bound but no quotation document type",
     point73ReferencedInBuyer: false,
   },

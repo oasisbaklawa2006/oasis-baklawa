@@ -133,6 +133,20 @@ export type Database = {
         Args: Record<string, never>;
         Returns: DraftReadinessResult[];
       };
+      customer_checkout_quote_v1: {
+        Args: Record<string, never>;
+        Returns: {
+          draft_id: string;
+          lines: Record<string, Json | undefined>[];
+          sales_order_value: number;
+          advance_required: number;
+          fingerprint: string;
+        };
+      };
+      submit_customer_order_quoted_v1: {
+        Args: { p_idempotency_key: string; p_quote_fingerprint: string; p_requested_dispatch_date?: string | null };
+        Returns: SubmitCustomerOrderResult[];
+      };
       submit_customer_order_v1: {
         Args: { p_idempotency_key: string; p_requested_dispatch_date?: string | null };
         Returns: SubmitCustomerOrderResult[];

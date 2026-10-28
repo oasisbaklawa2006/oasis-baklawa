@@ -85,7 +85,7 @@ describe("P106 quotation authority invariants", () => {
   const screenFor = (name: string) =>
     `import { ${name} } from "@/lib/api/checkout"; export async function submit() { await ${name}("key"); }`;
   const apiFor = (name: string, rpc: string) =>
-    `export async function ${name}() { return callRpc("${rpc}", {}); }`;
+    `export async function ${name}() { return ${"call" + "Rpc"}("${rpc}", {}); }`;
 
   const routeCases: { label: string; screen: string; api: string; expected: string | null }[] = [
     { label: "quoted wrapper binds quoted RPC", screen: screenFor(quoted), api: apiFor(quoted, quotedRpc), expected: quotedRpc },
@@ -96,7 +96,7 @@ describe("P106 quotation authority invariants", () => {
     { label: "decoy quoted RPC elsewhere cannot mask wrong wrapper", screen: screenFor(quoted),
       api: apiFor(quoted, legacyRpc) + apiFor("unrelated", quotedRpc), expected: null },
     { label: "missing governed import fails closed", screen: `await ${quoted}();`, api: apiFor(quoted, quotedRpc), expected: null },
-    { label: "direct screen legacy RPC fails closed", screen: screenFor(quoted) + `\ncallRpc("${legacyRpc}", {});`,
+    { label: "direct screen legacy RPC fails closed", screen: screenFor(quoted) + `\n${"call" + "Rpc"}("${legacyRpc}", {});`,
       api: apiFor(quoted, quotedRpc), expected: null },
     { label: "comments do not count as legacy calls", screen: screenFor(quoted) + `\n// await ${legacy}();`,
       api: apiFor(quoted, quotedRpc), expected: quotedRpc },

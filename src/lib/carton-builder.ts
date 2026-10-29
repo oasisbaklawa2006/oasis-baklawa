@@ -9,6 +9,8 @@ export interface CartonConfiguration {
   active: boolean;
   /** Explicitly verified packing groups; absent means fail closed. */
   eligibleGroups: readonly string[];
+  /** Verified SKU/product-ID to packing-group assignments. Missing IDs fail closed. */
+  productPackingGroups?: Readonly<Record<string, string>>;
   visualAssetKeys: readonly string[];
 }
 export interface CartonAllocation {
@@ -36,7 +38,7 @@ export function previewCarton(config: CartonConfiguration, lines: readonly Carto
   const issues: string[] = [];
   if (!Number.isSafeInteger(config.capacity) || config.capacity <= 0) issues.push("Invalid carton capacity.");
   if (!config.active) issues.push("Carton configuration is not activated.");
-  if (!config.eligibleGroups.length) issues.push("Verified SKU compatibility mapping is unavailable.");
+  if (!config.eligibleGroups.length || !config.productPackingGroups) issues.push("Verified SKU compatibility mapping is unavailable.");
   const seen = new Set<string>();
   let filled = 0;
   for (const line of lines) {
@@ -44,7 +46,12 @@ export function previewCarton(config: CartonConfiguration, lines: readonly Carto
     seen.add(line.productId);
     if (!Number.isSafeInteger(line.quantity) || line.quantity <= 0) issues.push("Allocation must contain positive whole packing units.");
     else filled += line.quantity;
-    if (!line.packingGroup || !config.eligibleGroups.includes(line.packingGroup)) issues.push("Product packing compatibility is not verified.");
+    const mapped = config.productPackingGroups;
+    const verifiedGroup = mapped && Object.prototype.hasOwnProperty.call(mapped, line.productId)
+      ? mapped[line.productId] : undefined;
+    if (!line.packingGroup || !verifiedGroup || verifiedGroup !== line.packingGroup || !config.eligibleGroups.includes(verifiedGroup)) {
+      issues.push("Product packing compatibility is not verified.");
+    }
   }
   if (filled > config.capacity) issues.push("Carton capacity exceeded.");
   const capacity = config.capacity > 0 ? config.capacity : 0;

@@ -7,7 +7,8 @@ import { OasisButton } from "@/components/OasisButton";
 import { Screen } from "@/components/Screen";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { fetchCatalogue } from "@/lib/api/catalogue";
-import { addCustomerOrderDraftLine } from "@/lib/api/draft";
+import { addCustomerOrderDraftLineReturningId, getCustomerOrderDraft } from "@/lib/api/draft";
+import { planBulkAdd } from "@/lib/draft-add-guard";
 import { fetchCustomerOrderItems } from "@/lib/api/orders";
 import { resolveCommercialRules, validateOrderQuantity } from "@/lib/buyer-commercial-validation";
 import { parseRpcError } from "@/lib/rpc-errors";
@@ -43,7 +44,9 @@ export function ReorderScreen({ navigation, route }: Props) {
   async function addAgain() {
     setBusy(true); setError(null);
     try {
-      for (const row of orderable) await addCustomerOrderDraftLine(row.product_id, row.quantity);
+      // Core's upsert replaces quantity: skip products already in the cart so nothing is overwritten.
+      const plan = planBulkAdd(await getCustomerOrderDraft(), orderable.map((row) => ({ productId: row.product_id, quantity: row.quantity })));
+      for (const item of plan.toAdd) await addCustomerOrderDraftLineReturningId(item.productId, item.quantity);
       navigation.navigate("Cart");
     } catch (e) { setError(parseRpcError(e).message); }
     finally { setBusy(false); }

@@ -14,7 +14,10 @@ import {
   removeCustomerOrderDraftLine,
   updateCustomerOrderDraftLine,
 } from "@/lib/api/draft";
+import { CartonVisual } from "@/components/CartonVisual";
 import { resolveCommercialRules } from "@/lib/buyer-commercial-validation";
+import { resolveCartonConfiguration } from "@/lib/carton-builder";
+import { buildCartonViewModels, getCartonSupport, selectCartonConfigId } from "@/lib/carton-profile-source";
 import { issueMessage, nextValidQuantity } from "@/lib/draft-utils";
 import { parseRpcError } from "@/lib/rpc-errors";
 import type { BuyerProductPrice, CustomerOrderDraft, CustomerOrderDraftLine } from "@/types/database.types";
@@ -143,6 +146,14 @@ export function CartScreen({ navigation }: Props) {
 
   const checkoutReady = draft?.is_checkout_ready ?? false;
 
+  // Advisory carton illustration only: shown when verified packing data exists. Checkout stays gated
+  // exclusively by Core's readiness (draft.is_checkout_ready); carton fullness never enables it.
+  const cartonSupport = getCartonSupport();
+  const cartonViews = useMemo(() => {
+    const configId = selectCartonConfigId(draft, cartonSupport);
+    return configId ? buildCartonViewModels(draft, cartonSupport, configId, pricesByProduct) : [];
+  }, [draft, cartonSupport, pricesByProduct]);
+
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
       <Screen title="Cart" subtitle="Review quantities and ordering requirements" safeAreaEdges={["top", "bottom"]}>
@@ -253,6 +264,10 @@ export function CartScreen({ navigation }: Props) {
               <Text style={styles.summaryValue}>₹{draft.order_total.toLocaleString("en-IN")}</Text>
             </View>
 
+            {cartonViews.map((view, index) => {
+              const config = resolveCartonConfiguration(cartonSupport.catalogue, view.configId);
+              return config ? <CartonVisual key={`${view.configId}-${index}`} config={config} preview={view.preview} /> : null;
+            })}
             <TouchableOpacity
               style={styles.secondaryButton}
               disabled={busyLineId === "clear" || !isOnline}

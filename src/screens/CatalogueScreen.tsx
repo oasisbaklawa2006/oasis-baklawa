@@ -10,7 +10,9 @@ import { Screen } from "@/components/Screen";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
-import { addCustomerOrderDraftLine } from "@/lib/api/draft";
+import { addCustomerOrderDraftLine, getCustomerOrderDraft } from "@/lib/api/draft";
+import { cataloguePriceMessage, cataloguePriceState } from "@/lib/catalogue-price-state";
+import { cartActionLabel, cartActionNotice, existingQuantities, initialStepperQuantity } from "@/lib/draft-add-guard";
 import { defaultOrderQuantity, resolveCommercialRules, validateOrderQuantity } from "@/lib/buyer-commercial-validation";
 import { nextValidQuantity } from "@/lib/draft-utils";
 import { parseRpcError } from "@/lib/rpc-errors";
@@ -29,6 +31,7 @@ export function CatalogueScreen({ navigation, route }: Props) {
   const [products, setProducts] = useState<CatalogueProduct[]>([]);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [inCart, setInCart] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [busyProductId, setBusyProductId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -42,11 +45,22 @@ export function CatalogueScreen({ navigation, route }: Props) {
     try {
       const rows = await fetchCatalogue({ includeBuyerPrices: isApprovedBuyer });
       setProducts(rows);
+      // The draft upsert REPLACES quantity, so seed steppers from the cart, not from MOQ (T1.09).
+      let existing: Record<string, number> = {};
+      if (isApprovedBuyer) {
+        try {
+          existing = existingQuantities(await getCustomerOrderDraft());
+        } catch {
+          // Non-fatal for browsing; adding is blocked below if the cart cannot be read.
+          existing = {};
+        }
+      }
+      setInCart(existing);
       const initialQuantities: Record<string, number> = {};
       rows.forEach((product) => {
         const moq = defaultOrderQuantity(product.price);
         if (moq !== null) {
-          initialQuantities[product.product_id] = moq;
+          initialQuantities[product.product_id] = initialStepperQuantity(existing[product.product_id], moq);
         }
       });
       setQuantities(initialQuantities);
@@ -114,8 +128,10 @@ export function CatalogueScreen({ navigation, route }: Props) {
     setError(null);
     setSuccessMessage(null);
     try {
+      const previous = inCart[product.product_id];
       await addCustomerOrderDraftLine(product.product_id, qty);
-      setSuccessMessage(`${product.product_name} added to cart`);
+      setInCart((prev) => ({ ...prev, [product.product_id]: qty }));
+      setSuccessMessage(cartActionNotice(product.product_name, previous, qty));
     } catch (e) {
       setError(parseRpcError(e).message);
     } finally {
@@ -217,14 +233,14 @@ export function CatalogueScreen({ navigation, route }: Props) {
                         <Text style={styles.rowTitle}>{item.product_name}</Text>
                       </TouchableOpacity>
                       <Text style={styles.rowMeta}>{item.subcategory ?? item.category}</Text>
-                      {isApprovedBuyer && item.price ? (
+                      {cataloguePriceState(isApprovedBuyer, item.price) === "priced" && item.price ? (
                         <View style={styles.priceBadge}>
                           <Text style={styles.priceBadgeText}>
                             ₹{item.price.selling_price.toFixed(2)} / {item.price.uom}
                           </Text>
                         </View>
                       ) : (
-                        <Text style={styles.rowMeta}>Sign in as an approved buyer for pricing</Text>
+                        <Text style={styles.rowMeta}>{cataloguePriceMessage(cataloguePriceState(isApprovedBuyer, item.price))}</Text>
                       )}
                       {isApprovedBuyer && !canOrder && item.price ? (
                         <Text style={styles.unavailablePrice}>{commercial.message ?? "Pricing unavailable for ordering"}</Text>
@@ -252,7 +268,7 @@ export function CatalogueScreen({ navigation, route }: Props) {
                         disabled={adding}
                         onPress={() => addToCart(item)}
                       >
-                        <Text style={styles.addButtonText}>{adding ? "Adding…" : "Add to cart"}</Text>
+                        <Text style={styles.addButtonText}>{cartActionLabel(inCart[item.product_id], adding)}</Text>
                       </TouchableOpacity>
                         </>
                       ) : null}

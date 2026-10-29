@@ -23,3 +23,36 @@ Create typed versioned carton configuration/slot-allocation utilities with fail-
 
 ## Evidence limits
 This is a live read-only schema/data census, not signed factory geometry, complete packing-master audit, test execution or release certification. Parent: Buyer #64. Development branch: `feat/carton-moq-builder-config-v1` based on `e5096cfa37049743a3c3d768948943c03b10612b`.
+
+---
+
+## Addendum — live read-only census (30 Oct 2026, project `oasis-baklawa`, SELECT-only)
+
+**Active `bulk_sweets` products: 147.** Visible in catalogue: 146. `is_catalogue_ready`: 0.
+
+| `carton_type` (existing master data) | `packs_per_master_carton` | Active SKUs |
+|---|---|---|
+| Small Master (4 Box) | 4 | 7 |
+| Medium Master (6 Box) | 6 | 15 |
+| Large Master (8 Box) | 8 | 85 |
+| Jumbo Master (24 Box) | 24 | 39 |
+| Jumbo Master (1000 Box) | 1000 | 1 |
+
+Observations (facts only — nothing was changed):
+- `carton_type` is a master-data classification of "N boxes per master carton". It is **not** a packing-group, tray-slot or compatibility mapping. Only the 4-Box (7 SKUs) and 6-Box (15 SKUs) rows numerically resemble the approved 4- and 6-slot configurations; **no active bulk SKU is classified 10**. 124 of 147 SKUs sit in 8- and 24-box classes that do not correspond to any of the three approved configurations. The owner certification ("all loose sweets fit the three types") therefore **cannot be reconciled with the data without per-SKU evidence**; no mapping was inferred or written.
+- `carton_dimensions_cm`, `carton_qty`, `packs_per_carton`, `carton_logic`, `master_carton_qty`: NULL for every active bulk SKU. Physical dimensions are unverified.
+- `fixed_carton_required` is NULL/false on bulk SKUs; commercial units are `kg` (`uom`/`b2b_uom`), while carton slots are trays/boxes. **No kg→tray conversion is published for buyers**, so slots-per-unit cannot be derived.
+- Commercial data: **0 of 147** active bulk SKUs have an approved B2B price rule (1 draft B2B rule). Product-level `moq_value` = 1 with NULL `moq_uom` and NULL increment for all 147; only 1 has a `product_moq_rules` b2b row (uom `carton`, no increment). Core's `buyer_product_prices_v1()` therefore projects **no price for any loose bulk sweet**, and Buyer correctly treats them as not orderable.
+- Packing-group / mixed-variant / retail-ready / nuts / dates / gifting compatibility rules: **no table or column exists** for buyer-safe compatibility groups. `product_moq_rules.min_carton_qty` is NULL for every bulk SKU.
+- No Core RPC exposes per-SKU packing data to buyers (`pg_proc` has none for carton/packing-group projection).
+
+## Buyer #60 — verified root cause
+Of 12 active products with an approved B2B price rule, **10 have `gst_rate IS NULL`** (including *Bourma Pistachio* `OAS-AS-BKL-PST-LOOSE-9922` and *Chocolate Cashew Assiyah* `OAS-AS-BKL-CSH-BULK-0001`, b2b ₹1860/kg and ₹850/kg). Core's projection returns those rows; `normalizeBuyerProductPrice` rejects rows without a GST rate (also required by `customer_checkout_quote_v1`), so the product has no client price. The catalogue then showed "Sign in as an approved buyer for pricing". Two causes:
+1. **Data (Finance/Core governance, outside this repo):** GST rate missing on approved price rules.
+2. **Frontend (repaired here):** misleading message for an already-approved buyer. Ordering remains fail-closed.
+
+## External dependencies (not implementable from Buyer)
+1. **Core**: buyer-safe projection of verified packing profiles (packing group, slots per unit, commercial UOM, carton-config eligibility, mixable group sets). Owner: Core / packing master.
+2. **Packing master**: per-SKU assignment evidence for the 147 bulk SKUs against 4/6/10 (or approved additional configurations), kg↔tray conversion, internal dimensions and tray orientation.
+3. **Finance/Core**: approved B2B prices with GST for bulk SKUs; GST rate for the 10 priced products; MOQ UOM/increment.
+4. **Artwork**: approved 888×4 artwork (six states) and geometry were not accessible to this run (none in repo, no source supplied); Types B/C geometry/artwork in progress by the owner.

@@ -123,6 +123,17 @@ describe("mixed variants and compatibility (fail closed)", () => {
     assert.deepEqual(codes("g"), ["GROUP_NOT_ACCEPTED"]);
     assert.deepEqual(codes("bad"), ["PROFILE_INVALID"]);
   });
+  it("never trusts caller-supplied groups and never resolves inherited object members (merged from PR #66 review)", () => {
+    const plain: Record<string, SkuPackingProfile> = { a: profile("a") };
+    const codes = (id: string, r: Record<string, SkuPackingProfile> | Map<string, SkuPackingProfile>) =>
+      previewCarton(cfg(), [line(id, 4)], r).issues.map((i) => i.code);
+    assert.deepEqual(codes("a", plain), []);
+    assert.deepEqual(codes("unmapped", plain), ["PROFILE_MISSING"]);
+    assert.deepEqual(codes("toString", plain), ["PROFILE_MISSING"]);
+    assert.deepEqual(codes("__proto__", plain), ["PROFILE_MISSING"]);
+    assert.deepEqual(codes("a", {}), ["PROFILE_MISSING"]);
+    assert.deepEqual(codes("a", registry(profile("a", { packingGroup: "other" }))), ["GROUP_NOT_ACCEPTED"]);
+  });
   it("fails closed for inactive config, empty verified groups, duplicates and fractions", () => {
     const reg = registry(profile("a"));
     assert.ok(previewCarton(INITIAL_CARTON_CATALOGUE[0], [line("a", 4)], reg).issues.some((i) => i.code === "CONFIG_INACTIVE"));

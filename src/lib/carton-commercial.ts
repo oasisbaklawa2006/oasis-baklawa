@@ -1,5 +1,5 @@
 import { validateOrderQuantity, type CommercialValidation } from "@/lib/buyer-commercial-validation";
-import type { CartonLine, CartonPreview, ProfileRegistry, SkuPackingProfile } from "@/lib/carton-builder";
+import { lookupProfile, type CartonLine, type CartonPreview, type ProfileRegistry, type SkuPackingProfile } from "@/lib/carton-builder";
 import type { BuyerProductPrice } from "@/types/database.types";
 
 /**
@@ -42,8 +42,7 @@ export function evaluateCartonCommercial(
   const blockers: CartonCommercialReport["blockers"] = [];
   const evaluated: CartonLineCommercial[] = lines.map((line) => {
     const price = pricesByProduct[line.productId];
-    const profile: SkuPackingProfile | undefined =
-      profiles instanceof Map ? profiles.get(line.productId) : (profiles as Record<string, SkuPackingProfile>)[line.productId];
+    const profile: SkuPackingProfile | undefined = lookupProfile(profiles, line.productId);
     const validation = validateOrderQuantity(price ?? null, line.quantity, asOf);
     const uomMatchesProfile = Boolean(price && profile && normaliseUom(price.uom) === normaliseUom(profile.commercialUom));
     if (!validation.orderable) {

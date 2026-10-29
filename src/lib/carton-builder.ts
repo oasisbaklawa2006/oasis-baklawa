@@ -112,8 +112,11 @@ export interface CartonPreview {
 
 export type ProfileRegistry = ReadonlyMap<string, SkuPackingProfile> | Readonly<Record<string, SkuPackingProfile>>;
 
-function lookupProfile(registry: ProfileRegistry, productId: string): SkuPackingProfile | undefined {
-  return registry instanceof Map ? registry.get(productId) : (registry as Record<string, SkuPackingProfile>)[productId];
+export function lookupProfile(registry: ProfileRegistry, productId: string): SkuPackingProfile | undefined {
+  if (registry instanceof Map) return registry.get(productId);
+  // Own properties only: ids such as "toString" or "__proto__" must never resolve to inherited members.
+  const record = registry as Record<string, SkuPackingProfile>;
+  return Object.prototype.hasOwnProperty.call(record, productId) ? record[productId] : undefined;
 }
 
 /** First three configurations. Deliberately inactive: SKU mappings and 6/10 geometry are unverified. */

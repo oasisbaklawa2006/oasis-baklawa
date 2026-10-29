@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { INITIAL_CARTON_CATALOGUE, previewCarton } from "./carton-builder";
 
-const approved = { ...INITIAL_CARTON_CATALOGUE[0], active: true, eligibleGroups: ["loose-tray-compatible"] };
+const approved = {
+  ...INITIAL_CARTON_CATALOGUE[0],
+  active: true,
+  eligibleGroups: ["loose-tray-compatible"],
+  productPackingGroups: { a: "loose-tray-compatible", b: "loose-tray-compatible" },
+};
 const line = (productId: string, quantity: number, packingGroup = "loose-tray-compatible") => ({ productId, quantity, packingGroup });
 
 test("initial catalogue is extensible and has three distinct capacities", () => {
@@ -29,6 +34,10 @@ test("unknown group, inactive configuration, overflow, duplicates and fractions 
   assert.equal(previewCarton(approved, [line("a", 5)]).eligible, false);
   assert.equal(previewCarton(approved, [line("a", 2), line("a", 2)]).eligible, false);
   assert.equal(previewCarton(approved, [line("a", 1.5)]).eligible, false);
+  assert.equal(previewCarton(approved, [line("unmapped", 4)]).eligible, false);
+  assert.equal(previewCarton({ ...approved, productPackingGroups: undefined }, [line("a", 4)]).eligible, false);
+  assert.equal(previewCarton({ ...approved, productPackingGroups: { a: "other" } }, [line("a", 4)]).eligible, false);
+  assert.equal(previewCarton(approved, [line("toString", 4)]).eligible, false);
 });
 test("physical completeness is separate from commercial MOQ acceptance", () => {
   const physical = previewCarton(approved, [line("a", 4)]);

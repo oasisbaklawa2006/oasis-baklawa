@@ -48,7 +48,7 @@ The software foundation is implemented and passing local gates. Task 1 cannot be
 5. **QA:** Android/iOS/web device UAT.
 
 ## Before merge
-Exact-head CI green, review threads resolved, #65/#61 boundaries respected (no overlap in touched files except none; checkout code untouched), items above closed. PR #66 must stay draft.
+Exact-head CI green, review threads resolved, #65/#61/#59 boundaries respected (file-list comparison: no file touched by this PR is touched by #65, #61 or #59; checkout code untouched), items above closed. PR #66 must stay draft.
 
 ## Task 2 readiness
 Commerce foundation: **ready to proceed for checkout/financial work**, because Task 1 did not touch checkout, quote or payment code and corrected cart-quantity handling. Carton-driven ordering of loose sweets is **not** ready.

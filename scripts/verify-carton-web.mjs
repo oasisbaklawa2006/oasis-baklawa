@@ -1,0 +1,172 @@
+/** Local diagnostic harness; never bundles approval overrides into the Buyer App. */
+import { build } from 'esbuild';
+import { chromium } from '@playwright/test';
+import { createServer } from 'node:http';
+import { mkdtemp, readFile, writeFile, rm, mkdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import assert from 'node:assert/strict';
+
+const root = process.cwd();
+const out = resolve('docs/carton-builder/evidence');
+const scratch = await mkdtemp(join(tmpdir(), 'carton-web-'));
+let browser, server;
+try {
+  await mkdir(out, { recursive: true });
+  await build({
+    stdin: { contents: `
+      import React from 'react';
+      import {createRoot} from 'react-dom/client';
+      import {flushSync} from 'react-dom';
+      import {CartonVisual} from './src/components/CartonVisual';
+      import {INITIAL_CARTON_CATALOGUE,previewCarton} from './src/lib/carton-builder';
+      const root=createRoot(document.getElementById('root'));
+      window.__motions=[];window.__motionStops=0;window.__preferenceEvents=[];window.__listenerRemovals=0;
+      window.__reviewDraft=false;
+      window.review={render(id,frame,override={}){
+        const source=INITIAL_CARTON_CATALOGUE.find(c=>c.id===id);
+        // Synthetic product eligibility exercises presentation only. No real SKU or measurement.
+        const config={...source,active:true,eligiblePackingGroups:['fixture'],mixablePackingGroupSets:[]};
+        const n=Math.min(frame-1,config.capacity);
+        const profiles=new Map([['fixture',{productId:'fixture',packingGroup:'fixture',slotsPerUnit:1,commercialUom:'tray',cartonConfigIds:[id]}]]);
+        const preview=previewCarton(config,n?[{productId:'fixture',quantity:n}]:[],profiles,{showSealed:frame===config.capacity+2});
+        Object.assign(preview,override); // malformed presentation fixtures, never persisted
+        const before=JSON.stringify(preview);
+        flushSync(()=>root.render(<CartonVisual key={id} config={config} preview={preview}/>));
+        if(before!==JSON.stringify(preview))throw new Error('Quantity mutation');
+      },unmount(){flushSync(()=>root.render(null));}};
+      window.review.render('bulk-6',3);
+    `, resolveDir: root, loader: 'tsx' },
+    outfile: join(scratch, 'bundle.js'), bundle: true, platform: 'browser',
+    mainFields: ['browser', 'module', 'main'],
+    resolveExtensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.js', '.json'],
+    define: { global: 'globalThis', __DEV__: 'false', 'process.env.NODE_ENV': '"production"' },
+    plugins: [{ name: 'local-review-instrumentation', setup(build) {
+      build.onResolve({ filter: /^react-native$/ }, () => ({ path: 'react-native', namespace: 'review' }));
+      build.onResolve({ filter: /^@\/lib\/carton-geometry$/ }, () => ({ path: 'geometry', namespace: 'review' }));
+      build.onLoad({ filter: /.*/, namespace: 'review' }, ({ path }) => ({
+        loader: 'js', resolveDir: root,
+        contents: path === 'geometry' ? `
+          export * from ${JSON.stringify(join(root, 'src/lib/carton-geometry.ts'))};
+          import {resolveGeometry as actual} from ${JSON.stringify(join(root, 'src/lib/carton-geometry.ts'))};
+          export const resolveGeometry=(id,capacity)=>actual(id,capacity,window.__reviewDraft===true);
+        ` : `
+          export * from 'react-native-web';
+          import {Animated as A,AccessibilityInfo as I} from 'react-native-web';
+          export const Animated={...A,timing(value,options){
+            window.__motions.push(options);const a=A.timing(value,options);
+            return {...a,stop(){window.__motionStops++;a.stop();}};
+          }};
+          export const AccessibilityInfo={...I,addEventListener(name,fn){
+            const sub=I.addEventListener(name,value=>{window.__preferenceEvents.push(value);fn(value);});
+            return {remove(){window.__listenerRemovals++;sub?.remove();}};
+          }};
+        `,
+      }));
+    } }],
+    logLevel: 'warning',
+  });
+  server = createServer(async (req, res) => {
+    if (req.url === '/bundle.js') {
+      res.setHeader('Content-Type', 'text/javascript');res.end(await readFile(join(scratch, 'bundle.js')));
+    } else {
+      res.setHeader('Content-Type', 'text/html');
+      res.end('<!doctype html><html lang="en"><meta charset="utf-8"><title>LOCAL DIAGNOSTIC — not approved geometry</title><body style="background:#f9f8f6"><main id="root" style="width:min(800px,100%);margin:auto"></main><script src="/bundle.js"></script></body></html>');
+    }
+  });
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+  const page = await browser.newPage({ viewport: { width: 1000, height: 750 }, reducedMotion: 'reduce' });
+  const errors = [];const external = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.route('**/*', route => {
+    const url = route.request().url();
+    if (url.startsWith('http://127.0.0.1:') || url.startsWith('data:')) return route.continue();
+    external.push(url); return route.abort();
+  });
+  await page.goto(`http://127.0.0.1:${server.address().port}/`);
+  await page.waitForFunction(() => !!window.review);
+  assert.equal(await page.locator('img').count(), 0, 'pending geometry must not render artwork');
+  const results = [];
+  // Draft bypass lives only in this temporary bundle. Production resolver remains gated.
+  await page.evaluate(() => { window.__reviewDraft = true; });
+  const rejected = [
+    { physicallyValid: false }, { configId: 'unknown' }, { state: 'invalid' },
+    { filledSlots: 99 }, { state: 'sealed-preview', physicallyComplete: false },
+  ];
+  for (const override of rejected) {
+    await page.evaluate(override => window.review.render('bulk-6', 3, override), override);
+    assert.equal(await page.locator('img').count(), 0, 'malformed preview must fail safely');
+  }
+  for (const [id, capacity] of [['bulk-6', 6], ['888x4', 4]]) {
+    for (let frame = 1; frame <= capacity + 2; frame++) {
+      await page.evaluate(({ id, frame }) => window.review.render(id, frame), { id, frame });
+      await page.waitForFunction(() => {
+        const image = document.querySelector('img');return image?.complete && image.naturalWidth > 0;
+      });
+      const result = await page.evaluate(() => {
+        const image = document.querySelector('img');
+        const xml = decodeURIComponent(image.src.split(',').slice(1).join(','));
+        const svg = new DOMParser().parseFromString(xml, 'image/svg+xml');
+        const progress = document.querySelector('[role="progressbar"]');
+        return {
+          trays: [...svg.querySelectorAll('g[id^="tray-"]')].map(g => g.id),
+          label: progress.getAttribute('aria-label'),
+          now: Number(progress.getAttribute('aria-valuenow')),
+          max: Number(progress.getAttribute('aria-valuemax')),
+          logo: svg.querySelector('image').getAttribute('href'),
+          svgLabel: svg.documentElement.getAttribute('aria-label'),
+          hiddenImage: image.getAttribute('aria-hidden'),
+        };
+      });
+      const n = Math.min(frame - 1, capacity), closed = frame === capacity + 2;
+      assert.deepEqual(result.trays, closed ? [] : Array.from({ length: n }, (_, i) => `tray-${i + 1}`));
+      assert.equal(result.now, n);assert.equal(result.max, capacity);
+      assert.match(result.label, new RegExp(`${n} (trays?|box(?:es)?) of ${capacity}`));
+      assert.match(result.svgLabel, new RegExp(`${n} of ${capacity} trays, ${closed ? 'closed' : 'open'}`));
+      assert.equal(result.hiddenImage, 'true');
+      assert.ok(result.logo.startsWith('data:image/png;base64,'));
+      // Do not repeat the proprietary base64 asset in the report.
+      delete result.logo;
+      results.push({ id, frame, ...result, quantityImmutable: true });
+      await page.locator('#root').screenshot({ path: join(out, `${id}-runtime-${frame}.png`) });
+    }
+  }
+  assert.equal(await page.evaluate(() => window.__motions.length), 0, 'initial reduced motion must be static');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.waitForFunction(() => window.__preferenceEvents.includes(false));
+  await page.evaluate(() => window.review.render('888x4', 3));
+  await page.waitForFunction(() => window.__motions.length > 0);
+  const motionsBefore = await page.evaluate(() => window.__motions.length);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.waitForFunction(() => window.__preferenceEvents.at(-1) === true);
+  // Frame change flushes the state update; no blocking timer is needed.
+  await page.evaluate(() => window.review.render('888x4', 4));
+  assert.equal(await page.evaluate(() => window.__motions.length), motionsBefore);
+  const stops = await page.evaluate(() => window.__motionStops);
+  assert.ok(stops > 0, 'preference change must stop previous animation');
+  const viewports = [];
+  for (const width of [320, 390, 768, 1000]) {
+    await page.setViewportSize({ width, height: 800 });
+    const fit = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+    assert.ok(fit, `no page overflow at ${width}px`);
+    viewports.push({ width, noOverflow: true });
+  }
+  await page.evaluate(() => window.review.unmount());
+  const removals = await page.evaluate(() => window.__listenerRemovals);
+  assert.ok(removals >= 2, 'preference listeners cleaned on config change and unmount');
+  assert.deepEqual(errors, []);assert.deepEqual(external, []);
+  const evidence = {
+    scope: 'Actual CartonVisual on react-native-web with local synthetic preview and diagnostic draft-resolver seam. Not authenticated Buyer E2E or native UAT.',
+    browser: browser.version(), productionPendingGate: 'PASS', rejectedMalformedPreviews: rejected.length, frames: results,
+    reducedMotion: { initiallyStatic: true, livePreferenceChange: true, previousAnimationStopped: stops, listenersRemoved: removals },
+    viewports,
+    pageErrors: errors, externalRequests: external,
+  };
+  await writeFile(join(out, 'runtime-web.json'), JSON.stringify(evidence, null, 2) + '\n');
+  console.log(`PASS: ${results.length} actual component states, pending gate, accessibility DOM, reduced motion, cleanup, no external requests.`);
+} finally {
+  await browser?.close();
+  if (server) await new Promise(r => server.close(r));
+  await rm(scratch, { recursive: true, force: true });
+}

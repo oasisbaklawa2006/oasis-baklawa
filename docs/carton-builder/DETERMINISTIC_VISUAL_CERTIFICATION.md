@@ -1,3 +1,5 @@
+> Historical as-built report at audited head 341cb3d. Current local repair evidence supersedes its rendering/test assertions; see evidence/compliance.json, runtime-web.json and the separately delivered local certification reports. The earlier 888 handwritten-source claim is unverified and must not be treated as physical approval.
+
 # Deterministic carton visualisation — implementation review, 30 October 2026
 
 **Verdict: PARTIAL IMPLEMENTATION / NOT CERTIFIED.** No production release or commercial activation. Owner visual approval, measured physical fit and native UAT are outstanding. The deterministic vectors are review drafts, not equivalent to the premium photographic reference.

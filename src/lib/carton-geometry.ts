@@ -16,8 +16,8 @@ export interface CartonGeometry {
 const make = (id: string, levels: number, trayHeight: number): CartonGeometry => {
   const floor = 650; const top = floor - levels * trayHeight;
   const slots = Array.from({length: levels * 2}, (_, i) => ({id: `tray-${i+1}`, x: i % 2 === 0 ? 166 : 502, y: floor - (Math.floor(i / 2) + 1) * trayHeight}));
-  return { id, version: 1, capacity: slots.length, label: id === 'bulk-6' ? '666×6' : '888×4',
-    approval: 'pending', physical: null, evidence: id === 'bulk-6' ? 'Owner directive 2026-10-30: two columns, three levels' : 'Owner handwritten top/side diagram in this thread: two columns, two levels; factory confirmation and measurements pending',
+  return { id, version: 2, capacity: slots.length, label: id === 'bulk-6' ? '666×6' : '888×4',
+    approval: 'pending', physical: null, evidence: id === 'bulk-6' ? 'Owner directive 2026-10-30: two columns, three levels' : 'Provisional two-column/two-level review draft; factory packing arrangement, measurements and owner geometry approval unverified',
     body: {x: 140, y: top, width: 720, height: floor-top}, floor, wallThickness: 10,
     tray: {width: 332, height: trayHeight, lidDepth: 22, orientation: 'long-axis-depth'}, slots, insertionOrder: slots.map(s=>s.id), frontOpacity: .17,
     branding: {x: 390, y: top + 12, width: 220, height: 112},
@@ -29,10 +29,16 @@ export const CARTON_GEOMETRIES: readonly CartonGeometry[] = [make('bulk-6',3,104
 export function geometryErrors(g: CartonGeometry): string[] {
   const errors: string[] = [];
   const positive = (n: number) => Number.isFinite(n) && n > 0;
+  if (!['pending','approved'].includes(g.approval) || g.tray.orientation !== 'long-axis-depth') errors.push('state/orientation');
   if (!g.id || !Number.isSafeInteger(g.version) || g.version < 1 || !Number.isSafeInteger(g.capacity) || g.capacity < 1 || g.capacity > 100) errors.push('identity/capacity');
   if (![g.body.width,g.body.height,g.wallThickness,g.tray.width,g.tray.height,g.tray.lidDepth].every(positive) || ![g.body.x,g.body.y,g.floor,g.branding.x,g.branding.y,g.branding.width,g.branding.height].every(Number.isFinite) || g.floor !== g.body.y+g.body.height || g.wallThickness*2 >= Math.min(g.body.width,g.body.height)) errors.push('geometry');
   if (g.slots.length !== g.capacity || new Set(g.slots.map(s=>s.id)).size !== g.slots.length) errors.push('slots');
   if (g.insertionOrder.length !== g.capacity || new Set(g.insertionOrder).size !== g.capacity || g.insertionOrder.some(id=>!g.slots.some(s=>s.id===id))) errors.push('sequence');
+  if (g.tray.lidDepth > g.tray.height || ![g.branding.width,g.branding.height].every(positive)) errors.push('geometry');
+  for (const polygon of Object.values(g.flaps)) {
+    const points = polygon.trim().split(/\s+/).map(p=>p.split(',').map(Number));
+    if (points.length<3 || points.some(p=>p.length!==2 || !p.every(Number.isFinite))) errors.push('flaps');
+  }
   if (!Number.isFinite(g.frontOpacity) || g.frontOpacity<0 || g.frontOpacity>1) errors.push('opacity');
   for (const s of g.slots) {
     if (!s.id || ![s.x,s.y].every(Number.isFinite) || s.x < g.body.x || s.y < g.body.y || s.x+g.tray.width>g.body.x+g.body.width || s.y+g.tray.height>g.floor) errors.push('bounds');

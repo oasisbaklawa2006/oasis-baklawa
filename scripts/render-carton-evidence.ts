@@ -1,13 +1,12 @@
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { CARTON_GEOMETRIES, occupiedForFrame } from '../src/lib/carton-geometry';
 import { renderCartonSvg } from '../src/lib/carton-svg';
 const dir='docs/carton-builder/evidence'; mkdirSync(dir,{recursive:true});
-const logo=readFileSync('assets/carton-builder/oasis-reference-oval.png');
-const appearance={logoDataUri:`data:image/png;base64,${logo.toString('base64')}`};
+// Default appearance is shared with the live CartonVisual path.
 const manifest=[];
 for(const g of CARTON_GEOMETRIES) for(let f=1;f<=g.capacity+2;f++) {
- const occupied=occupiedForFrame(g,f); const svg=renderCartonSvg(g,occupied,f===g.capacity+2?'closed':'open',appearance);
+ const occupied=occupiedForFrame(g,f); const svg=renderCartonSvg(g,occupied,f===g.capacity+2?'closed':'open');
  const file=`${g.id}-frame-${f}.svg`;writeFileSync(`${dir}/${file}`,svg);
  manifest.push({file,occupied,geometryVersion:g.version,physicalApproval:g.approval,sha256:createHash('sha256').update(svg).digest('hex')});
 }

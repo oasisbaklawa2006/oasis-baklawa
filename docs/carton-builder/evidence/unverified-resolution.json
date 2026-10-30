@@ -1,0 +1,122 @@
+[
+  {
+    "id": "A2",
+    "requirement": "Physical proportions",
+    "priorStatus": "UNVERIFIED",
+    "whyMissing": "No measured external/internal carton and tray dimensions.",
+    "localAction": "Verified no coordinate changes relative to audited model; cannot verify actual physical proportions from generated pixels.",
+    "status": "UNVERIFIED",
+    "evidence": "External physical/artwork/platform gate",
+    "remainingDependency": "Signed millimetre measurements for both cartons/trays, wall and stack clearance."
+  },
+  {
+    "id": "D1",
+    "requirement": "Approved logo",
+    "priorStatus": "UNVERIFIED",
+    "whyMissing": "No official owner-approved reusable logo artwork certificate.",
+    "localAction": "Unified byte-identical supplied logo in runtime/evidence; owner approval cannot be self-issued.",
+    "status": "UNVERIFIED",
+    "evidence": "External physical/artwork/platform gate",
+    "remainingDependency": "Official asset/release manifest and owner artwork approval."
+  },
+  {
+    "id": "D3",
+    "requirement": "Handling symbols",
+    "priorStatus": "UNVERIFIED",
+    "whyMissing": "No approved handling-symbol artwork manifest.",
+    "localAction": "Arrows point upward, vegetarian mark and carton ID retained at fixed coordinates; exact approved printing remains unverified.",
+    "status": "UNVERIFIED",
+    "evidence": "External physical/artwork/platform gate",
+    "remainingDependency": "Owner-approved symbols and artwork placement."
+  },
+  {
+    "id": "D5",
+    "requirement": "No artwork distortion",
+    "priorStatus": "UNVERIFIED",
+    "whyMissing": "Previous evidence did not establish distortion/runtime parity.",
+    "localAction": "Verified source bytes, preserveAspectRatio and shared runtime default.",
+    "status": "PASS",
+    "evidence": "Local source-logo bytes SHA256 unchanged; image uses preserveAspectRatio meet. No warp relative to supplied crop. Official artwork approval is a separate D1 gate.",
+    "remainingDependency": "Official logo source approval remains D1."
+  },
+  {
+    "id": "E1",
+    "requirement": "Physical open state",
+    "priorStatus": "UNVERIFIED",
+    "whyMissing": "Actual flap hinges/depth/open angles not dimensioned.",
+    "localAction": "Confirmed unchanged polygons, no duplicate flaps/obscured grid; cannot certify mechanical plausibility from 2D draft.",
+    "status": "UNVERIFIED",
+    "evidence": "External physical/artwork/platform gate",
+    "remainingDependency": "Measured/approved open hinge geometry and flap views."
+  },
+  {
+    "id": "F1",
+    "requirement": "State per quantity",
+    "priorStatus": "UNVERIFIED",
+    "whyMissing": "Previously only serializer mapping tested; runtime dormant.",
+    "localAction": "Mounted actual component under explicit temporary review resolver, all 14 states; production pending gate still enforced.",
+    "status": "PASS",
+    "evidence": "Actual CartonVisual on local react-native-web: all 14 state mappings, five malformed fixtures, pending-geometry gate; source quantities unchanged. Synthetic preview data, not authenticated commerce UAT.",
+    "remainingDependency": "Real authenticated data integration remains separate programme UAT."
+  },
+  {
+    "id": "F4",
+    "requirement": "Reduced motion",
+    "priorStatus": "UNVERIFIED",
+    "whyMissing": "Live preference event and cleanup not executed.",
+    "localAction": "Tested initial reduced motion, live off/on, animation stop, listener cleanup in Chromium.",
+    "status": "PASS",
+    "evidence": "Live browser prefers-reduced-motion changes tested; initially static, no animation when reduce enabled, previous animation stopped and listeners removed. Native preference behaviour remains under F6/F7.",
+    "remainingDependency": "Native behaviour included in F6/F7."
+  },
+  {
+    "id": "F5",
+    "requirement": "Accessible description",
+    "priorStatus": "UNVERIFIED",
+    "whyMissing": "Native-style accessibilityValue was not propagated to web ARIA attributes.",
+    "localAction": "Added supported ARIA value aliases; verified all 14 accessible names/ranges and decorative image hiding in browser DOM.",
+    "status": "PASS",
+    "evidence": "Actual DOM progressbar count, range and accessible name asserted for 14 states. Decorative image hidden from accessibility. TalkBack/VoiceOver execution remains under F6/F7.",
+    "remainingDependency": "Human screen-reader UAT remains F6/F7."
+  },
+  {
+    "id": "F6",
+    "requirement": "Android runtime",
+    "priorStatus": "UNVERIFIED",
+    "whyMissing": "No Android SDK/adb/device or verified native build.",
+    "localAction": "Native adapter typechecked; existing regression tests run. Java alone does not supply native UAT.",
+    "status": "UNVERIFIED",
+    "evidence": "External physical/artwork/platform gate",
+    "remainingDependency": "Android device or emulator/build environment, TalkBack and physical performance run."
+  },
+  {
+    "id": "F7",
+    "requirement": "iOS runtime",
+    "priorStatus": "UNVERIFIED",
+    "whyMissing": "No Apple SDK/xcrun/iOS runtime/device.",
+    "localAction": "Native adapter typechecked; no simulator or device results claimed.",
+    "status": "UNVERIFIED",
+    "evidence": "External physical/artwork/platform gate",
+    "remainingDependency": "Apple build/signing environment and iOS device/simulator, VoiceOver run."
+  },
+  {
+    "id": "F8",
+    "requirement": "Web runtime",
+    "priorStatus": "UNVERIFIED",
+    "whyMissing": "Previously static SVG evidence only; web SvgXml unavailable in installed package.",
+    "localAction": "Added safe web adapter; actual component rendered, malformed preview gate/quantities/motion tested, four responsive widths.",
+    "status": "PASS",
+    "evidence": "Actual CartonVisual and web SVG adapter rendered 14 local fixture states in Chromium; no page errors/external requests; widths320/390/768/1000 fit. Not authenticated Buyer golden-path UAT.",
+    "remainingDependency": "Authenticated Buyer web UAT still programme gate."
+  },
+  {
+    "id": "F9",
+    "requirement": "Device performance",
+    "priorStatus": "UNVERIFIED",
+    "whyMissing": "Target physical-device hardware/budget unavailable.",
+    "localAction": "Measured 500 local Node serializations; browser fixtures fit and load without errors. This is not target-device performance.",
+    "status": "UNVERIFIED",
+    "evidence": "External physical/artwork/platform gate",
+    "remainingDependency": "Agreed device/performance budget and Android/iOS measurements."
+  }
+]

@@ -3,252 +3,294 @@
     "id": "A1",
     "criterion": "Configuration",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "A2",
     "criterion": "Physical proportions",
     "status": "UNVERIFIED",
-    "evidence": "External physical/artwork/platform gate"
+    "evidence": "External physical/artwork/platform gate",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "A3",
     "criterion": "Fixed camera",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "A4",
     "criterion": "Stable front geometry",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "A5",
     "criterion": "Fixed floor",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "A6",
     "criterion": "Fixed walls",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "A7",
     "criterion": "No distortion",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "A8",
     "criterion": "No extra panels",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "B1",
     "criterion": "Count",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "B2",
     "criterion": "Occupied slots",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "B3",
     "criterion": "Identical tray geometry",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "B4",
     "criterion": "Orientation",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "B5",
     "criterion": "Alignment",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "B6",
     "criterion": "No floating trays",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "B7",
     "criterion": "No overlaps",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "B8",
     "criterion": "No duplicate lids",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "B9",
     "criterion": "No invented trays",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "C1",
     "criterion": "Front position",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "C2",
     "criterion": "Transparency",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "C3",
     "criterion": "Contents visible",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "All 14 regenerated states inspected. Open-state printing opacity .18 reveals contents under the mark, with unchanged footprint; owner watermark contrast/appearance approval remains outstanding.",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "C4",
     "criterion": "Single wall",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "C5",
     "criterion": "Integrated wall",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "C6",
     "criterion": "Restrained reflections",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "D1",
     "criterion": "Approved logo",
     "status": "UNVERIFIED",
-    "evidence": "External physical/artwork/platform gate"
+    "evidence": "External physical/artwork/platform gate",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "D2",
     "criterion": "Carton ID",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "D3",
     "criterion": "Handling symbols",
     "status": "UNVERIFIED",
-    "evidence": "External physical/artwork/platform gate"
+    "evidence": "External physical/artwork/platform gate",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "D4",
     "criterion": "Stable coordinates",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "D5",
     "criterion": "No artwork distortion",
-    "status": "UNVERIFIED",
-    "evidence": "External physical/artwork/platform gate"
+    "status": "PASS",
+    "evidence": "Local source-logo bytes SHA256 unchanged; image uses preserveAspectRatio meet. No warp relative to supplied crop. Official artwork approval is a separate D1 gate.",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "E1",
     "criterion": "Physical open state",
     "status": "UNVERIFIED",
-    "evidence": "External physical/artwork/platform gate"
+    "evidence": "External physical/artwork/platform gate",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "E2",
     "criterion": "Physical closure",
     "status": "UNVERIFIED",
-    "evidence": "External physical/artwork/platform gate"
+    "evidence": "Ivory top colour fixed and tested; actual flap folding sequence, depth and tape/fit require physical reference verification.",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "E3",
     "criterion": "No duplicate flap",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "E4",
     "criterion": "Unobstructed view",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "E5",
     "criterion": "Fixed geometry across states",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "F1",
     "criterion": "State per quantity",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Actual CartonVisual on local react-native-web: all 14 state mappings, five malformed fixtures, pending-geometry gate; source quantities unchanged. Synthetic preview data, not authenticated commerce UAT.",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "F2",
     "criterion": "No quantity writes",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "F3",
     "criterion": "No commercial regression",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Commercial source and catalogue safeguards unchanged; complete relevant local regression suite rerun. No live commercial certification inferred.",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "F4",
     "criterion": "Reduced motion",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Live browser prefers-reduced-motion changes tested; initially static, no animation when reduce enabled, previous animation stopped and listeners removed. Native preference behaviour remains under F6/F7.",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "F5",
     "criterion": "Accessible description",
     "status": "PASS",
-    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+    "evidence": "Actual DOM progressbar count, range and accessible name asserted for 14 states. Decorative image hidden from accessibility. TalkBack/VoiceOver execution remains under F6/F7.",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "F6",
     "criterion": "Android runtime",
     "status": "UNVERIFIED",
-    "evidence": "External physical/artwork/platform gate"
+    "evidence": "External physical/artwork/platform gate",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "F7",
     "criterion": "iOS runtime",
     "status": "UNVERIFIED",
-    "evidence": "External physical/artwork/platform gate"
+    "evidence": "External physical/artwork/platform gate",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "F8",
     "criterion": "Web runtime",
-    "status": "UNVERIFIED",
-    "evidence": "External physical/artwork/platform gate"
+    "status": "PASS",
+    "evidence": "Actual CartonVisual and web SVG adapter rendered 14 local fixture states in Chromium; no page errors/external requests; widths320/390/768/1000 fit. Not authenticated Buyer golden-path UAT.",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   },
   {
     "id": "F9",
     "criterion": "Device performance",
     "status": "UNVERIFIED",
-    "evidence": "External physical/artwork/platform gate"
+    "evidence": "External physical/artwork/platform gate",
+    "scope": "Local/model or diagnostic web evidence only. Physical, owner and native gates remain separate."
   }
 ]

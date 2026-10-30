@@ -1,0 +1,229 @@
+{
+  "scope": "Actual CartonVisual on react-native-web with local synthetic preview and diagnostic draft-resolver seam. Not authenticated Buyer E2E or native UAT.",
+  "browser": "131.0.6778.33",
+  "productionPendingGate": "PASS",
+  "rejectedMalformedPreviews": 5,
+  "frames": [
+    {
+      "id": "bulk-6",
+      "frame": 1,
+      "trays": [],
+      "label": "Type B — 6 inner boxes. Empty carton. 0 boxes of 6. 6 boxes to fill",
+      "now": 0,
+      "max": 6,
+      "svgLabel": "666×6: 0 of 6 trays, open",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "bulk-6",
+      "frame": 2,
+      "trays": [
+        "tray-1"
+      ],
+      "label": "Type B — 6 inner boxes. Carton in progress. 1 box of 6. 5 boxes remaining",
+      "now": 1,
+      "max": 6,
+      "svgLabel": "666×6: 1 of 6 trays, open",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "bulk-6",
+      "frame": 3,
+      "trays": [
+        "tray-1",
+        "tray-2"
+      ],
+      "label": "Type B — 6 inner boxes. Carton in progress. 2 boxes of 6. 4 boxes remaining",
+      "now": 2,
+      "max": 6,
+      "svgLabel": "666×6: 2 of 6 trays, open",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "bulk-6",
+      "frame": 4,
+      "trays": [
+        "tray-1",
+        "tray-2",
+        "tray-3"
+      ],
+      "label": "Type B — 6 inner boxes. Carton in progress. 3 boxes of 6. 3 boxes remaining",
+      "now": 3,
+      "max": 6,
+      "svgLabel": "666×6: 3 of 6 trays, open",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "bulk-6",
+      "frame": 5,
+      "trays": [
+        "tray-1",
+        "tray-2",
+        "tray-3",
+        "tray-4"
+      ],
+      "label": "Type B — 6 inner boxes. Carton in progress. 4 boxes of 6. 2 boxes remaining",
+      "now": 4,
+      "max": 6,
+      "svgLabel": "666×6: 4 of 6 trays, open",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "bulk-6",
+      "frame": 6,
+      "trays": [
+        "tray-1",
+        "tray-2",
+        "tray-3",
+        "tray-4",
+        "tray-5"
+      ],
+      "label": "Type B — 6 inner boxes. Carton in progress. 5 boxes of 6. 1 box remaining",
+      "now": 5,
+      "max": 6,
+      "svgLabel": "666×6: 5 of 6 trays, open",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "bulk-6",
+      "frame": 7,
+      "trays": [
+        "tray-1",
+        "tray-2",
+        "tray-3",
+        "tray-4",
+        "tray-5",
+        "tray-6"
+      ],
+      "label": "Type B — 6 inner boxes. Carton complete. 6 boxes of 6. No space remaining",
+      "now": 6,
+      "max": 6,
+      "svgLabel": "666×6: 6 of 6 trays, open",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "bulk-6",
+      "frame": 8,
+      "trays": [],
+      "label": "Type B — 6 inner boxes. Carton complete. 6 boxes of 6. No space remaining",
+      "now": 6,
+      "max": 6,
+      "svgLabel": "666×6: 6 of 6 trays, closed",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "888x4",
+      "frame": 1,
+      "trays": [],
+      "label": "Type A — 888×4. Empty carton. 0 trays of 4. 4 trays to fill",
+      "now": 0,
+      "max": 4,
+      "svgLabel": "888×4: 0 of 4 trays, open",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "888x4",
+      "frame": 2,
+      "trays": [
+        "tray-1"
+      ],
+      "label": "Type A — 888×4. Carton in progress. 1 tray of 4. 3 trays remaining",
+      "now": 1,
+      "max": 4,
+      "svgLabel": "888×4: 1 of 4 trays, open",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "888x4",
+      "frame": 3,
+      "trays": [
+        "tray-1",
+        "tray-2"
+      ],
+      "label": "Type A — 888×4. Carton in progress. 2 trays of 4. 2 trays remaining",
+      "now": 2,
+      "max": 4,
+      "svgLabel": "888×4: 2 of 4 trays, open",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "888x4",
+      "frame": 4,
+      "trays": [
+        "tray-1",
+        "tray-2",
+        "tray-3"
+      ],
+      "label": "Type A — 888×4. Carton in progress. 3 trays of 4. 1 tray remaining",
+      "now": 3,
+      "max": 4,
+      "svgLabel": "888×4: 3 of 4 trays, open",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "888x4",
+      "frame": 5,
+      "trays": [
+        "tray-1",
+        "tray-2",
+        "tray-3",
+        "tray-4"
+      ],
+      "label": "Type A — 888×4. Carton complete. 4 trays of 4. No space remaining",
+      "now": 4,
+      "max": 4,
+      "svgLabel": "888×4: 4 of 4 trays, open",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "888x4",
+      "frame": 6,
+      "trays": [],
+      "label": "Type A — 888×4. Carton complete. 4 trays of 4. No space remaining",
+      "now": 4,
+      "max": 4,
+      "svgLabel": "888×4: 4 of 4 trays, closed",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    }
+  ],
+  "reducedMotion": {
+    "initiallyStatic": true,
+    "livePreferenceChange": true,
+    "previousAnimationStopped": 2,
+    "listenersRemoved": 2
+  },
+  "viewports": [
+    {
+      "width": 320,
+      "noOverflow": true
+    },
+    {
+      "width": 390,
+      "noOverflow": true
+    },
+    {
+      "width": 768,
+      "noOverflow": true
+    },
+    {
+      "width": 1000,
+      "noOverflow": true
+    }
+  ],
+  "pageErrors": [],
+  "externalRequests": []
+}

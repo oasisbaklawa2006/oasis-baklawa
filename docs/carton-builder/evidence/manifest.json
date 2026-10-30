@@ -2,18 +2,18 @@
   {
     "file": "bulk-6-frame-1.svg",
     "occupied": [],
-    "geometryVersion": 1,
+    "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "c9e1ea9e08bea0518ae154463ce65400b95f924b61b64e8ba80498851872a242"
+    "sha256": "06a29b73323c49c2ecbf48a726bcbc4ebef8b6f81489ba24234869a33d571936"
   },
   {
     "file": "bulk-6-frame-2.svg",
     "occupied": [
       "tray-1"
     ],
-    "geometryVersion": 1,
+    "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "e34584e24d90f0348173cee238443a076750ef515e08538f52cb5164fefb45ee"
+    "sha256": "adb1589a0420416073b244768ec651b9c79f05a5960be8773aadbe671fbb66bb"
   },
   {
     "file": "bulk-6-frame-3.svg",
@@ -21,9 +21,9 @@
       "tray-1",
       "tray-2"
     ],
-    "geometryVersion": 1,
+    "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "0575fe1332c899294bdaa07a6538586357725f4d58d0a90a2b60f69fdc84487a"
+    "sha256": "fbd18ce2ad646e14fa018b439f380388db4bddb9e92978b51b09ecffd9d5a45a"
   },
   {
     "file": "bulk-6-frame-4.svg",
@@ -32,9 +32,9 @@
       "tray-2",
       "tray-3"
     ],
-    "geometryVersion": 1,
+    "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "2ae1e83c36b62dbba91600c218ee04fd27faaaa8e4bb091a668ed276b2d08b67"
+    "sha256": "28c4f1ddc543ff13066ba35f7b3809384c9af69dda85f4a7535cc4df136e93e5"
   },
   {
     "file": "bulk-6-frame-5.svg",
@@ -44,9 +44,9 @@
       "tray-3",
       "tray-4"
     ],
-    "geometryVersion": 1,
+    "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "93aea210132976286f1f8076508d13710a8f4b2efa6304ad3b9232b6e1e72095"
+    "sha256": "077d1b177da30b31d56c4c0f8750abdc762132cc4a8eeab14643be59c20faf4c"
   },
   {
     "file": "bulk-6-frame-6.svg",
@@ -57,9 +57,9 @@
       "tray-4",
       "tray-5"
     ],
-    "geometryVersion": 1,
+    "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "14e821eaa95e17e54a35b5011b1c36649dfd0da7979b38625d490071b59ce26e"
+    "sha256": "ac81d407db38864e6ccb9ed4c5ff915149f4478f43d8e2e5b911b106477b2eb4"
   },
   {
     "file": "bulk-6-frame-7.svg",
@@ -71,9 +71,9 @@
       "tray-5",
       "tray-6"
     ],
-    "geometryVersion": 1,
+    "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "f6931f28fb3009499f60ff19ef736900316702647883939feaa6128a36f569f6"
+    "sha256": "7798a087f630c0a4aa22c0d6f207e68ab680f453ede939d97bbe0ab0afda1fb8"
   },
   {
     "file": "bulk-6-frame-8.svg",
@@ -85,25 +85,25 @@
       "tray-5",
       "tray-6"
     ],
-    "geometryVersion": 1,
+    "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "cb0ad4deae928b7e39abf9ae2a3eab8182caf4b262031404fa563f731f41d95e"
+    "sha256": "f0f5af22b3bb2b5efc18d349107d4fb2c383f1135348f1ad751ec0d02d2ce2f9"
   },
   {
     "file": "888x4-frame-1.svg",
     "occupied": [],
-    "geometryVersion": 1,
+    "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "1c4495feb94bb7e8997967d39e9e4daa0a0022ae2302db60ba2661eeefee3eab"
+    "sha256": "e30e1ee723bcad8f2e09070069cd1ee9e8cebe7ecb552fcc8ad839261b680248"
   },
   {
     "file": "888x4-frame-2.svg",
     "occupied": [
       "tray-1"
     ],
-    "geometryVersion": 1,
+    "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "3971ee4ae764ce2f829adc32a7250fae004678fe3cadaa375f4f77be94d0f640"
+    "sha256": "8f414e68c79c88be54cf28daacc5efb7cc35f02c88a688b6548fa4f14d3275c0"
   },
   {
     "file": "888x4-frame-3.svg",
@@ -111,9 +111,9 @@
       "tray-1",
       "tray-2"
     ],
-    "geometryVersion": 1,
+    "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "88f85d32a44180911cf3b5fd41f2a8af7f72376fb7022b7f2905af9e2d729cf7"
+    "sha256": "f6848f71cb2321120d62113dd49e9a85a88895ee65700d1e598bbf4ccd635ad3"
   },
   {
     "file": "888x4-frame-4.svg",
@@ -122,9 +122,9 @@
       "tray-2",
       "tray-3"
     ],
-    "geometryVersion": 1,
+    "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "924cd0045b593cba59ba98a0e8b6be643bf7ca1ef0fe7bf4713b88bd902d4559"
+    "sha256": "54b2aff2a76201ab9f97ce550a378dcfe00ffee1b738d7cce24fa15f0e2e6445"
   },
   {
     "file": "888x4-frame-5.svg",
@@ -134,9 +134,9 @@
       "tray-3",
       "tray-4"
     ],
-    "geometryVersion": 1,
+    "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "facaed2ca75c4680a41a1de6531943378dc38bea4275e23e3729792a60260074"
+    "sha256": "d7cf0ed7c3a1130b1a6515cb15ed0ad6c401f11c397faa7fdee547b970d88597"
   },
   {
     "file": "888x4-frame-6.svg",
@@ -146,8 +146,8 @@
       "tray-3",
       "tray-4"
     ],
-    "geometryVersion": 1,
+    "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "49a498dfe20947400760e9e4f681388f765c1246310a14d3ed6126febb61bfb7"
+    "sha256": "a638b23000a4d87912a1ed306dedb24b638a686296c19745cc105172d4e44331"
   }
 ]

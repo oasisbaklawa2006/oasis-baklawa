@@ -1,10 +1,10 @@
 {
   "cairosvg": "2.9.1",
-  "pillow": "13.0.0",
+  "pillow": "12.3.0",
   "frames": [
     {
       "file": "bulk-6-frame-1.png",
-      "sha256": "e6f1bb607ab6edf533b7b3857e6cdc51d8144e8080da63a5bc9b9bbfc8806d00",
+      "sha256": "21b905b068f84a301ec72a18bdb286ec6ec0ff017fd96e119597ed329d9bfaf2",
       "dimensions": [
         800,
         600
@@ -12,7 +12,7 @@
     },
     {
       "file": "bulk-6-frame-2.png",
-      "sha256": "7040265b4f4c5b41a50128ac973ca33175a2c2e92224502bea486f4125271f45",
+      "sha256": "7f3dc51126018fb44cc4495ef0033ca28bfcf04b1d8b92abafbc05a829af5de1",
       "dimensions": [
         800,
         600
@@ -20,7 +20,7 @@
     },
     {
       "file": "bulk-6-frame-3.png",
-      "sha256": "ff2d056b7e975296b66bd07168307f66166c497640724ed7b2dae0597a0e04ab",
+      "sha256": "d08e9a806a5625350147f7502277d2b3e35d7c60772c4a7a48522e401792a579",
       "dimensions": [
         800,
         600
@@ -28,7 +28,7 @@
     },
     {
       "file": "bulk-6-frame-4.png",
-      "sha256": "c0bd6ac5485f90496134b65ea230fee85a3c40a4cb8b4c40865ab2dcc3d0f8f4",
+      "sha256": "e170c541f2a6113161e22719dcffd5a9bb46e5a12f74ed6b24d86d032d544fe9",
       "dimensions": [
         800,
         600
@@ -36,7 +36,7 @@
     },
     {
       "file": "bulk-6-frame-5.png",
-      "sha256": "f21ae7204789f0cc42be5c84ac3019ed45e2eca84e0ff89bdde6f4078d92385f",
+      "sha256": "e3c70cdde6ec47e6fa70319e8de77fbb389015d886e3be2a69be3db3be404e75",
       "dimensions": [
         800,
         600
@@ -44,7 +44,7 @@
     },
     {
       "file": "bulk-6-frame-6.png",
-      "sha256": "95cc4570fd67c3bc9e1ee2756104f741e784112dfbbe1d7eec08d5ffd2bec3f5",
+      "sha256": "8d60cea5cf3362e7971df9947ca54d5a8ab836d7439155e27c3742ce9dab13ca",
       "dimensions": [
         800,
         600
@@ -52,7 +52,7 @@
     },
     {
       "file": "bulk-6-frame-7.png",
-      "sha256": "7fce64dad4b15e0fa8ecce6361ee4bd759519b1ee5527603197ddff1f521433a",
+      "sha256": "5dceaf806867837671158fade97784710c5f0821e539e990477664a982f3377e",
       "dimensions": [
         800,
         600
@@ -60,7 +60,7 @@
     },
     {
       "file": "bulk-6-frame-8.png",
-      "sha256": "4056aa4a1c57f9d089f11fd1c7af8dfd4df31236a31d914925543b807c290fb4",
+      "sha256": "bb49e185c4881a7136bf017ca53f0ee5a8047dc3693162595321921f95f064d0",
       "dimensions": [
         800,
         600
@@ -68,7 +68,7 @@
     },
     {
       "file": "888x4-frame-1.png",
-      "sha256": "78e75b3a77c95249350cdf5049305b40cb66ed40c5a83466a4999d8b7a26cad4",
+      "sha256": "39c086abe14ee761ceaf7ce6397cce1e59e8a2b7d41f55095e9bba06902b401b",
       "dimensions": [
         800,
         600
@@ -76,7 +76,7 @@
     },
     {
       "file": "888x4-frame-2.png",
-      "sha256": "aad27fd1be067af7e25bfb16bbfc999d0aa4c43dd1f6b23ccb9fcdb30806780e",
+      "sha256": "a7a62adee114cefcb4aac6a6e725b7da5ba7a8cca96bf1bffef750f5d5dd7675",
       "dimensions": [
         800,
         600
@@ -84,7 +84,7 @@
     },
     {
       "file": "888x4-frame-3.png",
-      "sha256": "607aa42b5243bcc973e8db3e183c16e198cd3c9c17a6a6ab39c89729a0962f3b",
+      "sha256": "96263de9085262cc9bba3fa87aa4d6ab675c784491f2f69a0189c6b9a2b75016",
       "dimensions": [
         800,
         600
@@ -92,7 +92,7 @@
     },
     {
       "file": "888x4-frame-4.png",
-      "sha256": "e4290e2e4dc0c8c10ac3636b200f60b7089d7953c7df6e2ded65ec9a59e3207f",
+      "sha256": "fd5ab08f8dd6728399b0fe02aa00051954fd4e70c3a61a71d613ca9136cfef81",
       "dimensions": [
         800,
         600
@@ -100,7 +100,7 @@
     },
     {
       "file": "888x4-frame-5.png",
-      "sha256": "7be5870f491f511572da0ac1681f3c7a8848d3fde23414595b3494775d2d2196",
+      "sha256": "784732cbd228b357a94e06a098e9e176aed460a853fb939d60493ef0148a9053",
       "dimensions": [
         800,
         600
@@ -108,7 +108,7 @@
     },
     {
       "file": "888x4-frame-6.png",
-      "sha256": "98992bfaff3dd7b072c577928d262e29f321ed660b3307823402aa40cf5d8a57",
+      "sha256": "5dc6714dc3f6968472690b63b3ca1dbd658b7432ec5c747a81fe97ff46a436e8",
       "dimensions": [
         800,
         600

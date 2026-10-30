@@ -4,7 +4,7 @@
     "occupied": [],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "06a29b73323c49c2ecbf48a726bcbc4ebef8b6f81489ba24234869a33d571936"
+    "sha256": "8411681b1217c2e413ee344392cadcc26848a8e60e8a5712a80f6643e2d4f5de"
   },
   {
     "file": "bulk-6-frame-2.svg",
@@ -13,7 +13,7 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "adb1589a0420416073b244768ec651b9c79f05a5960be8773aadbe671fbb66bb"
+    "sha256": "b9f458d51f36737df8625434dc63f22c95c97c2c5621d597dba84589cdb4d24e"
   },
   {
     "file": "bulk-6-frame-3.svg",
@@ -23,7 +23,7 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "fbd18ce2ad646e14fa018b439f380388db4bddb9e92978b51b09ecffd9d5a45a"
+    "sha256": "c4f46095901f4b7fe906c8fed6df96b4330e25bf3ec6c50a1eba6e9cdaa33c46"
   },
   {
     "file": "bulk-6-frame-4.svg",
@@ -34,7 +34,7 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "28c4f1ddc543ff13066ba35f7b3809384c9af69dda85f4a7535cc4df136e93e5"
+    "sha256": "5b0cb8cbf066e495424c433f97cedbd77919298dd88160d608eac53461432bd3"
   },
   {
     "file": "bulk-6-frame-5.svg",
@@ -46,7 +46,7 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "077d1b177da30b31d56c4c0f8750abdc762132cc4a8eeab14643be59c20faf4c"
+    "sha256": "3d90110f27d81fbd788ea35a0d71f07f9f74a8ed909c1b5dc085ba1493a7102f"
   },
   {
     "file": "bulk-6-frame-6.svg",
@@ -59,7 +59,7 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "ac81d407db38864e6ccb9ed4c5ff915149f4478f43d8e2e5b911b106477b2eb4"
+    "sha256": "bba99c4c4ca3ef04205b5b9fd652ab95de597e4c440f7467ccf9cb4a21809abe"
   },
   {
     "file": "bulk-6-frame-7.svg",
@@ -73,7 +73,7 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "7798a087f630c0a4aa22c0d6f207e68ab680f453ede939d97bbe0ab0afda1fb8"
+    "sha256": "e63000570c54a3f183f14c3c48a583fa3a1b4d4e1b4a1a96605cd70a69e827ed"
   },
   {
     "file": "bulk-6-frame-8.svg",
@@ -87,14 +87,14 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "f0f5af22b3bb2b5efc18d349107d4fb2c383f1135348f1ad751ec0d02d2ce2f9"
+    "sha256": "1f28cdbf40da657070b3ae42530a012fe39ceba6600c83ceb584892d2dff417d"
   },
   {
     "file": "888x4-frame-1.svg",
     "occupied": [],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "e30e1ee723bcad8f2e09070069cd1ee9e8cebe7ecb552fcc8ad839261b680248"
+    "sha256": "85b0445a9aaef3433f4b64094d5efae1f126a82ac8a909bddc9ff150c58d9557"
   },
   {
     "file": "888x4-frame-2.svg",
@@ -103,7 +103,7 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "8f414e68c79c88be54cf28daacc5efb7cc35f02c88a688b6548fa4f14d3275c0"
+    "sha256": "33cc0ce678d0b231f752054a670833d24d25739b5e20927815fc477b3a90867a"
   },
   {
     "file": "888x4-frame-3.svg",
@@ -113,7 +113,7 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "f6848f71cb2321120d62113dd49e9a85a88895ee65700d1e598bbf4ccd635ad3"
+    "sha256": "095e7685638360572bfa4be5f4dc4511688e12996ab8f27e598c31456107d461"
   },
   {
     "file": "888x4-frame-4.svg",
@@ -124,7 +124,7 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "54b2aff2a76201ab9f97ce550a378dcfe00ffee1b738d7cce24fa15f0e2e6445"
+    "sha256": "9850d0b600e9b0fbc4655635f8a492a98d7d480b8724ff6ea5cda9998c2e382e"
   },
   {
     "file": "888x4-frame-5.svg",
@@ -136,7 +136,7 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "d7cf0ed7c3a1130b1a6515cb15ed0ad6c401f11c397faa7fdee547b970d88597"
+    "sha256": "635773911417758c4278a26d9dbef04f7e5c58250c1f8709b1e31cb0714846ef"
   },
   {
     "file": "888x4-frame-6.svg",
@@ -148,6 +148,6 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "a638b23000a4d87912a1ed306dedb24b638a686296c19745cc105172d4e44331"
+    "sha256": "537346a04f811cbe6e43c7694c58130248519449ebe6de02235482ac5650c6d4"
   }
 ]

@@ -1,6 +1,6 @@
 {
   "scope": "Actual CartonVisual on react-native-web with local synthetic preview and diagnostic draft-resolver seam. Not authenticated Buyer E2E or native UAT.",
-  "browser": "131.0.6778.33",
+  "browser": "153.0.8010.12",
   "productionPendingGate": "PASS",
   "rejectedMalformedPreviews": 5,
   "frames": [

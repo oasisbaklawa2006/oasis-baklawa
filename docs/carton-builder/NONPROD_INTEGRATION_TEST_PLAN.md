@@ -70,7 +70,13 @@ Spec §9 tests 1–10, plus: persona (e) staff-only and (f) anonymous receive no
 | A5 | Offline mid-session. | Existing offline banner; carton UI read-only; no stale false success. |
 
 ## 4. Exit criteria
-All scenarios PASS or have a documented, owner-accepted BLOCKED; zero P0/P1 defects; every result tied to the exact SHA.
+The plan counts as **complete** only when all of the following hold:
+
+1. **Critical scenarios PASS, not BLOCKED:** C1–C6 and C8 (cart quantity preservation), P1–P2 (pricing states), G1–G3 (Genie), K1–K3 and K5–K7 (packing-profile consumption) and every tenant-isolation / RLS scenario in the Security section. A BLOCKED result on any of these keeps the plan **open** and cannot be waived by owner acceptance.
+2. Non-critical scenarios (C7 residual-race recording, G4, K4, A1–A5) are PASS, or BLOCKED with an owner-accepted reason. Accepted BLOCKED results stay listed as **outstanding work** in the result sheet and in the PR; they never count as passed.
+3. Zero P0/P1 defects, and every result is tied to the exact SHA.
+
+An all-BLOCKED run is therefore reported as "not executed", never as "complete".
 
 ## 5. What can run today without credentials
 Everything except the scenarios above is already covered by unit tests: the carton engine, commercial pre-check, draft-add guard, Genie resolution, pricing-state, packing-profile validator and accessibility model (262 tests plus the preparation branch's additions).

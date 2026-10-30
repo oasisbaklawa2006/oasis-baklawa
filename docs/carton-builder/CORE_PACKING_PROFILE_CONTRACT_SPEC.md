@@ -33,7 +33,7 @@ One row per approved, currently effective carton configuration.
 | `mixable_group_sets` | jsonb (array of arrays of text) | Each inner array is a set of groups that may share one carton. A carton holding one group needs no entry. Every group listed must also be in `eligible_packing_groups`. |
 | `visual_asset_keys` | jsonb (object state→asset ref), nullable | Only approved assets. |
 | `asset_status` | text | `approved` / `pending` / `missing`. |
-| `effective_from`, `effective_until` | timestamptz, nullable | Half-open window; null = unbounded. |
+| `effective_from`, `effective_until` | timestamptz, nullable | Half-open window `effective_from <= now < effective_until`; null = unbounded. The instant equal to `effective_until` is already expired. |
 | `approval_status` | text | Always `approved` in this output; unapproved rows are never returned. |
 | `contract_version` | integer | `1`. |
 
@@ -57,7 +57,7 @@ One row per (orderable product × variant).
 | `full_carton_required` | boolean | Carton must be full. |
 | `profile_version` | integer ≥ 1 | Increases on every approved change. |
 | `approval_status` | text | Always `approved`. |
-| `effective_from`, `effective_until` | timestamptz, nullable | Same semantics as above. |
+| `effective_from`, `effective_until` | timestamptz, nullable | Same half-open semantics as above. |
 | `projection_hash` | text | md5 of the row's governed fields for client cache invalidation. |
 | `contract_version` | integer | `1`. |
 
@@ -71,7 +71,7 @@ One row per (orderable product × variant).
 
 - v1 supports `slot_unit` only: the ordered unit is the slot unit (for example a tray), so conversions are integers and exact.
 - Loose sweets are stored in **kg** in the master, while carton slots are trays. A kg-to-tray rule (`ordered_units_per_slot`, for example 2.5 kg per tray) needs: (a) a business decision on the ordering unit; (b) evidence per SKU; (c) a Buyer engine extension (exact decimal arithmetic) and an order-increment that is a multiple of the ratio. Until then the Buyer **rejects** `fixed_ratio` rows with `UNSUPPORTED_CONVERSION`, and the SKU simply is not carton-managed.
-- `commercial_uom` must match the price projection's `uom` exactly (case-insensitive, trimmed); otherwise the SKU is rejected by the Buyer and flagged by Core's contract tests.
+- `commercial_uom` must match the price projection's `uom` (trimmed, case-insensitive). The Buyer validator takes the price unit per product as an input and rejects a profile on a mismatch (`UOM_MISMATCH`) or when the product's price unit is unknown (`PRICE_UOM_UNKNOWN`), so a fill is never drawn in a unit the buyer does not order in. Core's contract tests flag the same mismatch.
 
 ## 5. MOQ, increments and mixing
 
@@ -101,7 +101,8 @@ One row per (orderable product × variant).
 | RPC error, offline, non-array payload | Carton UI absent. Browsing, cart and checkout unaffected. |
 | Unknown `contract_version` | Whole payload rejected. |
 | Row missing a required field, wrong type, non-integer slots, empty group | That row rejected; other rows unaffected. |
-| Duplicate profile for the same `(product_id, variant_id)` | All rows for that product rejected (ambiguity). |
+| Duplicate `product_id` (profiles) or duplicate `(config_id, config_version)` (configurations) | **Every** copy is rejected, including copies that are themselves malformed: duplicates are counted on the raw rows before any row validation, so a bad copy cannot hide its twin. |
+| Profile unit differs from the price unit, or the price unit is unknown | Row rejected (`UOM_MISMATCH` / `PRICE_UOM_UNKNOWN`). |
 | Non-null `variant_id` | Row rejected (`VARIANT_UNSUPPORTED`). |
 | `conversion_basis ≠ slot_unit` | Row rejected (`UNSUPPORTED_CONVERSION`). |
 | `requires_separate_carton = true` or `mix_allowed = false` | Row rejected (`ENGINE_RULE_UNSUPPORTED`): the Buyer engine cannot yet keep one SKU exclusive (it would still pack same-group SKUs together), so the SKU is not carton-managed until an engine extension is approved. |

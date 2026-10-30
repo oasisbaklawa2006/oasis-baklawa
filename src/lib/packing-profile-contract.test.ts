@@ -14,7 +14,11 @@ const profile = (over: Record<string, unknown> = {}) => ({
   commercial_uom: "tray", carton_config_ids: ["888x4"], requires_separate_carton: false, mix_allowed: true, full_carton_required: true,
   profile_version: 1, approval_status: "approved", effective_from: null, effective_until: null, ...over,
 });
-const run = (c: unknown[], p: unknown[]) => normalizePackingContract(c, p, { asOf: NOW });
+// By default every profile's product is priced in "tray"; tests that care about the price unit pass their own map.
+const trayPrices = (p: unknown[]) =>
+  new Map(p.flatMap((r) => (typeof r === "object" && r !== null && typeof (r as { product_id?: unknown }).product_id === "string" ? [[(r as { product_id: string }).product_id, "tray"] as [string, string]] : [])));
+const run = (c: unknown[], p: unknown[], priceUomByProduct?: ReadonlyMap<string, string>) =>
+  normalizePackingContract(c, p, { asOf: NOW, priceUomByProduct: priceUomByProduct ?? trayPrices(p) });
 const codes = (r: ReturnType<typeof run>) => r.issues.map((i) => i.code);
 
 describe("packing-profile contract validator (fail closed)", () => {
@@ -81,6 +85,44 @@ describe("packing-profile contract validator (fail closed)", () => {
     assert.equal(dupC.configs.length, 0);
     assert.equal(dupC.available, false);
     assert.equal(codes(dupC).filter((c) => c === "DUPLICATE_CONFIG").length, 1);
+  });
+  it("counts duplicate identities on raw rows so a malformed copy cannot hide its twin", () => {
+    const badCopy = profile({ conversion_basis: "fixed_ratio" });
+    const r = run([config()], [profile(), badCopy, profile({ product_id: "p2" })]);
+    assert.equal(r.profiles.has("p1"), false, "valid twin must be rejected too");
+    assert.equal(r.profiles.has("p2"), true);
+    assert.deepEqual(codes(r), ["DUPLICATE_PROFILE"]);
+    const badConfig = config({ capacity_slots: 0 });
+    const c = run([config(), badConfig], [profile()]);
+    assert.equal(c.configs.length, 0, "valid config twin must be rejected too");
+    assert.deepEqual(codes(c), ["DUPLICATE_CONFIG", "NO_VALID_CONFIG"]);
+    // different versions of one config are NOT duplicates
+    assert.equal(run([config(), config({ config_version: 2 })], [profile()]).configs.length, 2);
+  });
+  it("treats effective_until as exclusive (half-open window) and effective_from as inclusive", () => {
+    const at = NOW.toISOString();
+    const before = new Date(NOW.getTime() - 1).toISOString();
+    const after = new Date(NOW.getTime() + 1).toISOString();
+    assert.equal(run([config()], [profile({ effective_until: at })]).profiles.size, 0, "expired exactly at until");
+    assert.equal(run([config({ effective_until: at })], [profile()]).configs.length, 0);
+    assert.equal(run([config()], [profile({ effective_until: after })]).profiles.size, 1, "still valid 1 ms before until");
+    assert.equal(run([config()], [profile({ effective_from: at })]).profiles.size, 1, "valid exactly at from");
+    assert.equal(run([config()], [profile({ effective_from: after })]).profiles.size, 0);
+    assert.equal(run([config({ effective_until: after })], [profile({ effective_from: before })]).available, true);
+  });
+  it("rejects profiles whose unit differs from the price unit, and profiles with no known price unit", () => {
+    const mismatch = run([config()], [profile({ commercial_uom: "tray" })], new Map([["p1", "kg"]]));
+    assert.deepEqual(codes(mismatch), ["UOM_MISMATCH"]);
+    assert.equal(mismatch.available, false);
+    // trimmed and case-insensitive equality is accepted
+    assert.equal(run([config()], [profile({ commercial_uom: " Tray " })], new Map([["p1", "TRAY"]])).profiles.size, 1);
+    // unknown price unit => fail closed
+    assert.deepEqual(codes(run([config()], [profile()], new Map())), ["PRICE_UOM_UNKNOWN"]);
+    assert.deepEqual(codes(normalizePackingContract([config()], [profile()], { asOf: NOW })), ["PRICE_UOM_UNKNOWN"]);
+    assert.deepEqual(codes(run([config()], [profile()], new Map([["p1", "  "]]))), ["PRICE_UOM_UNKNOWN"]);
+    // plain-object price map: inherited names never resolve
+    const obj = normalizePackingContract([config()], [profile({ product_id: "toString" })], { asOf: NOW, priceUomByProduct: {} });
+    assert.deepEqual(codes(obj), ["PRICE_UOM_UNKNOWN"]);
   });
   it("drops unknown config references and rejects profiles left with none", () => {
     const partial = run([config()], [profile({ carton_config_ids: ["888x4", "ghost"] })]);

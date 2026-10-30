@@ -214,7 +214,8 @@ export function isConfigurationEffective(config: CartonConfiguration, asOf: Date
   const until = parseInstant(config.effectiveUntil);
   if (Number.isNaN(from) || Number.isNaN(until)) return false;
   const now = asOf.getTime();
-  return (from === null || now >= from) && (until === null || now <= until);
+  // Half-open window [from, until): the instant equal to effectiveUntil is already expired.
+  return (from === null || now >= from) && (until === null || now < until);
 }
 
 /** Highest-version active, effective, structurally valid configuration for an id; null if none. */

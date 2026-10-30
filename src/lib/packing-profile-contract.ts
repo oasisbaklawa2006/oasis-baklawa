@@ -23,7 +23,9 @@ export type PackingContractIssueCode =
   | "VARIANT_UNSUPPORTED"
   | "ENGINE_RULE_UNSUPPORTED"
   | "RULE_CONFLICT"
-  | "NO_VALID_CONFIG";
+  | "NO_VALID_CONFIG"
+  | "UOM_MISMATCH"
+  | "PRICE_UOM_UNKNOWN";
 
 export interface PackingContractIssue {
   scope: "payload" | "config" | "profile";
@@ -43,6 +45,19 @@ export interface NormalizedPackingContract {
 export interface NormalizeOptions {
   asOf?: Date;
   expectedContractVersion?: number;
+  /**
+   * Commercial UOM from the buyer price projection, keyed by product_id. A profile is accepted only when its
+   * commercial_uom equals the price UOM (trimmed, case-insensitive). A product with no known price UOM is
+   * rejected: the fill cannot be tied to the unit the buyer actually orders in.
+   */
+  priceUomByProduct?: ReadonlyMap<string, string> | Readonly<Record<string, string>>;
+}
+
+const normUom = (value: string) => value.trim().toLowerCase();
+function priceUomFor(source: NormalizeOptions["priceUomByProduct"], productId: string): string | null {
+  if (!source) return null;
+  const raw = source instanceof Map ? source.get(productId) : Object.prototype.hasOwnProperty.call(source, productId) ? (source as Record<string, string>)[productId] : undefined;
+  return typeof raw === "string" && raw.trim() ? raw : null;
 }
 
 type Row = Record<string, unknown>;
@@ -76,7 +91,8 @@ function windowStatus(row: Row, now: number): "ok" | "invalid" | "outside" {
   const until = instant(row.effective_until);
   if (Number.isNaN(from) || Number.isNaN(until)) return "invalid";
   if (from !== null && now < from) return "outside";
-  if (until !== null && now > until) return "outside";
+  // Half-open window [from, until): now === until is already outside.
+  if (until !== null && now >= until) return "outside";
   return "ok";
 }
 
@@ -165,7 +181,7 @@ interface ParsedProfile {
   productId: string;
 }
 
-function parseProfile(row: Row, now: number, issues: PackingContractIssue[]): ParsedProfile | null {
+function parseProfile(row: Row, now: number, issues: PackingContractIssue[], priceUom: NormalizeOptions["priceUomByProduct"]): ParsedProfile | null {
   const productId = text(row.product_id);
   const key = productId ?? "(missing product_id)";
   const reject = (code: PackingContractIssueCode, message: string) => {
@@ -202,6 +218,13 @@ function parseProfile(row: Row, now: number, issues: PackingContractIssue[]): Pa
       "ENGINE_RULE_UNSUPPORTED",
       "Exclusive-carton SKUs are not supported by the Buyer engine yet; the SKU is not carton-managed."
     );
+  }
+  const expectedUom = priceUomFor(priceUom, productId);
+  if (expectedUom === null) {
+    return reject("PRICE_UOM_UNKNOWN", "The price unit for this product is unknown, so the packing unit cannot be tied to the unit it is ordered in.");
+  }
+  if (normUom(expectedUom) !== normUom(uom)) {
+    return reject("UOM_MISMATCH", "The packing unit differs from the unit this product is priced and ordered in.");
   }
   if (row.approval_status !== "approved") return reject("NOT_APPROVED", "Only approved profiles are accepted.");
   const window = windowStatus(row, now);
@@ -246,52 +269,58 @@ export function normalizePackingContract(
     }
   }
 
+  // Duplicate identities are counted on the RAW rows, so a malformed copy cannot hide its twin.
+  const rawConfigKey = (row: unknown): string | null => {
+    if (!isRow(row)) return null;
+    const id = text(row.config_id);
+    const version = posInt(row.config_version);
+    return id && version !== null ? `${id}@${version}` : null;
+  };
+  const rawProfileKey = (row: unknown): string | null => (isRow(row) ? text(row.product_id) : null);
+  const countKeys = (rows: unknown[], keyOf: (row: unknown) => string | null) => {
+    const counts = new Map<string, number>();
+    for (const row of rows) {
+      const k = keyOf(row);
+      if (k) counts.set(k, (counts.get(k) ?? 0) + 1);
+    }
+    return counts;
+  };
+  const rawConfigCounts = countKeys(rawConfigs, rawConfigKey);
+  const rawProfileCounts = countKeys(rawProfiles, rawProfileKey);
+
   // Configurations
-  const seenConfig = new Map<string, number>();
   const parsedConfigs: CartonConfiguration[] = [];
   for (const raw of rawConfigs) {
     if (!isRow(raw)) {
       issues.push({ scope: "config", code: "ROW_NOT_AN_OBJECT", message: "A configuration row is not an object." });
       continue;
     }
+    if ((rawConfigCounts.get(rawConfigKey(raw) ?? "") ?? 0) > 1) continue; // reported once below
     const config = parseConfig(raw, now, issues);
-    if (config) {
-      const k = `${config.id}@${config.version}`;
-      seenConfig.set(k, (seenConfig.get(k) ?? 0) + 1);
-      parsedConfigs.push(config);
-    }
+    if (config) parsedConfigs.push(config);
   }
-  const duplicateKeys = new Set([...seenConfig].filter(([, n]) => n > 1).map(([k]) => k));
-  for (const k of duplicateKeys) {
-    issues.push({ scope: "config", code: "DUPLICATE_CONFIG", key: k, message: "Duplicate configuration id and version; all copies rejected." });
+  for (const [k, n] of rawConfigCounts) {
+    if (n > 1) issues.push({ scope: "config", code: "DUPLICATE_CONFIG", key: k, message: "Duplicate configuration id and version; all copies rejected." });
   }
-  const configs = parsedConfigs.filter((c) => !duplicateKeys.has(`${c.id}@${c.version}`));
+  const configs = parsedConfigs;
   const knownConfigIds = new Set(configs.map((c) => c.id));
 
   // Profiles
   const parsed: ParsedProfile[] = [];
-  const counts = new Map<string, number>();
   for (const raw of rawProfiles) {
     if (!isRow(raw)) {
       issues.push({ scope: "profile", code: "ROW_NOT_AN_OBJECT", message: "A profile row is not an object." });
       continue;
     }
-    const p = parseProfile(raw, now, issues);
-    if (p) {
-      parsed.push(p);
-      counts.set(p.productId, (counts.get(p.productId) ?? 0) + 1);
-    }
+    if ((rawProfileCounts.get(rawProfileKey(raw) ?? "") ?? 0) > 1) continue; // reported once below
+    const p = parseProfile(raw, now, issues, options.priceUomByProduct);
+    if (p) parsed.push(p);
+  }
+  for (const [productId, n] of rawProfileCounts) {
+    if (n > 1) issues.push({ scope: "profile", code: "DUPLICATE_PROFILE", key: productId, message: "More than one profile for this product; all rejected as ambiguous." });
   }
   const profiles = new Map<string, SkuPackingProfile>();
-  const reportedDup = new Set<string>();
   for (const { productId, profile } of parsed) {
-    if ((counts.get(productId) ?? 0) > 1) {
-      if (!reportedDup.has(productId)) {
-        reportedDup.add(productId);
-        issues.push({ scope: "profile", code: "DUPLICATE_PROFILE", key: productId, message: "More than one profile for this product; all rejected as ambiguous." });
-      }
-      continue;
-    }
     const usable = profile.cartonConfigIds.filter((id) => knownConfigIds.has(id));
     if (usable.length === 0) {
       issues.push({ scope: "profile", code: "NO_VALID_CONFIG", key: productId, message: "The profile references no valid, approved configuration." });

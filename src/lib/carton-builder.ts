@@ -281,7 +281,8 @@ export function previewCarton(
       issues.push({ code: "PROFILE_MISSING", productId: line.productId, message: "Packing details for this product are not verified yet." });
       continue;
     }
-    if (!profile.packingGroup?.trim() || !isPositiveInt(profile.slotsPerUnit) || !profile.commercialUom?.trim()) {
+    // Registry keys alone are not authority: a mis-keyed profile must never grant another SKU packing rights.
+    if (profile.productId !== line.productId || !profile.packingGroup?.trim() || !isPositiveInt(profile.slotsPerUnit) || !profile.commercialUom?.trim()) {
       issues.push({ code: "PROFILE_INVALID", productId: line.productId, message: "Packing details for this product are incomplete." });
       continue;
     }

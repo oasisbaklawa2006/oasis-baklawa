@@ -174,6 +174,17 @@ describe("planCartons", () => {
     assert.equal(unknown.cartons.length, 1);
     assert.equal(unknown.unplaceable[0].productId, "ghost");
   });
+  it("does not emit a phantom empty carton when an oversized SKU cannot fit", () => {
+    const reg = registry(profile("oversized", { slotsPerUnit: 5 }), profile("small"));
+    const onlyOversized = planCartons(cfg(), [line("oversized", 1)], reg);
+    assert.deepEqual(onlyOversized.cartons, []);
+    assert.deepEqual(onlyOversized.unplaceable.map((i) => i.code), ["CAPACITY_EXCEEDED"]);
+
+    const mixed = planCartons(cfg(), [line("small", 4), line("oversized", 2)], reg);
+    assert.deepEqual(mixed.cartons.map((c) => c.filledSlots), [4]);
+    assert.equal(mixed.unplaceable.length, 1);
+    assert.equal(mixed.unplaceable[0].productId, "oversized");
+  });
   it("is deterministic and reports duplicates and oversized units", () => {
     const reg = registry(profile("a"), profile("b", { packingGroup: "tray-b" }), profile("huge", { slotsPerUnit: 5 }));
     assert.deepEqual(planCartons(cfg(), [line("b", 3), line("a", 3)], reg), planCartons(cfg(), [line("a", 3), line("b", 3)], reg));

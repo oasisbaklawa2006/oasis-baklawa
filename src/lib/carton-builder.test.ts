@@ -58,6 +58,11 @@ describe("carton catalogue and configuration", () => {
     assert.equal(resolveCartonConfiguration([inactive], "888x4"), null);
     assert.equal(resolveCartonConfiguration([v1], "missing"), null);
     assert.equal(resolveCartonConfiguration([cfg({ effectiveFrom: "not-a-date" })], "888x4"), null);
+    // half-open window: usable up to, but not at, the effectiveUntil instant; usable exactly at effectiveFrom
+    const edge = new Date("2026-10-30T00:00:00Z");
+    assert.equal(resolveCartonConfiguration([cfg({ effectiveUntil: edge.toISOString() })], "888x4", edge), null);
+    assert.ok(resolveCartonConfiguration([cfg({ effectiveUntil: edge.toISOString() })], "888x4", new Date(edge.getTime() - 1)));
+    assert.ok(resolveCartonConfiguration([cfg({ effectiveFrom: edge.toISOString() })], "888x4", edge));
   });
 });
 

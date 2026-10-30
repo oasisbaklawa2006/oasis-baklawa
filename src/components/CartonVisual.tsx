@@ -1,11 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, Animated, StyleSheet, Text, View } from "react-native";
 import type { CartonConfiguration, CartonPreview } from "@/lib/carton-builder";
+import { cartonAccessibility, cartonCellStates, cartonMotion } from "@/lib/carton-visual-model";
 import { describeCarton } from "@/lib/carton-presentation";
 import { colors, radii, spacing, typography } from "@/theme";
-
-/** Above this many slots a compact meter replaces per-slot cells to keep rendering cheap. */
-const MAX_CELLS = 24;
 
 interface Props {
   config: Pick<CartonConfiguration, "label" | "innerPack" | "slotArrangement">;
@@ -34,23 +32,26 @@ export function CartonVisual({ config, preview }: Props) {
   }, []);
 
   useEffect(() => {
-    if (reduceMotion) {
+    const motion = cartonMotion(reduceMotion);
+    if (!motion.animate) {
       progress.setValue(preview.percentage);
       return;
     }
-    Animated.timing(progress, { toValue: preview.percentage, duration: 180, useNativeDriver: false }).start();
+    Animated.timing(progress, { toValue: preview.percentage, duration: motion.durationMs, useNativeDriver: false }).start();
   }, [preview.percentage, progress, reduceMotion]);
 
-  const showCells = preview.capacity > 0 && preview.capacity <= MAX_CELLS;
+  const cells = cartonCellStates(preview);
+  const showCells = cells.length > 0;
+  const a11y = cartonAccessibility(config.label, copy, preview);
   const columns = config.slotArrangement?.columns;
 
   return (
     <View
       style={[styles.card, preview.state === "invalid" && styles.cardInvalid, copy.sealedIllustration && styles.cardSealed]}
-      accessible
-      accessibilityRole="progressbar"
-      accessibilityLabel={`${config.label}. ${copy.accessibilityLabel}`}
-      accessibilityValue={{ min: 0, max: preview.capacity, now: Math.min(preview.filledSlots, preview.capacity) }}
+      accessible={a11y.accessible}
+      accessibilityRole={a11y.accessibilityRole}
+      accessibilityLabel={a11y.accessibilityLabel}
+      accessibilityValue={a11y.accessibilityValue}
     >
       <View style={styles.header}>
         <Text style={styles.title}>{config.label}</Text>
@@ -58,8 +59,8 @@ export function CartonVisual({ config, preview }: Props) {
       </View>
       {showCells ? (
         <View style={[styles.cells, columns ? { maxWidth: columns * 52 } : null]}>
-          {Array.from({ length: preview.capacity }, (_, i) => (
-            <View key={i} style={[styles.cell, i < preview.filledSlots && styles.cellFilled]} />
+          {cells.map((filled, i) => (
+            <View key={i} style={[styles.cell, filled && styles.cellFilled]} />
           ))}
         </View>
       ) : null}

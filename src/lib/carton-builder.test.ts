@@ -134,6 +134,18 @@ describe("mixed variants and compatibility (fail closed)", () => {
     assert.deepEqual(codes("a", {}), ["PROFILE_MISSING"]);
     assert.deepEqual(codes("a", registry(profile("a", { packingGroup: "other" }))), ["GROUP_NOT_ACCEPTED"]);
   });
+  it("rejects a packing profile keyed to a different product id", () => {
+    const miskeyedMap = new Map([["a", profile("b")]]);
+    const miskeyedObject: Record<string, SkuPackingProfile> = { a: profile("b") };
+    for (const mismatched of [miskeyedMap, miskeyedObject]) {
+      const preview = previewCarton(cfg(), [line("a", 4)], mismatched);
+      assert.deepEqual(preview.issues.map((issue) => issue.code), ["PROFILE_INVALID"]);
+      assert.equal(preview.physicallyComplete, false);
+      const plan = planCartons(cfg(), [line("a", 4)], mismatched);
+      assert.deepEqual(plan.cartons, []);
+      assert.deepEqual(plan.unplaceable.map((issue) => issue.code), ["PROFILE_INVALID"]);
+    }
+  });
   it("fails closed for inactive config, empty verified groups, duplicates and fractions", () => {
     const reg = registry(profile("a"));
     assert.ok(previewCarton(INITIAL_CARTON_CATALOGUE[0], [line("a", 4)], reg).issues.some((i) => i.code === "CONFIG_INACTIVE"));

@@ -93,6 +93,24 @@ describe("cart integration seam and presentation", () => {
     assert.equal(vm.preview.physicallyComplete, true);
     assert.equal(draft.is_checkout_ready, false);
   });
+  it("validates MOQ and increment against the whole cart line, not the per-carton slice", () => {
+    const bigDraft = { ...draft, lines: [{ ...draft.lines[0], quantity: 10 }] } as unknown as CustomerOrderDraft;
+    const support: CartonSupport = { available: true, catalogue: [config], profiles: reg(profile("a")) };
+    const views = buildCartonViewModels(bigDraft, support, "888x4", { a: price("a", { minimum_order_quantity: 6, order_increment: 2 }) }, asOf);
+    assert.deepEqual(views.map((v) => v.preview.filledSlots), [4, 4, 2]);
+    assert.ok(views.every((v) => v.commercial.lines[0].validation.orderable && v.commercial.lines[0].quantity === 10));
+    const bad = buildCartonViewModels(bigDraft, support, "888x4", { a: price("a", { minimum_order_quantity: 6, order_increment: 3 }) }, asOf);
+    assert.ok(bad.every((v) => v.commercial.lines[0].validation.code === "QUANTITY_INCREMENT_MISMATCH"));
+  });
+  it("pluralises inner packs correctly (box -> boxes)", () => {
+    const boxCfg = { ...config, id: "bulk-6", capacity: 6, innerPack: "box" };
+    const profiles = reg(profile("a", { cartonConfigIds: ["bulk-6"] }));
+    const text = describeCarton(previewCarton(boxCfg, [{ productId: "a", quantity: 3 }], profiles), "box");
+    assert.match(text.remainingLabel, /3 boxes remaining/);
+    assert.match(text.guidance[0], /3 boxes of a compatible product/);
+    assert.doesNotMatch(text.accessibilityLabel, /boxs/);
+    assert.match(describeCarton(previewCarton(boxCfg, [{ productId: "a", quantity: 5 }], profiles), "box").remainingLabel, /1 box remaining/);
+  });
   it("uses courteous, specific wording", () => {
     const profiles = reg(profile("a"));
     const partial = describeCarton(previewCarton(config, [{ productId: "a", quantity: 1 }], profiles), "tray");

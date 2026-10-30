@@ -55,8 +55,10 @@ export function buildCartonViewModels(
   if (!config) return [];
   const lines = draft.lines.map((l) => ({ productId: l.product_id, quantity: l.quantity }));
   const plan = planCartons(config, lines, support.profiles, { asOf });
+  // MOQ/increment apply to the customer's whole line, not to the slice that lands in one carton.
+  const lineByProduct = new Map(lines.map((l) => [l.productId, l]));
   return plan.cartons.map((preview) => {
-    const cartonLines = preview.allocations.map((a) => ({ productId: a.productId, quantity: a.quantity }));
+    const cartonLines = preview.allocations.map((a) => lineByProduct.get(a.productId) ?? { productId: a.productId, quantity: a.quantity });
     return { configId, preview, commercial: evaluateCartonCommercial(preview, cartonLines, pricesByProduct, support.profiles, asOf) };
   });
 }

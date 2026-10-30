@@ -89,6 +89,18 @@ describe("genie product resolution", () => {
     const noPrice = { ...catalogue[0], price: undefined };
     const result = resolveGenieLines([parsedLine("kaju katli", 10)], [noPrice]);
     assert.equal(result.resolved.length, 0);
+    assert.equal(result.unresolved.length, 1);
+    assert.equal(result.unresolved[0].quantity, 10);
+  });
+
+  it("rejects invalid quantities on candidate selection and zero quantities, preserving the request", () => {
+    const ambiguous = { lineId: "line-4", rawName: "badam baklawa", quantity: 7, uom: "kg", candidates: [catalogue[1]] };
+    const selected = applyGenieCandidateSelection(ambiguous, catalogue[1]);
+    assert.ok(!("product" in selected));
+    assert.equal(selected.quantity, 7);
+    const zero = resolveGenieLines([parsedLine("kaju katli", 0)], catalogue);
+    assert.equal(zero.resolved.length, 0);
+    assert.match(zero.unresolved[0].reason, /greater than zero/);
   });
 
   it("boosts exact hyphenated SKU matches above ambiguous name-only ties", () => {

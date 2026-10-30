@@ -10,7 +10,8 @@ export interface CartonPresentation {
   sealedIllustration: boolean;
 }
 
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const plural = (n: number, one: string, many = /(s|x|z|ch|sh)$/i.test(one) ? `${one}es` : `${one}s`) =>
+  `${n} ${n === 1 ? one : many}`;
 
 export function describeCarton(preview: CartonPreview, innerPack = "tray"): CartonPresentation {
   const progressLabel = `${preview.filledSlots} of ${preview.capacity}`;

@@ -392,6 +392,9 @@ export function planCartons(
       if (fit <= 0) {
         // A single unit larger than a whole carton can never be placed.
         if (bucket.slots === 0) {
+          // This provisional bucket contains no allocated units. Do not report
+          // an empty carton when a single SKU unit cannot fit the configuration.
+          buckets.pop();
           unplaceable.push({ code: "CAPACITY_EXCEEDED", productId: line.productId, message: "One unit of this product is larger than a whole carton." });
           break;
         }

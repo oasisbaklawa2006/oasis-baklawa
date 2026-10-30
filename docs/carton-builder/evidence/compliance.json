@@ -1,0 +1,254 @@
+[
+  {
+    "id": "A1",
+    "criterion": "Configuration",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "A2",
+    "criterion": "Physical proportions",
+    "status": "UNVERIFIED",
+    "evidence": "External physical/artwork/platform gate"
+  },
+  {
+    "id": "A3",
+    "criterion": "Fixed camera",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "A4",
+    "criterion": "Stable front geometry",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "A5",
+    "criterion": "Fixed floor",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "A6",
+    "criterion": "Fixed walls",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "A7",
+    "criterion": "No distortion",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "A8",
+    "criterion": "No extra panels",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "B1",
+    "criterion": "Count",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "B2",
+    "criterion": "Occupied slots",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "B3",
+    "criterion": "Identical tray geometry",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "B4",
+    "criterion": "Orientation",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "B5",
+    "criterion": "Alignment",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "B6",
+    "criterion": "No floating trays",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "B7",
+    "criterion": "No overlaps",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "B8",
+    "criterion": "No duplicate lids",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "B9",
+    "criterion": "No invented trays",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "C1",
+    "criterion": "Front position",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "C2",
+    "criterion": "Transparency",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "C3",
+    "criterion": "Contents visible",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "C4",
+    "criterion": "Single wall",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "C5",
+    "criterion": "Integrated wall",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "C6",
+    "criterion": "Restrained reflections",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "D1",
+    "criterion": "Approved logo",
+    "status": "UNVERIFIED",
+    "evidence": "External physical/artwork/platform gate"
+  },
+  {
+    "id": "D2",
+    "criterion": "Carton ID",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "D3",
+    "criterion": "Handling symbols",
+    "status": "UNVERIFIED",
+    "evidence": "External physical/artwork/platform gate"
+  },
+  {
+    "id": "D4",
+    "criterion": "Stable coordinates",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "D5",
+    "criterion": "No artwork distortion",
+    "status": "UNVERIFIED",
+    "evidence": "External physical/artwork/platform gate"
+  },
+  {
+    "id": "E1",
+    "criterion": "Physical open state",
+    "status": "UNVERIFIED",
+    "evidence": "External physical/artwork/platform gate"
+  },
+  {
+    "id": "E2",
+    "criterion": "Physical closure",
+    "status": "UNVERIFIED",
+    "evidence": "External physical/artwork/platform gate"
+  },
+  {
+    "id": "E3",
+    "criterion": "No duplicate flap",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "E4",
+    "criterion": "Unobstructed view",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "E5",
+    "criterion": "Fixed geometry across states",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "F1",
+    "criterion": "State per quantity",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "F2",
+    "criterion": "No quantity writes",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "F3",
+    "criterion": "No commercial regression",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "F4",
+    "criterion": "Reduced motion",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "F5",
+    "criterion": "Accessible description",
+    "status": "PASS",
+    "evidence": "Pure SVG model, unit tests and inspected contact sheets; not physical certification"
+  },
+  {
+    "id": "F6",
+    "criterion": "Android runtime",
+    "status": "UNVERIFIED",
+    "evidence": "External physical/artwork/platform gate"
+  },
+  {
+    "id": "F7",
+    "criterion": "iOS runtime",
+    "status": "UNVERIFIED",
+    "evidence": "External physical/artwork/platform gate"
+  },
+  {
+    "id": "F8",
+    "criterion": "Web runtime",
+    "status": "UNVERIFIED",
+    "evidence": "External physical/artwork/platform gate"
+  },
+  {
+    "id": "F9",
+    "criterion": "Device performance",
+    "status": "UNVERIFIED",
+    "evidence": "External physical/artwork/platform gate"
+  }
+]

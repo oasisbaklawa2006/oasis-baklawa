@@ -1,3 +1,6 @@
+import { SvgXml } from "react-native-svg";
+import { resolveGeometry } from "@/lib/carton-geometry";
+import { renderCartonSvg } from "@/lib/carton-svg";
 import React, { useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, Animated, StyleSheet, Text, View } from "react-native";
 import type { CartonConfiguration, CartonPreview } from "@/lib/carton-builder";
@@ -6,7 +9,7 @@ import { describeCarton } from "@/lib/carton-presentation";
 import { colors, radii, spacing, typography } from "@/theme";
 
 interface Props {
-  config: Pick<CartonConfiguration, "label" | "innerPack" | "slotArrangement">;
+  config: Pick<CartonConfiguration, "id" | "label" | "innerPack" | "slotArrangement">;
   preview: CartonPreview;
 }
 
@@ -26,7 +29,9 @@ export function CartonVisual({ config, preview }: Props) {
     AccessibilityInfo.isReduceMotionEnabled?.()
       .then((value) => alive && setReduceMotion(value))
       .catch(() => undefined);
+    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
     return () => {
+      subscription.remove();
       alive = false;
     };
   }, []);
@@ -37,13 +42,21 @@ export function CartonVisual({ config, preview }: Props) {
       progress.setValue(preview.percentage);
       return;
     }
-    Animated.timing(progress, { toValue: preview.percentage, duration: motion.durationMs, useNativeDriver: false }).start();
+    const animation = Animated.timing(progress, { toValue: preview.percentage, duration: motion.durationMs, useNativeDriver: false });
+    animation.start();
+    return () => animation.stop();
   }, [preview.percentage, progress, reduceMotion]);
 
   const cells = cartonCellStates(preview);
   const showCells = cells.length > 0;
   const a11y = cartonAccessibility(config.label, copy, preview);
   const columns = config.slotArrangement?.columns;
+  // Pending artwork/physical measurements never become customer-visible by mere existence.
+  const geometry = preview.physicallyValid && preview.state !== "invalid" && preview.configId === config.id
+    ? resolveGeometry(config.id, preview.capacity) : undefined;
+  const validCount = Number.isSafeInteger(preview.filledSlots) && preview.filledSlots >= 0 && preview.filledSlots <= preview.capacity;
+  const artwork = geometry && validCount
+    ? renderCartonSvg(geometry, geometry.insertionOrder.slice(0, preview.filledSlots), copy.sealedIllustration ? "closed" : "open") : undefined;
 
   return (
     <View
@@ -57,7 +70,7 @@ export function CartonVisual({ config, preview }: Props) {
         <Text style={styles.title}>{config.label}</Text>
         <Text style={styles.count}>{copy.progressLabel}</Text>
       </View>
-      {showCells ? (
+      {artwork ? <SvgXml xml={artwork} width="100%" height={240} /> : showCells ? (
         <View style={[styles.cells, columns ? { maxWidth: columns * 52 } : null]}>
           {cells.map((filled, i) => (
             <View key={i} style={[styles.cell, filled && styles.cellFilled]} />

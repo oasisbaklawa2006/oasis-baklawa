@@ -1,0 +1,62 @@
+{
+  "browser": "131.0.6778.33",
+  "images": [
+    {
+      "src": "bulk-6-frame-1.svg",
+      "ok": true
+    },
+    {
+      "src": "bulk-6-frame-2.svg",
+      "ok": true
+    },
+    {
+      "src": "bulk-6-frame-3.svg",
+      "ok": true
+    },
+    {
+      "src": "bulk-6-frame-4.svg",
+      "ok": true
+    },
+    {
+      "src": "bulk-6-frame-5.svg",
+      "ok": true
+    },
+    {
+      "src": "bulk-6-frame-6.svg",
+      "ok": true
+    },
+    {
+      "src": "bulk-6-frame-7.svg",
+      "ok": true
+    },
+    {
+      "src": "bulk-6-frame-8.svg",
+      "ok": true
+    },
+    {
+      "src": "888x4-frame-1.svg",
+      "ok": true
+    },
+    {
+      "src": "888x4-frame-2.svg",
+      "ok": true
+    },
+    {
+      "src": "888x4-frame-3.svg",
+      "ok": true
+    },
+    {
+      "src": "888x4-frame-4.svg",
+      "ok": true
+    },
+    {
+      "src": "888x4-frame-5.svg",
+      "ok": true
+    },
+    {
+      "src": "888x4-frame-6.svg",
+      "ok": true
+    }
+  ],
+  "scope": "Static SVG in Chromium; not native SvgXml or authenticated cart UAT"
+}

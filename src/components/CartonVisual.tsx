@@ -58,7 +58,7 @@ export function CartonVisual({ config, preview }: Props) {
   const validCount = Number.isSafeInteger(preview.filledSlots) && preview.filledSlots >= 0 && preview.filledSlots <= preview.capacity
     && (!copy.sealedIllustration || (preview.physicallyComplete && preview.filledSlots === preview.capacity));
   const artwork = useMemo(() => geometry && validCount
-    ? renderCartonSvg(geometry, geometry.insertionOrder.slice(0, preview.filledSlots), copy.sealedIllustration ? "closed" : "open") : undefined,
+    ? renderCartonSvg(geometry, geometry.insertionOrder.slice(0, preview.filledSlots), copy.sealedIllustration ? "closed" : "open", undefined, "tight") : undefined,
   [geometry, validCount, preview.filledSlots, copy.sealedIllustration]);
 
   return (

@@ -10,6 +10,18 @@ import type { CartonPresentation } from "@/lib/carton-presentation";
 export const MAX_CARTON_CELLS = 24;
 export const CARTON_PROGRESS_ANIMATION_MS = 180;
 
+/** Artwork never grows taller than this (px), so a wide desktop card does not stretch the carton illustration. */
+export const MAX_CARTON_ARTWORK_HEIGHT = 420;
+const DEFAULT_ARTWORK_RATIO = 4 / 3;
+
+/** Width / height of the serializer's viewBox, so the adapter keeps the carton's proportions at any width. */
+export function cartonArtworkRatio(xml: string): number {
+  const m = /viewBox="(-?[\d.]+) (-?[\d.]+) ([\d.]+) ([\d.]+)"/.exec(xml.slice(0, 600));
+  if (!m) return DEFAULT_ARTWORK_RATIO;
+  const ratio = Number(m[3]) / Number(m[4]);
+  return Number.isFinite(ratio) && ratio > 0.5 && ratio < 4 ? ratio : DEFAULT_ARTWORK_RATIO;
+}
+
 export interface CartonMotion {
   animate: boolean;
   durationMs: number;

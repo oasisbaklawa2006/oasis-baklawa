@@ -102,3 +102,21 @@ test('all fourteen committed vector snapshots match current serializer',async()=
   assert.equal(readFileSync(`docs/carton-builder/evidence/${m.file}`,'utf8'),svg);
  }
 });
+
+test('tight presentation view only crops the viewBox: every drawn coordinate is identical to the full view',()=>{
+ for(const g of CARTON_GEOMETRIES) for(let frame=1;frame<=g.capacity+2;frame++) {
+   const state=frame===g.capacity+2?'closed':'open'; const occ=occupiedForFrame(g,frame);
+   const full=renderCartonSvg(g,occ,state), tight=renderCartonSvg(g,occ,state,undefined,'tight');
+   const body=(s:string)=>s.slice(s.indexOf('>')+1);
+   assert.equal(body(tight),body(full));
+   assert.match(full,/viewBox="0 0 1000 750"/);
+   const vb=tight.match(/viewBox="(\S+) (\S+) (\S+) (\S+)"/)!.slice(1).map(Number);
+   assert.ok(vb[0]>=0 && vb[1]>0 && vb[0]+vb[2]<=1000 && vb[1]+vb[3]<=750);
+   // Crop must contain flaps, body and the ground shadow.
+   const top=g.body.y-150; assert.ok(vb[1]<top && vb[1]+vb[3]>=g.floor+40);
+   const wh=tight.match(/<svg[^>]*? width="([\d.]+)" height="([\d.]+)"/)!.slice(1).map(Number);
+   assert.ok(Math.abs(vb[2]/vb[3]-wh[0]/wh[1])<1e-9);
+ }
+ const g=CARTON_GEOMETRIES[0];
+ assert.throws(()=>renderCartonSvg(g,[],'open',undefined,'wide' as 'tight'));
+});

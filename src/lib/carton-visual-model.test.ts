@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { INITIAL_CARTON_CATALOGUE, previewCarton, type CartonConfiguration, type SkuPackingProfile } from "./carton-builder";
 import { describeCarton } from "./carton-presentation";
-import { CARTON_PROGRESS_ANIMATION_MS, cartonAccessibility, cartonCellStates, cartonMotion, MAX_CARTON_CELLS, shouldShowCartonCells } from "./carton-visual-model";
+import { CARTON_PROGRESS_ANIMATION_MS, cartonAccessibility, cartonArtworkRatio, cartonCellStates, cartonMotion, MAX_CARTON_ARTWORK_HEIGHT, MAX_CARTON_CELLS, shouldShowCartonCells } from "./carton-visual-model";
 
 const config: CartonConfiguration = { ...INITIAL_CARTON_CATALOGUE[0], active: true, eligiblePackingGroups: ["g"], mixablePackingGroupSets: [] };
 const profile: SkuPackingProfile = { productId: "a", packingGroup: "g", slotsPerUnit: 1, commercialUom: "tray", cartonConfigIds: ["888x4"] };
@@ -60,4 +60,13 @@ describe("screen-reader semantics", () => {
     const v = cartonAccessibility(config.label, describeCarton(over, "tray"), over).accessibilityValue;
     assert.ok(v.now >= v.min && v.now <= v.max);
   });
+});
+
+describe('artwork presentation size', () => {
+ it('follows the viewBox ratio and fails safe', () => {
+  assert.equal(cartonArtworkRatio('<svg viewBox="10 172 980 528">'), 980 / 528);
+  assert.equal(cartonArtworkRatio('<svg viewBox="0 0 1000 750">'), 4 / 3);
+  for (const bad of ['', '<svg>', '<svg viewBox="0 0 0 0">', '<svg viewBox="0 0 9999 1">', '<svg viewBox="a b c d">']) assert.equal(cartonArtworkRatio(bad), 4 / 3);
+  assert.ok(MAX_CARTON_ARTWORK_HEIGHT >= 300 && MAX_CARTON_ARTWORK_HEIGHT <= 600);
+ });
 });

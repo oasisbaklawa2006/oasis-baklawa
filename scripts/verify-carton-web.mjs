@@ -75,7 +75,7 @@ try {
     }
   });
   await new Promise(r => server.listen(0, '127.0.0.1', r));
-  browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+  browser = await chromium.launch({ headless: true, executablePath: process.env.CARTON_CHROMIUM_PATH || undefined, args: ['--no-sandbox'] });
   const page = await browser.newPage({ viewport: { width: 1000, height: 750 }, reducedMotion: 'reduce' });
   const errors = [];const external = [];
   page.on('pageerror', e => errors.push(e.message));
@@ -146,11 +146,32 @@ try {
   const stops = await page.evaluate(() => window.__motionStops);
   assert.ok(stops > 0, 'preference change must stop previous animation');
   const viewports = [];
-  for (const width of [320, 390, 768, 1000]) {
-    await page.setViewportSize({ width, height: 800 });
-    const fit = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
-    assert.ok(fit, `no page overflow at ${width}px`);
-    viewports.push({ width, noOverflow: true });
+  await page.evaluate(() => window.review.render('bulk-6', 5));
+  const widths = [320, 360, 390, 430, 600, 768, 900, 1000, 1280];
+  for (const [id, capacity] of [['bulk-6', 6], ['888x4', 4]]) {
+    for (const frame of [1, Math.ceil(capacity / 2) + 1, capacity + 1, capacity + 2]) {
+      for (const width of widths) {
+        await page.setViewportSize({ width, height: 800 });
+        await page.evaluate(({ id, frame }) => window.review.render(id, frame), { id, frame });
+        await page.waitForFunction(() => { const i = document.querySelector('img'); return i?.complete && i.naturalWidth > 0; });
+        const m = await page.evaluate(() => {
+          const img = document.querySelector('img'), card = document.querySelector('[role="progressbar"]');
+          const r = img.getBoundingClientRect(), c = card.getBoundingClientRect();
+          const text = card.innerText.trim();
+          return { vw: window.innerWidth, scrollW: document.documentElement.scrollWidth, imgW: r.width, imgH: r.height, imgL: r.left, imgR: r.right,
+            cardL: c.left, cardR: c.right, natural: img.naturalWidth / img.naturalHeight, textLen: text.length,
+            clipped: getComputedStyle(card).overflow !== 'visible' && (r.right > c.right + 0.5 || r.left < c.left - 0.5) };
+        });
+        assert.ok(m.scrollW <= m.vw, `no page overflow at ${width}px ${id}#${frame}`);
+        assert.ok(m.imgL >= m.cardL - 0.5 && m.imgR <= m.cardR + 0.5 && !m.clipped, `artwork inside card at ${width}px ${id}#${frame}`);
+        assert.ok(Math.abs(m.imgW / m.imgH - m.natural) < 0.01, `artwork keeps its aspect ratio at ${width}px ${id}#${frame}`);
+        assert.ok(m.textLen > 10, 'count text still rendered');
+        viewports.push({ id, frame, width, imgW: Math.round(m.imgW), imgH: Math.round(m.imgH), imgShareOfViewport: Number((m.imgW / m.vw).toFixed(2)), noOverflow: true, aspectPreserved: true });
+        if ((width === 320 || width === 390) && (frame === Math.ceil(capacity / 2) + 1 || frame === capacity + 2)) {
+          await page.locator('#root').screenshot({ path: join(out, `mobile-${width}-${id}-frame-${frame}.png`) });
+        }
+      }
+    }
   }
   await page.evaluate(() => window.review.unmount());
   const removals = await page.evaluate(() => window.__listenerRemovals);

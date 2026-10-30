@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
-import type { CompositeScreenProps } from "@react-navigation/native";
+import { useFocusEffect, type CompositeScreenProps } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { MainTabParamList, RootStackParamList } from "@/navigation/types";
 import { BuyerGate } from "@/components/BuyerGate";
@@ -10,7 +10,9 @@ import { Screen } from "@/components/Screen";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
-import { addCustomerOrderDraftLine } from "@/lib/api/draft";
+import { addCustomerOrderDraftLine, getCustomerOrderDraft } from "@/lib/api/draft";
+import { cataloguePriceMessage, cataloguePriceState } from "@/lib/catalogue-price-state";
+import { cartActionLabel, cartActionNotice, existingQuantities, initialStepperQuantity } from "@/lib/draft-add-guard";
 import { defaultOrderQuantity, resolveCommercialRules, validateOrderQuantity } from "@/lib/buyer-commercial-validation";
 import { nextValidQuantity } from "@/lib/draft-utils";
 import { parseRpcError } from "@/lib/rpc-errors";
@@ -29,6 +31,11 @@ export function CatalogueScreen({ navigation, route }: Props) {
   const [products, setProducts] = useState<CatalogueProduct[]>([]);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [inCart, setInCart] = useState<Record<string, number>>({});
+  // False when the cart could not be read: adding is paused so a fallback MOQ quantity can never
+  // overwrite a quantity the buyer already chose (Core's upsert replaces).
+  const [draftReadable, setDraftReadable] = useState(true);
+  const catalogueLoadedRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [busyProductId, setBusyProductId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -42,11 +49,24 @@ export function CatalogueScreen({ navigation, route }: Props) {
     try {
       const rows = await fetchCatalogue({ includeBuyerPrices: isApprovedBuyer });
       setProducts(rows);
+      // The draft upsert REPLACES quantity, so seed steppers from the cart, not from MOQ (T1.09).
+      let existing: Record<string, number> = {};
+      let readable = true;
+      if (isApprovedBuyer) {
+        try {
+          existing = existingQuantities(await getCustomerOrderDraft());
+        } catch {
+          // Browsing stays available; cart writes are paused until the cart can be read.
+          readable = false;
+        }
+      }
+      setDraftReadable(readable);
+      setInCart(existing);
       const initialQuantities: Record<string, number> = {};
       rows.forEach((product) => {
         const moq = defaultOrderQuantity(product.price);
         if (moq !== null) {
-          initialQuantities[product.product_id] = moq;
+          initialQuantities[product.product_id] = initialStepperQuantity(existing[product.product_id], moq);
         }
       });
       setQuantities(initialQuantities);
@@ -58,8 +78,34 @@ export function CatalogueScreen({ navigation, route }: Props) {
   }, [isApprovedBuyer]);
 
   useEffect(() => {
-    loadCatalogue();
+    catalogueLoadedRef.current = false;
+    loadCatalogue().finally(() => {
+      catalogueLoadedRef.current = true;
+    });
   }, [loadCatalogue]);
+
+  /** The tab stays mounted, so re-read the cart on focus: Cart edits must reach the steppers. */
+  const refreshDraft = useCallback(async () => {
+    if (!isApprovedBuyer) return;
+    try {
+      const existing = existingQuantities(await getCustomerOrderDraft());
+      setDraftReadable(true);
+      setInCart(existing);
+      setQuantities((prev) => {
+        const next = { ...prev };
+        for (const [productId, quantity] of Object.entries(existing)) next[productId] = quantity;
+        return next;
+      });
+    } catch {
+      setDraftReadable(false);
+    }
+  }, [isApprovedBuyer]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (catalogueLoadedRef.current) void refreshDraft();
+    }, [refreshDraft])
+  );
 
   useEffect(() => {
     const category = route.params?.category;
@@ -98,6 +144,10 @@ export function CatalogueScreen({ navigation, route }: Props) {
   }
 
   async function addToCart(product: CatalogueProduct) {
+    if (isApprovedBuyer && !draftReadable) {
+      setError("We couldn't read your cart, so adding is paused to protect the quantities already in it. Please retry.");
+      return;
+    }
     const commercial = resolveCommercialRules(product.price);
     if (!commercial.orderable || !commercial.rules) {
       setError(commercial.message ?? "Pricing is unavailable for ordering.");
@@ -114,8 +164,10 @@ export function CatalogueScreen({ navigation, route }: Props) {
     setError(null);
     setSuccessMessage(null);
     try {
+      const previous = inCart[product.product_id];
       await addCustomerOrderDraftLine(product.product_id, qty);
-      setSuccessMessage(`${product.product_name} added to cart`);
+      setInCart((prev) => ({ ...prev, [product.product_id]: qty }));
+      setSuccessMessage(cartActionNotice(product.product_name, previous, qty));
     } catch (e) {
       setError(parseRpcError(e).message);
     } finally {
@@ -217,14 +269,14 @@ export function CatalogueScreen({ navigation, route }: Props) {
                         <Text style={styles.rowTitle}>{item.product_name}</Text>
                       </TouchableOpacity>
                       <Text style={styles.rowMeta}>{item.subcategory ?? item.category}</Text>
-                      {isApprovedBuyer && item.price ? (
+                      {cataloguePriceState(isApprovedBuyer, item.price) === "priced" && item.price ? (
                         <View style={styles.priceBadge}>
                           <Text style={styles.priceBadgeText}>
                             ₹{item.price.selling_price.toFixed(2)} / {item.price.uom}
                           </Text>
                         </View>
                       ) : (
-                        <Text style={styles.rowMeta}>Sign in as an approved buyer for pricing</Text>
+                        <Text style={styles.rowMeta}>{cataloguePriceMessage(cataloguePriceState(isApprovedBuyer, item.price))}</Text>
                       )}
                       {isApprovedBuyer && !canOrder && item.price ? (
                         <Text style={styles.unavailablePrice}>{commercial.message ?? "Pricing unavailable for ordering"}</Text>
@@ -249,10 +301,10 @@ export function CatalogueScreen({ navigation, route }: Props) {
                       <Text style={styles.moqNote}>Minimum {moq} · then add {increment} at a time</Text>
                       <TouchableOpacity
                         style={styles.addButton}
-                        disabled={adding}
+                        disabled={adding || !draftReadable}
                         onPress={() => addToCart(item)}
                       >
-                        <Text style={styles.addButtonText}>{adding ? "Adding…" : "Add to cart"}</Text>
+                        <Text style={styles.addButtonText}>{cartActionLabel(inCart[item.product_id], adding)}</Text>
                       </TouchableOpacity>
                         </>
                       ) : null}

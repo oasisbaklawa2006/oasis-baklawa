@@ -7,7 +7,8 @@ import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { Screen } from "@/components/Screen";
 import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
-import { addCustomerOrderDraftLine } from "@/lib/api/draft";
+import { addCustomerOrderDraftLine, getCustomerOrderDraft } from "@/lib/api/draft";
+import { planBulkAdd } from "@/lib/draft-add-guard";
 import { resolveCommercialRules } from "@/lib/buyer-commercial-validation";
 import { GENIE_ENABLED } from "@/lib/genie-parse-availability";
 import { parseRpcError } from "@/lib/rpc-errors";
@@ -64,6 +65,13 @@ export function QuickOrderScreen({ navigation }: Props) {
     const moq = commercial.rules.moq;
     setBusyId(product.product_id);
     try {
+      // Core's upsert replaces quantity; never overwrite a quantity the buyer already chose.
+      const plan = planBulkAdd(await getCustomerOrderDraft(), [{ productId: product.product_id, quantity: moq }]);
+      if (plan.skippedExisting.length) {
+        setNotice(`${product.product_name} is already in your cart at ${plan.skippedExisting[0].existingQuantity}. Adjust it in the cart.`);
+        setError(null);
+        return;
+      }
       await addCustomerOrderDraftLine(product.product_id, moq);
       setNotice(`${product.product_name} added to draft cart.`);
       setError(null);

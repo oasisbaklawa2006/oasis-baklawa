@@ -1,9 +1,5 @@
 import type { CatalogueProduct } from "@/lib/api/catalogue";
-import {
-  defaultOrderQuantity,
-  isQuantityIncrementAligned,
-  validateOrderQuantity,
-} from "@/lib/buyer-commercial-validation";
+import { resolveCommercialRules, validateOrderQuantity } from "@/lib/buyer-commercial-validation";
 
 export interface GenieParsedLine {
   lineId: string;
@@ -95,18 +91,44 @@ function scoreProductMatch(queryTokens: string[], product: CatalogueProduct): nu
   return coverage + skuExact;
 }
 
-function normalizeLineQuantity(product: CatalogueProduct, quantity: number): number | null {
-  if (!Number.isFinite(quantity) || quantity <= 0) return null;
-  const moq = defaultOrderQuantity(product.price);
-  if (moq === null) return null;
-  const increment = product.price?.order_increment ?? moq;
-  let stepped = Math.max(quantity, moq);
-  if (increment > 0 && moq > 0 && !isQuantityIncrementAligned(moq, increment, stepped)) {
-    const steps = Math.ceil((stepped - moq) / increment);
-    stepped = moq + steps * increment;
+const GENERIC_UOMS = new Set(["", "unit", "units", "item", "items", "qty", "nos", "no"]);
+
+const normaliseUom = (uom: string | null | undefined) => (uom ?? "").trim().toLowerCase();
+
+export type GenieQuantityOutcome =
+  | { ok: true; quantity: number }
+  | { ok: false; reason: string };
+
+/**
+ * AI-parsed quantities are customer *requests*, never commercial facts. They are accepted only when
+ * they already satisfy governed MOQ/increment rules in the product's own unit. A quantity is never
+ * silently raised or rounded; instead the line is returned with an exact, courteous correction and the
+ * customer edits it explicitly.
+ */
+export function checkGenieLineQuantity(
+  product: CatalogueProduct,
+  line: Pick<GenieParsedLine, "quantity" | "uom">
+): GenieQuantityOutcome {
+  if (!Number.isFinite(line.quantity) || line.quantity <= 0) {
+    return { ok: false, reason: "Enter a quantity greater than zero." };
   }
-  const check = validateOrderQuantity(product.price ?? null, stepped);
-  return check.orderable ? stepped : null;
+  const commercial = resolveCommercialRules(product.price);
+  if (!commercial.orderable || !commercial.rules) {
+    return { ok: false, reason: commercial.message ?? "Buyer pricing is unavailable for this product." };
+  }
+  const requestedUom = normaliseUom(line.uom);
+  const productUom = normaliseUom(commercial.rules.uom);
+  if (!GENERIC_UOMS.has(requestedUom) && requestedUom !== productUom) {
+    return {
+      ok: false,
+      reason: `You asked for ${line.quantity} ${line.uom}, but this product is ordered in ${commercial.rules.uom}. Please enter the quantity in ${commercial.rules.uom}.`,
+    };
+  }
+  const check = validateOrderQuantity(product.price ?? null, line.quantity);
+  if (!check.orderable) {
+    return { ok: false, reason: check.message ?? "Quantity does not satisfy MOQ/increment rules for this product." };
+  }
+  return { ok: true, quantity: line.quantity };
 }
 
 /** Fail-closed catalogue resolution for Genie parsed lines — never invents SKU/product ids. */
@@ -158,19 +180,16 @@ export function resolveGenieLines(
     }
 
     const product = ranked[0].product;
-    const normalizedQuantity = normalizeLineQuantity(product, line.quantity);
-    if (normalizedQuantity === null) {
-      unresolved.push({
-        ...line,
-        reason: "Quantity does not satisfy MOQ/carton rules for the matched product.",
-      });
+    const outcome = checkGenieLineQuantity(product, line);
+    if (!outcome.ok) {
+      unresolved.push({ ...line, reason: outcome.reason });
       continue;
     }
 
     resolved.push({
       ...line,
       product,
-      normalizedQuantity,
+      normalizedQuantity: outcome.quantity,
     });
   }
 
@@ -181,16 +200,17 @@ export function applyGenieCandidateSelection(
   line: GenieAmbiguousLine,
   product: CatalogueProduct
 ): GenieResolvedLine | GenieUnresolvedLine {
-  const normalizedQuantity = normalizeLineQuantity(product, line.quantity);
-  if (normalizedQuantity === null) {
+  const outcome = checkGenieLineQuantity(product, line);
+  if (!outcome.ok) {
     return {
       lineId: line.lineId,
       rawName: line.rawName,
       quantity: line.quantity,
       uom: line.uom,
-      reason: "Quantity does not satisfy MOQ/carton rules for the selected product.",
+      reason: outcome.reason,
     };
   }
+  const normalizedQuantity = outcome.quantity;
   return {
     lineId: line.lineId,
     rawName: line.rawName,

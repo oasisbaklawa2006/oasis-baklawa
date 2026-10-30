@@ -12,7 +12,7 @@
     },
     {
       "file": "bulk-6-frame-2.png",
-      "sha256": "76edab30292ac4273ceb5e895d93edf18062c265f517beebeb08398511308a42",
+      "sha256": "c8599850b940d41fb27abb68b14fcf226881bdee3be86acc8b026964ec087dfb",
       "dimensions": [
         800,
         600
@@ -20,7 +20,7 @@
     },
     {
       "file": "bulk-6-frame-3.png",
-      "sha256": "bb7440a266fdc7dd50b1b8944023640e2c45f207041263702b69f5d941d9e73a",
+      "sha256": "406f7aacc913f878212773fb447cbcb0fd1262db3306cda43b3af50cba2a1b68",
       "dimensions": [
         800,
         600
@@ -28,7 +28,7 @@
     },
     {
       "file": "bulk-6-frame-4.png",
-      "sha256": "ff37b368fe45674b1ea6eb6b86eeaf240d7ef557d5e6e8e9897d526a0b4e8748",
+      "sha256": "d5f7701f443ca658abe80e6fb616e23696f32a37c3a0643a654549b42273e603",
       "dimensions": [
         800,
         600
@@ -36,7 +36,7 @@
     },
     {
       "file": "bulk-6-frame-5.png",
-      "sha256": "06c6ae4312d1ecf0514488c5eb73f734c103db1bacc9226a955b162077b495c8",
+      "sha256": "3f488774de236cc37752106d0e4d7a8984044404334bea9e5c534162de85ce8e",
       "dimensions": [
         800,
         600
@@ -44,7 +44,7 @@
     },
     {
       "file": "bulk-6-frame-6.png",
-      "sha256": "b6f4701fc3d65c18f0cb7d10e08447ba2e21e6dd15e8bf73f4ab38056d37a88d",
+      "sha256": "4724c92e3a495544e2e49ddca4b09dd1a09ebfe43f7f924db3247c4afbe514d0",
       "dimensions": [
         800,
         600
@@ -52,7 +52,7 @@
     },
     {
       "file": "bulk-6-frame-7.png",
-      "sha256": "a3bf88816741e0d763f613113f24e9d3c63d1bd23e8656842673881d12376381",
+      "sha256": "a47bac7e4707a7f319e06a98d7580dbeccb2b7a7baf3ce2d0e846d8e92b48618",
       "dimensions": [
         800,
         600
@@ -76,7 +76,7 @@
     },
     {
       "file": "888x4-frame-2.png",
-      "sha256": "10461080385f85d421e123b0027c5c1c0916ff806fc0a7b01da62851eb69044b",
+      "sha256": "9846273ff158cae1d6e217b9b9327e93b7b648a6c0881d7945954817178c7852",
       "dimensions": [
         800,
         600
@@ -84,7 +84,7 @@
     },
     {
       "file": "888x4-frame-3.png",
-      "sha256": "c9b63762f189c3f2961be21f7e85acdec6ed19fce498d42f4aff42432f9cee67",
+      "sha256": "6043b01385364b6b6bc41cf7f7999176a1756d6f9d4265d1c0e26cde339cf945",
       "dimensions": [
         800,
         600
@@ -92,7 +92,7 @@
     },
     {
       "file": "888x4-frame-4.png",
-      "sha256": "c988af0bac6783f9ac2f9c5b55ca1775772e9e7597d5ec5733e77a20a577e294",
+      "sha256": "5a7f241c79c86fe69836b2362c578dc5c869f6f052becc2aeb71e5a57ca932b1",
       "dimensions": [
         800,
         600
@@ -100,7 +100,7 @@
     },
     {
       "file": "888x4-frame-5.png",
-      "sha256": "d5734c3b27ce0ba80bba7a871c9629bd1c3342ef7c64c675ff1ed0135ebd6a42",
+      "sha256": "b16c108184a302f18fb84ff584f4d3370f6d79e9d64d0ec71f5e3b457f15eb68",
       "dimensions": [
         800,
         600

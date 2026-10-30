@@ -4,7 +4,7 @@
     "occupied": [],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "8411681b1217c2e413ee344392cadcc26848a8e60e8a5712a80f6643e2d4f5de"
+    "sha256": "6a6656a948428c83c503f692848ffb2f797e021f54e95c096c6d6a1b36ce299b"
   },
   {
     "file": "bulk-6-frame-2.svg",
@@ -13,7 +13,7 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "0d2f76541de2154cf415ab85e6757306d8c1b27537619a13876cbaaa5e23b852"
+    "sha256": "25431d7d62757f943c141813a2fa969f1ffc9a318843e046cd549c0c2bf2eb7e"
   },
   {
     "file": "bulk-6-frame-3.svg",
@@ -23,7 +23,7 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "b3c8d56dc60f86b5ddb0252185dba48919fa63eb5c80170bd7199fe54d9d7635"
+    "sha256": "ad1e25e4adee92a25e4e631dafee90186cdc2eb0fa06c7592c1fab92b5f6bae7"
   },
   {
     "file": "bulk-6-frame-4.svg",
@@ -34,7 +34,7 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "51c2c8808031dc28e696ecc2a2e6213a08dd978a3b264026c29185624812b820"
+    "sha256": "3c8e1c8a9cb498c8a4db8640f285f33ba947ca59f1a2ba5e2d83a4ebade7a274"
   },
   {
     "file": "bulk-6-frame-5.svg",
@@ -46,7 +46,7 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "bbe9b68f6a74063b700827aadb6e0b80f15cf3f37ad1bd262d41f1ab64a735a2"
+    "sha256": "803c7d8245d884756fd4167104d32dcd8fa45a036e2f33a4af068902e91a3b75"
   },
   {
     "file": "bulk-6-frame-6.svg",
@@ -59,7 +59,7 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "ad9e5597971227d12c725e94ddf97790e3d4916a7c03d50e420a3acc9cf52170"
+    "sha256": "ae0e878a2cb778bf3d356e298e3d50c05ebe32d5d5a0af37b91cb72ec0e4dd3b"
   },
   {
     "file": "bulk-6-frame-7.svg",
@@ -73,7 +73,7 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "13b78562821cda2667b559f94cdaabd50da615ce431a1fa2fa3f5b36264a4d27"
+    "sha256": "527b7ba467b180caed5ead340a1fdda6f98f9f7855095901755f4917c8405766"
   },
   {
     "file": "bulk-6-frame-8.svg",
@@ -87,14 +87,14 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "1f28cdbf40da657070b3ae42530a012fe39ceba6600c83ceb584892d2dff417d"
+    "sha256": "e2ec9c255704ab4fad85345976786a5e2d04a83c35399204fff31e4b2d9163e5"
   },
   {
     "file": "888x4-frame-1.svg",
     "occupied": [],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "85b0445a9aaef3433f4b64094d5efae1f126a82ac8a909bddc9ff150c58d9557"
+    "sha256": "af1b1bdfb97aebbe7c9346ae646ca0103ae3f42517f32598687590868434fe0e"
   },
   {
     "file": "888x4-frame-2.svg",
@@ -103,7 +103,7 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "9416faa143a91477594ae6d4ee4a332170f53355d81bc63ae873a461985ce87b"
+    "sha256": "d8c8d1626a0c2fc05c8d7f017a2678371b4059200a2e95c96719cdca9458e359"
   },
   {
     "file": "888x4-frame-3.svg",
@@ -113,7 +113,7 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "4d48ec0cbe601fbc9dc71b5415561c4bc877122a022e21b86fafc7d7aabd8fb2"
+    "sha256": "49cc09ae8ce65af81c29b709a95fb89d211fa1fe9f6a411fa25c7e70d80b6790"
   },
   {
     "file": "888x4-frame-4.svg",
@@ -124,7 +124,7 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "0d2e4612dfed3dc6d1294d96eadc40219ea5a9b122a2d086c0c79ff86bf50c2d"
+    "sha256": "33c609695250bb2aa95feac7631b70f6f5ed5a950de4b16deb0ef363dfbb5230"
   },
   {
     "file": "888x4-frame-5.svg",
@@ -136,7 +136,7 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "25f2d3201a392c6f697bfe70b4f9612f6fd305ec3e12868356e2b74e64792a7e"
+    "sha256": "da51db27451f1ba85f2e5aadeb084f69aa0234499d366fd4e343b80da4292abe"
   },
   {
     "file": "888x4-frame-6.svg",
@@ -148,6 +148,6 @@
     ],
     "geometryVersion": 2,
     "physicalApproval": "pending",
-    "sha256": "537346a04f811cbe6e43c7694c58130248519449ebe6de02235482ac5650c6d4"
+    "sha256": "331f0886c475d5fdab2e874a0cba4a295c0948eede42d41d6c0b2031321bb8cd"
   }
 ]

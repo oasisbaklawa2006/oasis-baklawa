@@ -1,0 +1,611 @@
+[
+  {
+    "spec": {
+      "configId": "bulk-6",
+      "label": "666×6",
+      "cartonInches": [
+        15.5,
+        10.75,
+        13.75
+      ],
+      "dimensionBasis": "unconfirmed",
+      "primary": {
+        "id": "deluxe-box-666",
+        "name": "Deluxe Box 666 (transparent, lidded)",
+        "lengthMm": 265,
+        "breadthMm": 190,
+        "heightMm": 115,
+        "reference": "Owner screenshot: M.C. Pipwala Delux box-666, 19 x 26.5 x 11.5 cm",
+        "heightIncludesLid": null
+      },
+      "primaryPacksPerCarton": 6,
+      "confirmedArrangement": null,
+      "frozenVisualArrangement": {
+        "columnsAcrossLength": 2,
+        "rowsAcrossBreadth": 1,
+        "levels": 3
+      },
+      "internalLevels": null,
+      "maxExternalStackCount": 4,
+      "status": "inactive-specification-only"
+    },
+    "assessment": {
+      "configId": "bulk-6",
+      "label": "666×6",
+      "cartonMm": [
+        393.7,
+        273.05,
+        349.25
+      ],
+      "primaryMm": [
+        265,
+        190,
+        115
+      ],
+      "required": 6,
+      "bestCapacity": 6,
+      "orientationsThatFit": [
+        {
+          "orientation": {
+            "alongL": 190,
+            "alongB": 265,
+            "alongH": 115,
+            "label": "190×265×115 mm along L×B×H"
+          },
+          "nx": 2,
+          "ny": 1,
+          "nz": 3,
+          "capacity": 6,
+          "slackMm": {
+            "L": 13.699999999999989,
+            "B": 8.050000000000011,
+            "H": 4.25
+          }
+        }
+      ],
+      "allOrientations": [
+        {
+          "orientation": {
+            "alongL": 265,
+            "alongB": 190,
+            "alongH": 115,
+            "label": "265×190×115 mm along L×B×H"
+          },
+          "nx": 1,
+          "ny": 1,
+          "nz": 3,
+          "capacity": 3,
+          "slackMm": {
+            "L": 128.7,
+            "B": 83.05000000000001,
+            "H": 4.25
+          }
+        },
+        {
+          "orientation": {
+            "alongL": 265,
+            "alongB": 115,
+            "alongH": 190,
+            "label": "265×115×190 mm along L×B×H"
+          },
+          "nx": 1,
+          "ny": 2,
+          "nz": 1,
+          "capacity": 2,
+          "slackMm": {
+            "L": 128.7,
+            "B": 43.05000000000001,
+            "H": 159.25
+          }
+        },
+        {
+          "orientation": {
+            "alongL": 190,
+            "alongB": 265,
+            "alongH": 115,
+            "label": "190×265×115 mm along L×B×H"
+          },
+          "nx": 2,
+          "ny": 1,
+          "nz": 3,
+          "capacity": 6,
+          "slackMm": {
+            "L": 13.699999999999989,
+            "B": 8.050000000000011,
+            "H": 4.25
+          }
+        },
+        {
+          "orientation": {
+            "alongL": 190,
+            "alongB": 115,
+            "alongH": 265,
+            "label": "190×115×265 mm along L×B×H"
+          },
+          "nx": 2,
+          "ny": 2,
+          "nz": 1,
+          "capacity": 4,
+          "slackMm": {
+            "L": 13.699999999999989,
+            "B": 43.05000000000001,
+            "H": 84.25
+          }
+        },
+        {
+          "orientation": {
+            "alongL": 115,
+            "alongB": 265,
+            "alongH": 190,
+            "label": "115×265×190 mm along L×B×H"
+          },
+          "nx": 3,
+          "ny": 1,
+          "nz": 1,
+          "capacity": 3,
+          "slackMm": {
+            "L": 48.69999999999999,
+            "B": 8.050000000000011,
+            "H": 159.25
+          }
+        },
+        {
+          "orientation": {
+            "alongL": 115,
+            "alongB": 190,
+            "alongH": 265,
+            "label": "115×190×265 mm along L×B×H"
+          },
+          "nx": 3,
+          "ny": 1,
+          "nz": 1,
+          "capacity": 3,
+          "slackMm": {
+            "L": 48.69999999999999,
+            "B": 83.05000000000001,
+            "H": 84.25
+          }
+        }
+      ],
+      "frozenVisual": {
+        "arrangement": {
+          "columnsAcrossLength": 2,
+          "rowsAcrossBreadth": 1,
+          "levels": 3
+        },
+        "orientation": {
+          "alongL": 190,
+          "alongB": 265,
+          "alongH": 115,
+          "label": "long axis into depth"
+        },
+        "required": {
+          "L": 380,
+          "B": 265,
+          "H": 345
+        },
+        "available": {
+          "L": 393.7,
+          "B": 273.05,
+          "H": 349.25
+        },
+        "clearanceMm": {
+          "L": 13.699999999999989,
+          "B": 8.050000000000011,
+          "H": 4.25
+        },
+        "fits": true,
+        "maxWallPerSideIfExternalMm": {
+          "L": 6.849999999999994,
+          "B": 4.025000000000006,
+          "H": 2.125
+        }
+      },
+      "verdict": "feasible-under-unverified-assumptions",
+      "openConfirmations": [
+        "Are the carton dimensions external or internal usable? (unconfirmed)",
+        "Does the primary-pack height include the lid? Do lids nest or overhang? (unconfirmed)",
+        "Corrugated wall/flap thickness and packing tolerance (not supplied; not assumed)"
+      ]
+    },
+    "proportion": {
+      "visualBodyAspectWidthOverHeight": 2.31,
+      "physicalFrontFaceAspectLengthOverHeight": 1.13,
+      "visualTrayAspect": 3.19,
+      "physicalPrimaryFrontAspect_shortSideFacing": 1.65,
+      "note": "The frozen schematic is wider than the physical carton face; unit scale differs between axes. Drawn proportions are illustrative, not dimensional."
+    }
+  },
+  {
+    "spec": {
+      "configId": "888x4",
+      "label": "888×4",
+      "cartonInches": [
+        20,
+        13.75,
+        13.25
+      ],
+      "dimensionBasis": "unconfirmed",
+      "primary": {
+        "id": "nakoda-10l-container",
+        "name": "Nakoda 10 L container (transparent, lidded)",
+        "lengthMm": 340,
+        "breadthMm": 260,
+        "heightMm": 160,
+        "reference": "Owner screenshot: Nakoda Plastic Container Box 10L, 34 x 26 x 16 cm",
+        "heightIncludesLid": null
+      },
+      "primaryPacksPerCarton": 4,
+      "confirmedArrangement": null,
+      "frozenVisualArrangement": {
+        "columnsAcrossLength": 2,
+        "rowsAcrossBreadth": 1,
+        "levels": 2
+      },
+      "internalLevels": null,
+      "maxExternalStackCount": 4,
+      "status": "inactive-specification-only"
+    },
+    "assessment": {
+      "configId": "888x4",
+      "label": "888×4",
+      "cartonMm": [
+        508,
+        349.25,
+        336.54999999999995
+      ],
+      "primaryMm": [
+        340,
+        260,
+        160
+      ],
+      "required": 4,
+      "bestCapacity": 3,
+      "orientationsThatFit": [],
+      "allOrientations": [
+        {
+          "orientation": {
+            "alongL": 340,
+            "alongB": 260,
+            "alongH": 160,
+            "label": "340×260×160 mm along L×B×H"
+          },
+          "nx": 1,
+          "ny": 1,
+          "nz": 2,
+          "capacity": 2,
+          "slackMm": {
+            "L": 168,
+            "B": 89.25,
+            "H": 16.549999999999955
+          }
+        },
+        {
+          "orientation": {
+            "alongL": 340,
+            "alongB": 160,
+            "alongH": 260,
+            "label": "340×160×260 mm along L×B×H"
+          },
+          "nx": 1,
+          "ny": 2,
+          "nz": 1,
+          "capacity": 2,
+          "slackMm": {
+            "L": 168,
+            "B": 29.25,
+            "H": 76.54999999999995
+          }
+        },
+        {
+          "orientation": {
+            "alongL": 260,
+            "alongB": 340,
+            "alongH": 160,
+            "label": "260×340×160 mm along L×B×H"
+          },
+          "nx": 1,
+          "ny": 1,
+          "nz": 2,
+          "capacity": 2,
+          "slackMm": {
+            "L": 248,
+            "B": 9.25,
+            "H": 16.549999999999955
+          }
+        },
+        {
+          "orientation": {
+            "alongL": 260,
+            "alongB": 160,
+            "alongH": 340,
+            "label": "260×160×340 mm along L×B×H"
+          },
+          "nx": 1,
+          "ny": 2,
+          "nz": 0,
+          "capacity": 0,
+          "slackMm": {
+            "L": 248,
+            "B": 29.25,
+            "H": 336.54999999999995
+          }
+        },
+        {
+          "orientation": {
+            "alongL": 160,
+            "alongB": 340,
+            "alongH": 260,
+            "label": "160×340×260 mm along L×B×H"
+          },
+          "nx": 3,
+          "ny": 1,
+          "nz": 1,
+          "capacity": 3,
+          "slackMm": {
+            "L": 28,
+            "B": 9.25,
+            "H": 76.54999999999995
+          }
+        },
+        {
+          "orientation": {
+            "alongL": 160,
+            "alongB": 260,
+            "alongH": 340,
+            "label": "160×260×340 mm along L×B×H"
+          },
+          "nx": 3,
+          "ny": 1,
+          "nz": 0,
+          "capacity": 0,
+          "slackMm": {
+            "L": 28,
+            "B": 89.25,
+            "H": 336.54999999999995
+          }
+        }
+      ],
+      "frozenVisual": {
+        "arrangement": {
+          "columnsAcrossLength": 2,
+          "rowsAcrossBreadth": 1,
+          "levels": 2
+        },
+        "orientation": {
+          "alongL": 260,
+          "alongB": 340,
+          "alongH": 160,
+          "label": "long axis into depth"
+        },
+        "required": {
+          "L": 520,
+          "B": 340,
+          "H": 320
+        },
+        "available": {
+          "L": 508,
+          "B": 349.25,
+          "H": 336.54999999999995
+        },
+        "clearanceMm": {
+          "L": -12,
+          "B": 9.25,
+          "H": 16.549999999999955
+        },
+        "fits": false,
+        "maxWallPerSideIfExternalMm": {
+          "L": 0,
+          "B": 4.625,
+          "H": 8.274999999999977
+        }
+      },
+      "verdict": "dimensionally-incompatible",
+      "openConfirmations": [
+        "Are the carton dimensions external or internal usable? (unconfirmed)",
+        "Does the primary-pack height include the lid? Do lids nest or overhang? (unconfirmed)",
+        "Corrugated wall/flap thickness and packing tolerance (not supplied; not assumed)"
+      ]
+    },
+    "proportion": {
+      "visualBodyAspectWidthOverHeight": 2.86,
+      "physicalFrontFaceAspectLengthOverHeight": 1.51,
+      "visualTrayAspect": 2.63,
+      "physicalPrimaryFrontAspect_shortSideFacing": 1.63,
+      "note": "The frozen schematic is wider than the physical carton face; unit scale differs between axes. Drawn proportions are illustrative, not dimensional."
+    }
+  },
+  {
+    "spec": {
+      "configId": "bulk-10",
+      "label": "RTC1×10",
+      "cartonInches": [
+        13,
+        8.5,
+        13
+      ],
+      "dimensionBasis": "unconfirmed",
+      "primary": {
+        "id": "rtc1-300x210",
+        "name": "RTC1 300×210 transparent tray with lid",
+        "lengthMm": 300,
+        "breadthMm": 210,
+        "heightMm": 32,
+        "reference": "Owner product photographs: 300x210 RTC, 1 kg & 2 kg; height 32 mm per owner correction",
+        "heightIncludesLid": null
+      },
+      "primaryPacksPerCarton": 10,
+      "confirmedArrangement": null,
+      "frozenVisualArrangement": null,
+      "internalLevels": null,
+      "maxExternalStackCount": 4,
+      "status": "inactive-specification-only"
+    },
+    "assessment": {
+      "configId": "bulk-10",
+      "label": "RTC1×10",
+      "cartonMm": [
+        330.2,
+        215.89999999999998,
+        330.2
+      ],
+      "primaryMm": [
+        300,
+        210,
+        32
+      ],
+      "required": 10,
+      "bestCapacity": 10,
+      "orientationsThatFit": [
+        {
+          "orientation": {
+            "alongL": 300,
+            "alongB": 210,
+            "alongH": 32,
+            "label": "300×210×32 mm along L×B×H"
+          },
+          "nx": 1,
+          "ny": 1,
+          "nz": 10,
+          "capacity": 10,
+          "slackMm": {
+            "L": 30.19999999999999,
+            "B": 5.899999999999977,
+            "H": 10.199999999999989
+          }
+        },
+        {
+          "orientation": {
+            "alongL": 32,
+            "alongB": 210,
+            "alongH": 300,
+            "label": "32×210×300 mm along L×B×H"
+          },
+          "nx": 10,
+          "ny": 1,
+          "nz": 1,
+          "capacity": 10,
+          "slackMm": {
+            "L": 10.199999999999989,
+            "B": 5.899999999999977,
+            "H": 30.19999999999999
+          }
+        }
+      ],
+      "allOrientations": [
+        {
+          "orientation": {
+            "alongL": 300,
+            "alongB": 210,
+            "alongH": 32,
+            "label": "300×210×32 mm along L×B×H"
+          },
+          "nx": 1,
+          "ny": 1,
+          "nz": 10,
+          "capacity": 10,
+          "slackMm": {
+            "L": 30.19999999999999,
+            "B": 5.899999999999977,
+            "H": 10.199999999999989
+          }
+        },
+        {
+          "orientation": {
+            "alongL": 300,
+            "alongB": 32,
+            "alongH": 210,
+            "label": "300×32×210 mm along L×B×H"
+          },
+          "nx": 1,
+          "ny": 6,
+          "nz": 1,
+          "capacity": 6,
+          "slackMm": {
+            "L": 30.19999999999999,
+            "B": 23.899999999999977,
+            "H": 120.19999999999999
+          }
+        },
+        {
+          "orientation": {
+            "alongL": 210,
+            "alongB": 300,
+            "alongH": 32,
+            "label": "210×300×32 mm along L×B×H"
+          },
+          "nx": 1,
+          "ny": 0,
+          "nz": 10,
+          "capacity": 0,
+          "slackMm": {
+            "L": 120.19999999999999,
+            "B": 215.89999999999998,
+            "H": 10.199999999999989
+          }
+        },
+        {
+          "orientation": {
+            "alongL": 210,
+            "alongB": 32,
+            "alongH": 300,
+            "label": "210×32×300 mm along L×B×H"
+          },
+          "nx": 1,
+          "ny": 6,
+          "nz": 1,
+          "capacity": 6,
+          "slackMm": {
+            "L": 120.19999999999999,
+            "B": 23.899999999999977,
+            "H": 30.19999999999999
+          }
+        },
+        {
+          "orientation": {
+            "alongL": 32,
+            "alongB": 300,
+            "alongH": 210,
+            "label": "32×300×210 mm along L×B×H"
+          },
+          "nx": 10,
+          "ny": 0,
+          "nz": 1,
+          "capacity": 0,
+          "slackMm": {
+            "L": 10.199999999999989,
+            "B": 215.89999999999998,
+            "H": 120.19999999999999
+          }
+        },
+        {
+          "orientation": {
+            "alongL": 32,
+            "alongB": 210,
+            "alongH": 300,
+            "label": "32×210×300 mm along L×B×H"
+          },
+          "nx": 10,
+          "ny": 1,
+          "nz": 1,
+          "capacity": 10,
+          "slackMm": {
+            "L": 10.199999999999989,
+            "B": 5.899999999999977,
+            "H": 30.19999999999999
+          }
+        }
+      ],
+      "frozenVisual": null,
+      "verdict": "feasible-under-unverified-assumptions",
+      "openConfirmations": [
+        "Are the carton dimensions external or internal usable? (unconfirmed)",
+        "Does the primary-pack height include the lid? Do lids nest or overhang? (unconfirmed)",
+        "Corrugated wall/flap thickness and packing tolerance (not supplied; not assumed)",
+        "Effective stacked height of ten closed tray+lid units (no nesting factor assumed)",
+        "Confirm 'RTC1×10' = catalogue entry bulk-10 (Type C)"
+      ]
+    },
+    "proportion": null
+  }
+]

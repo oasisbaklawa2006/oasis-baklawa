@@ -4,6 +4,8 @@
 export const BUYER_DEPLOYMENT_RPC_ALLOWLIST = [
   "published_products_v1",
   "buyer_product_prices_v1",
+  "buyer_carton_configurations_v1",
+  "buyer_packing_profiles_v1",
   "customer_order_status_v1",
   "customer_order_items_v1",
   "customer_support_tickets_v1",

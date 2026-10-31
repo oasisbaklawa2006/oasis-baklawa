@@ -1,0 +1,8 @@
+# Concurrency evidence (real PostgreSQL 16.15, disposable database core_conc cloned from the replayed Core schema)
+T1 duplicate key under concurrency: second session got: ERROR:  duplicate key value violates unique constraint "product_packing_profiles_version_key"
+DETAIL:  Key (product_id, profile_version)=(00000000-0000-0000-0000-000000009001, 2) already exists.
+T2 approve vs edit of the same draft row: no error; approval waited for the edit's commit; final state: approved slots=3 (no lost update)
+T3 edit after a committed approval (session started earlier): 
+ERROR:  approved packing rows are immutable; retire and add a new version
+CONTEXT:  PL/pgSQL function protect_approved_carton_packing_rows_v1() line 20 at RAISE
+T4 retire vs read: reader saw pre-commit snapshot 'approved'; after commit 'retired'

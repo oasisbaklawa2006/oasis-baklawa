@@ -1,0 +1,28 @@
+=== A. buyer A: catalogue, price, packing projections (real Core RPCs, caller identity via JWT claim)
+ catalogue: 1 product(s): E2E1
+ price: 00000000-0000-0000-0000-000000001001 100.00 tray gst 5 MOQ 2 inc 1
+ configs: bulk-10 v1 cap 10
+ profile: sku E2E1 group g slots/unit 1 uom tray cartons {bulk-10} hash a79efcf6
+=== B. Core validation (not the Buyer client): quantity 1 is below MOQ 2
+NOTICE:  add qty 1 -> REJECTED by Core: P0001 QUANTITY_RULE_VIOLATION: quantity does not satisfy MOQ/increment/carton rules for product 00000000-0000-0000-0
+=== C. valid quantity then edit
+NOTICE:  add qty 4 -> ACCEPTED
+NOTICE:  draft: lines=1 first qty=4 status=active
+NOTICE:  update qty 10 -> ACCEPTED, draft line qty now 10
+NOTICE:  update qty 1 -> REJECTED by Core: P0001 QUANTITY_RULE_VIOLATION: quantity does not satisfy MOQ/increment/carton rules
+=== D. quote and submission validation by Core
+NOTICE:  checkout quote -> {"lines": [{"sku": "E2E1", "uom": "tray", "currency": "INR", "gst_rate": 5, "quantity": 10, "product_id": "00000000-0000-0000-0000-000000001001", "product_name": "RTC tray product", "selling_price": 1
+NOTICE:  submit -> ACCEPTED
+=== E. customer isolation: B starts empty; each customer holds only their own draft
+NOTICE:  B draft before adding: lines=0
+NOTICE:  B draft after adding 3: lines=1 qty=3 company=00000000-0000-0000-0000-0000000000b1
+NOTICE:  A draft: lines=1 qty=5 company=00000000-0000-0000-0000-0000000000a1 (B holds 3 and is not visible here)
+ B packing facts identical to A: 8339d669f473709e378a28ff215cb1ec
+=== F. ineligible callers
+ frozen buyer: projections=0+0
+NOTICE:  frozen add -> REJECTED by Core: 42501 BUYER_NOT_ELIGIBLE: approved buyer company context is required
+ staff account: projections=0+0
+NOTICE:  anon -> DENIED: 42501
+=== G. deactivation: retire the configuration, then re-read as buyer A
+UPDATE 1
+ after retirement: configs=0 profiles=0

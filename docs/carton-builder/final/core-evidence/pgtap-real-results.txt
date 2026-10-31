@@ -1,0 +1,58 @@
+1..57
+ok 1 - anonymous callers cannot execute the configuration projection
+ok 2 - anonymous callers cannot execute the profile projection
+ok 3 - buyers cannot read the configuration governance table
+ok 4 - buyers cannot read the profile governance table
+ok 5 - buyers cannot write governance tables
+ok 6 - approved buyer sees exactly one live configuration (drafts, expired and future versions hidden)
+ok 7 - the highest live version wins
+ok 8 - draft, expired and not-yet-effective configurations are never returned
+ok 9 - only the orderable product with an approved, effective, unit-matching profile is returned (unit mismatch, no price, unpublished, draft, future, expired, fixed_ratio and non-live-config profiles
+ok 10 - non-live configuration ids are dropped from the profile
+ok 11 - sku is returned for display
+ok 12 - rows are approved and contract_version 1
+ok 13 - commercial_uom equals the price projection uom for every returned row
+ok 14 - profile projection exposes no dimension, weight, cost, approver, evidence, price or tax column
+ok 15 - configuration projection exposes no dimension, weight, cost, approver, evidence, price or tax column
+ok 16 - two different approved buyer companies receive identical packing facts (no company-specific data)
+ok 17 - a frozen company receives no profiles
+ok 18 - a frozen company receives no configurations
+ok 19 - a pending (unapproved) buyer receives no profiles
+ok 20 - a staff account receives nothing
+ok 21 - an authenticated user with no buyer profile receives nothing
+ok 22 - service_role may execute the projection
+ok 23 - the price projection still serves the same approved prices (no packing table affects it)
+ok 24 - a newer approved version replaces the older one
+ok 25 - the projection hash changes when a governed field changes
+ok 26 - retiring the newest version falls back to the previous approved version (stale profiles stop being served)
+ok 27 - approved profile rows cannot be edited in place
+ok 28 - approved configurations cannot be deleted
+ok 29 - an approved configuration can be retired
+ok 30 - retiring the newest configuration falls back to the previous approved version
+ok 31 - the instant equal to effective_until is already expired
+ok 32 - requires_separate_carton forbids mix_allowed
+ok 33 - slot_columns x slot_rows must equal capacity_slots
+ok 34 - an approved configuration requires approver, time and evidence
+ok 35 - variants are reserved and rejected
+ok 36 - fixed_ratio requires a ratio
+ok 37 - every mixable group must be an eligible group
+ok 38 - an approved configuration cannot go back to draft
+ok 39 - a retired configuration cannot be re-approved
+ok 40 - retired rows are frozen
+ok 41 - a draft cannot jump straight to retired
+ok 42 - draft -> pending is allowed
+ok 43 - pending -> approved is allowed with approver, time and evidence
+ok 44 - an approved profile may only reference existing approved configurations
+ok 45 - when every configuration a profile references is retired, the profile is no longer served (deactivation)
+ok 46 - anon cannot execute either projection (despite Supabase default privileges)
+ok 47 - authenticated can execute both projections
+ok 48 - trigger helper functions are not callable by API roles
+ok 49 - API roles hold no table privilege on either governance table
+ok 50 - row level security is enabled and forced on both tables
+ok 51 - no policy exists (default deny)
+ok 52 - projections are SECURITY DEFINER by design
+ok 53 - every new function pins search_path to pg_catalog first
+ok 54 - projections are STABLE (read-only)
+ok 55 - service_role can govern but not delete configuration rows
+ok 56 - the same product and version cannot be recorded twice
+ok 57 - the same configuration version cannot be recorded twice

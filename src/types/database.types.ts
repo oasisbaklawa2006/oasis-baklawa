@@ -37,6 +37,15 @@ export type Database = {
         Args: Record<string, never>;
         Returns: BuyerProductPrice[];
       };
+      // Core packing-profile projections (contract v1). Hand-added until Core publishes them and types are regenerated.
+      buyer_carton_configurations_v1: {
+        Args: Record<string, never>;
+        Returns: Record<string, unknown>[];
+      };
+      buyer_packing_profiles_v1: {
+        Args: Record<string, never>;
+        Returns: Record<string, unknown>[];
+      };
       customer_order_status_v1: {
         Args: Record<string, never>;
         Returns: CustomerOrderStatus[];

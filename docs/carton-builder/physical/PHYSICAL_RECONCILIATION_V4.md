@@ -2,6 +2,9 @@
 
 Baseline V3 `bcee58af7b9f2fc243540c1404d5f03c07d83491`. Local branch `local/carton-physical-v4`. Private review only. Nothing pushed, merged, deployed or activated; all three carton configurations remain inactive; PR #66/#67 untouched; no commercial code changed.
 
+## 00. Owner confirmation of RTC1×10 (31 Oct 2026, V5)
+Photographs FP-08…FP-11 show the actual 1 kg sweet tray and its shipping carton: that carton is **RTC1×10** (`bulk-10`). Confirmed: internal 13 × 8.5 × 13 in; tray 300 × 210 × 32 mm; ten per carton as **one vertical stack**; external stacking limit four closed cartons. Recorded as `photographicIdentity: confirmed-by-owner`, `confirmedArrangement 1 × 1 × 10`, `internalLevels: 10` (distinct from the external stack of 4), `arrangementBasis: owner-specified`. **Pack-and-close trial: not performed** (`packTrial: not-performed`). The 40 mm tray option on the label stays separate: `alternateHeights [{40 mm, capacityStatus: unverified}]`; the height-only arithmetic (8) is not a capacity claim.
+
 ## 0. Correction of 31 Oct 2026 (supersedes the earlier §1, §2 and §4 findings)
 Owner confirmed: (1) all carton dimensions are **internal usable**, Length × Breadth × Height; (2) the 888×4 length is **20.75 in**, not 20 in. The earlier "888×4 does not fit" finding was caused by the 20 in figure and is withdrawn. No renderer, geometry, packing order, commercial or artwork change was made for this correction.
 
@@ -21,11 +24,11 @@ Method: floor(space ÷ size) per axis for each orientation; no wall, tolerance, 
 |---|---|---|---|---|
 | 666×6 | Mathematically feasible | Only one orientation reaches 6: 2 across × 1 deep × 3 levels (190 across, 265 into depth, 115 high) = frozen visual | 13.7 / 8.05 / 4.25 | Height 4.25 mm (1.22 %) |
 | 888×4 | Mathematically feasible | Only one orientation reaches 4: 2 across × 1 deep × 2 levels (260 across, 340 into depth, 160 high) = frozen visual; needs 520 × 340 × 320 of 527.05 × 349.25 × 336.55 | 7.05 / 9.25 / 16.55 | Length 7.05 mm (1.34 %) |
-| RTC1×10 | Mathematically feasible | 1 × 1 × 10 (300 × 210, ten 32 mm high) = 320 mm of 330.2; footprint 300 × 210 of 330.2 × 215.9 | 30.2 / 5.9 / 10.2 | Breadth 5.9 mm (2.7 %) |
+| RTC1×10 (identity and arrangement CONFIRMED by owner) | Mathematically feasible | 1 × 1 × 10 (300 × 210, ten 32 mm high) = 320 mm of 330.2; footprint 300 × 210 of 330.2 × 215.9 | 30.2 / 5.9 / 10.2 | Breadth 5.9 mm (2.7 %) |
 Notes: 888×4 other orientations hold at most three boxes (three on edge) or two; the 160 × 260 × 340 mm orientation misses the height by only 3.45 mm and is not feasible. 666×6 alternatives hold at most four. The frozen visual arrangements are therefore physically consistent with the confirmed dimensions for 666×6 and 888×4. The earlier "wall thickness if external" bound is retired.
 
 ## 4. RTC1×10 configuration preparation
-Catalogue entry `bulk-10` ("Type C — 10 inner trays", capacity 10, inactive) exists; physical metadata in §1. Feasible as a single ten-high stack of 300 × 210 mm trays. Not added: geometry, frames or packing sequence (a vertical stack is not the two-column layout; the renderer's two-column geometry type must not be reused). Activation requirements: confirm id mapping; stacked height of ten **closed** tray+lid units and any nesting (if the 32 mm excludes the lid, ten units exceed 330.2 mm unless lids nest); whether 1 kg and 2 kg trays share 32 mm; confirmed real arrangement (stack orientation, dividers); Operations packing-profile rows via Core (O7); approved artwork and a front-view geometry designed from measurements; MOQ/increment from the commercial projection (unchanged); owner approval; Core activation.
+Catalogue entry `bulk-10` ("Type C — 10 inner trays", capacity 10, inactive) is now **owner-confirmed as RTC1×10**; physical metadata in §1. The owner-specified arrangement (one vertical stack of ten 300 × 210 mm trays) fits mathematically (320 of 330.2 mm). Not added: geometry, frames or packing sequence (a vertical stack is not the two-column layout; the renderer's two-column geometry type must not be reused). Activation requirements: pack-and-close trial of ten **closed** tray+lid units, measuring stacked height and any nesting (if the 32 mm excludes the lid, ten units exceed 330.2 mm unless lids nest); a separate decision on the 40 mm option and its capacity; whether the 2 kg tray (if used) shares 32 mm; Operations packing-profile rows via Core (O7); approved artwork and a front-view geometry designed from measurements; MOQ/increment from the commercial projection (unchanged); owner approval; Core activation.
 
 ## 3. Visual alignment with the approved hybrid references
 Hierarchy applied: physical specs > photographs of packaging > approved hybrid references > frozen V3 > earlier drafts.
@@ -51,7 +54,9 @@ Catalogue entry `bulk-10` ("Type C — 10 inner trays", capacity 10, inactive) a
 | Renderer technical correctness | PASS (local) |
 | Primary packaging fidelity | Partial: lidded transparent boxes, 4-across pieces; RTC1 not rendered; exact photographs not embedded |
 | Packing geometry (math) | 666×6 PASS (mathematical, 4.25 mm min); 888×4 PASS (mathematical, 7.05 mm min); RTC1×10 PASS (mathematical, 5.9 mm min) |
-| Packing geometry (physical) | UNVERIFIED: no trial pack; lids, flaps and tolerance not measured |
+| Photographic identity | RTC1×10 CONFIRMED by owner (FP-08…FP-11); 666×6 and 888×4 identities from labels only |
+| Arrangement specification | RTC1×10 ten-tray vertical stack CONFIRMED (owner-specified); 666×6 and 888×4 frozen visual provisional |
+| Packing geometry (physical) | UNVERIFIED for all three: pack-and-close trial NOT performed; lids, flaps and tolerance not measured |
 | Visual appearance | Improved; owner review pending; differences §3 |
 | Physical measurements | Carton basis CONFIRMED internal; primary-pack dimensions are reference-listing values, lid inclusion unconfirmed |
 | Artwork approval | UNVERIFIED |
@@ -63,4 +68,4 @@ Catalogue entry `bulk-10` ("Type C — 10 inner trays", capacity 10, inactive) a
 No owner approval is claimed.
 
 ## 7. Remaining physical-certification gaps (owner-action register)
-P1 Trial-pack six 666 boxes and four 888 boxes in real cartons with flaps closed; record fit, lid/flap interference and bulge (the margins are 4.25 mm and 7.05 mm). P2 Confirm each primary pack's quoted height includes or excludes the lid, and measure the real boxes (listing values are approximate). P3 RTC1×10: measure ten closed tray+lid units stacked; state any nesting; confirm 1 kg vs 2 kg height. P4 Confirm `bulk-10` = RTC1×10 and the real packing arrangement of all three (set `confirmedArrangement`). P5 Physical closure/tape evidence (E1/E2). Non-physical, unchanged: logo/arrow decisions (§3.1–3.2), artwork approval, device UAT, Core projection/prices/MOQ (O1–O7), 52 dependency findings.
+P1 Trial-pack six 666 boxes and four 888 boxes in real cartons with flaps closed; record fit, lid/flap interference and bulge (the margins are 4.25 mm and 7.05 mm). P2 Confirm each primary pack's quoted height includes or excludes the lid, and measure the real boxes (listing values are approximate). P3 RTC1×10: trial-pack and close ten tray+lid units; record stacked height and any nesting; decide the 40 mm option and its capacity separately. P4 Confirm the real packing arrangement of 666×6 and 888×4 (set `confirmedArrangement`). P5 Physical closure/tape evidence (E1/E2). Non-physical, unchanged: logo/arrow decisions (§3.1–3.2), artwork approval, device UAT, Core projection/prices/MOQ (O1–O7), 52 dependency findings.

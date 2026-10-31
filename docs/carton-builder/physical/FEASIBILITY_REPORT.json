@@ -29,6 +29,10 @@
       },
       "internalLevels": null,
       "maxExternalStackCount": 4,
+      "photographicIdentity": null,
+      "arrangementBasis": "frozen-visual-provisional",
+      "packTrial": "not-performed",
+      "alternateHeights": [],
       "status": "inactive-specification-only"
     },
     "assessment": {
@@ -204,6 +208,7 @@
           "percentOfInternal": 1.2168933428775948
         }
       },
+      "ownerArrangement": null,
       "verdict": "mathematically-feasible",
       "openConfirmations": [
         "Does each primary-pack height include the lid? Do lids overhang or nest? (unconfirmed)",
@@ -253,6 +258,10 @@
       },
       "internalLevels": null,
       "maxExternalStackCount": 4,
+      "photographicIdentity": null,
+      "arrangementBasis": "frozen-visual-provisional",
+      "packTrial": "not-performed",
+      "alternateHeights": [],
       "status": "inactive-specification-only"
     },
     "assessment": {
@@ -428,6 +437,7 @@
           "percentOfInternal": 1.3376340005691976
         }
       },
+      "ownerArrangement": null,
       "verdict": "mathematically-feasible",
       "openConfirmations": [
         "Does each primary-pack height include the lid? Do lids overhang or nest? (unconfirmed)",
@@ -464,14 +474,35 @@
         "lengthMm": 300,
         "breadthMm": 210,
         "heightMm": 32,
-        "reference": "Owner product photographs: 300x210 RTC, 1 kg & 2 kg; height 32 mm per owner correction",
+        "reference": "Owner product photographs: 300x210 RTC; owner-confirmed 1 kg tray 300 x 210 x 32 mm (FP-08..FP-11 show this tray and carton)",
         "heightIncludesLid": null
       },
       "primaryPacksPerCarton": 10,
-      "confirmedArrangement": null,
+      "confirmedArrangement": {
+        "columnsAcrossLength": 1,
+        "rowsAcrossBreadth": 1,
+        "levels": 10
+      },
       "frozenVisualArrangement": null,
-      "internalLevels": null,
+      "internalLevels": 10,
       "maxExternalStackCount": 4,
+      "photographicIdentity": {
+        "status": "confirmed-by-owner",
+        "photoIds": [
+          "FP-08",
+          "FP-09",
+          "FP-10",
+          "FP-11"
+        ]
+      },
+      "arrangementBasis": "owner-specified",
+      "packTrial": "not-performed",
+      "alternateHeights": [
+        {
+          "heightMm": 40,
+          "capacityStatus": "unverified"
+        }
+      ],
       "status": "inactive-specification-only"
     },
     "assessment": {
@@ -630,13 +661,32 @@
         }
       ],
       "frozenVisual": null,
+      "ownerArrangement": {
+        "arrangement": {
+          "columnsAcrossLength": 1,
+          "rowsAcrossBreadth": 1,
+          "levels": 10
+        },
+        "required": {
+          "L": 300,
+          "B": 210,
+          "H": 320
+        },
+        "clearanceMm": {
+          "L": 30.19999999999999,
+          "B": 5.899999999999977,
+          "H": 10.199999999999989
+        },
+        "fits": true
+      },
       "verdict": "mathematically-feasible",
       "openConfirmations": [
         "Does each primary-pack height include the lid? Do lids overhang or nest? (unconfirmed)",
         "Are the primary-pack dimensions measured values (reference listings are approximate)? (unconfirmed)",
         "Flap/closure interference and real packing tolerance on the tightest axis (not measurable from these data)",
-        "Effective stacked height of ten closed tray+lid units (no nesting factor assumed)",
-        "Confirm 'RTC1×10' = catalogue entry bulk-10 (Type C)"
+        "Effective stacked height of ten closed tray+lid units: lid height and any nesting are unmeasured (no nesting factor assumed)",
+        "Physical pack-and-close trial of the ten-tray stack (not performed)",
+        "40 mm tray option: capacity unverified"
       ]
     },
     "proportion": null

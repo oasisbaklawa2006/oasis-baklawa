@@ -14,8 +14,7 @@ describe("physical master", () => {
   it("keeps the four quantities separate and unconfirmed items null", () => {
     for (const s of CARTON_PHYSICAL_SPECS) {
       assert.equal(s.maxExternalStackCount, 4);
-      assert.equal(s.confirmedArrangement, null);
-      assert.equal(s.internalLevels, null);
+      assert.equal(s.packTrial, "not-performed");
       assert.equal(s.dimensionBasis, "internal");
       assert.equal(s.status, "inactive-specification-only");
     }
@@ -63,7 +62,9 @@ describe("dimensional feasibility (internal usable dimensions confirmed; lids, f
     near(best.slackMm.H, 330.2 - 320); near(best.slackMm.B, 215.9 - 210); near(best.slackMm.L, 330.2 - 300);
     assert.equal(r.frozenVisual, null);
     assert.ok(r.openConfirmations.some((q) => /nesting/.test(q)));
+    assert.ok(r.openConfirmations.some((q) => /pack-and-close trial/.test(q)));
     assert.ok(!r.openConfirmations.some((q) => /external or internal/.test(q)));
+    assert.ok(!r.openConfirmations.some((q) => /Confirm 'RTC1×10'/.test(q)), "identity is now confirmed");
   });
   it("an unconfirmed basis keeps the weaker verdict and the wall-thickness bound", () => {
     const spec = { ...physicalSpecFor("bulk-6")!, dimensionBasis: "unconfirmed" as const };
@@ -89,5 +90,38 @@ describe("evidence from the factory photographs", () => {
     const h = inchesToMm(spec.cartonInches[2]);
     assert.equal(stackCapacity(h, 32), 10);
     assert.equal(stackCapacity(h, 40), 8);
+  });
+});
+
+describe("owner confirmation of RTC1×10 (31 Oct 2026)", () => {
+  it("records identity and the ten-tray vertical stack as owner-confirmed, and keeps the trial not performed", () => {
+    const s = physicalSpecFor("bulk-10")!;
+    assert.deepEqual(s.photographicIdentity, { status: "confirmed-by-owner", photoIds: ["FP-08", "FP-09", "FP-10", "FP-11"] });
+    assert.deepEqual(s.confirmedArrangement, { columnsAcrossLength: 1, rowsAcrossBreadth: 1, levels: 10 });
+    assert.equal(s.internalLevels, 10);
+    assert.equal(s.arrangementBasis, "owner-specified");
+    assert.equal(s.packTrial, "not-performed");
+    assert.equal(s.maxExternalStackCount, 4);
+    // Internal levels (10 trays) and the external stack limit (4 cartons) are different quantities.
+    assert.notEqual(s.internalLevels, s.maxExternalStackCount);
+  });
+  it("the owner-specified stack fits mathematically; the trial is the open item", () => {
+    const o = assess(physicalSpecFor("bulk-10")!).ownerArrangement!;
+    assert.equal(o.fits, true);
+    near(o.required.H, 320); near(o.clearanceMm.H, 10.2); near(o.clearanceMm.B, 5.9); near(o.clearanceMm.L, 30.2);
+  });
+  it("keeps the 40 mm option separate with unverified capacity", () => {
+    const s = physicalSpecFor("bulk-10")!;
+    assert.deepEqual(s.alternateHeights, [{ heightMm: 40, capacityStatus: "unverified" }]);
+    assert.equal(s.primary.heightMm, 32);
+    for (const other of ["bulk-6", "888x4"]) assert.deepEqual(physicalSpecFor(other)!.alternateHeights, []);
+  });
+  it("other cartons gain no confirmation they do not have", () => {
+    for (const id of ["bulk-6", "888x4"]) {
+      const s = physicalSpecFor(id)!;
+      assert.equal(s.photographicIdentity, null);
+      assert.equal(s.confirmedArrangement, null);
+      assert.equal(s.arrangementBasis, "frozen-visual-provisional");
+    }
   });
 });

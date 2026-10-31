@@ -41,6 +41,14 @@ export interface CartonPhysicalSpec {
   internalLevels: number | null;
   /** (4) maximum number of complete shipping cartons stacked vertically. Not an internal level count. */
   maxExternalStackCount: number;
+  /** Owner-confirmed identity link between this carton and the factory photographs that show it (ids from carton-photo-evidence). */
+  photographicIdentity: null | { status: "confirmed-by-owner"; photoIds: readonly string[] };
+  /** Whether the arrangement was specified by the owner (not a packing trial). */
+  arrangementBasis: "none" | "owner-specified" | "frozen-visual-provisional";
+  /** Physical pack-and-close trial evidence. Nothing has been performed. */
+  packTrial: "not-performed";
+  /** Alternative primary-pack heights that exist on the carton label but whose capacity is NOT verified. */
+  alternateHeights: readonly { heightMm: number; capacityStatus: "unverified" }[];
   status: "inactive-specification-only";
 }
 
@@ -61,6 +69,10 @@ export const CARTON_PHYSICAL_SPECS: readonly CartonPhysicalSpec[] = Object.freez
     frozenVisualArrangement: { columnsAcrossLength: 2, rowsAcrossBreadth: 1, levels: 3 },
     internalLevels: null,
     maxExternalStackCount: 4,
+    photographicIdentity: null,
+    arrangementBasis: "frozen-visual-provisional",
+    packTrial: "not-performed",
+    alternateHeights: [],
     status: "inactive-specification-only",
   },
   {
@@ -79,10 +91,14 @@ export const CARTON_PHYSICAL_SPECS: readonly CartonPhysicalSpec[] = Object.freez
     frozenVisualArrangement: { columnsAcrossLength: 2, rowsAcrossBreadth: 1, levels: 2 },
     internalLevels: null,
     maxExternalStackCount: 4,
+    photographicIdentity: null,
+    arrangementBasis: "frozen-visual-provisional",
+    packTrial: "not-performed",
+    alternateHeights: [],
     status: "inactive-specification-only",
   },
   {
-    // Mapping of "RTC1×10" to the existing third catalogue entry (Type C, 10 trays) is an assumption awaiting owner confirmation.
+    // RTC1×10 = catalogue entry bulk-10 (Type C, 10 trays): owner-confirmed 31 Oct 2026.
     configId: "bulk-10",
     label: "RTC1×10",
     cartonInches: [13, 8.5, 13],
@@ -91,13 +107,18 @@ export const CARTON_PHYSICAL_SPECS: readonly CartonPhysicalSpec[] = Object.freez
     printedHeightOptionsMm: [32, 40],
     primary: {
       id: "rtc1-300x210", name: "RTC1 300×210 transparent tray with lid", lengthMm: 300, breadthMm: 210, heightMm: 32,
-      reference: "Owner product photographs: 300x210 RTC, 1 kg & 2 kg; height 32 mm per owner correction", heightIncludesLid: null,
+      reference: "Owner product photographs: 300x210 RTC; owner-confirmed 1 kg tray 300 x 210 x 32 mm (FP-08..FP-11 show this tray and carton)", heightIncludesLid: null,
     },
     primaryPacksPerCarton: 10,
-    confirmedArrangement: null,
+    // Owner confirmed (31 Oct 2026): FP-08..FP-11 show the 1 kg tray and its carton; one vertical stack of ten trays.
+    confirmedArrangement: { columnsAcrossLength: 1, rowsAcrossBreadth: 1, levels: 10 },
     frozenVisualArrangement: null,
-    internalLevels: null,
+    internalLevels: 10,
     maxExternalStackCount: 4,
+    photographicIdentity: { status: "confirmed-by-owner", photoIds: ["FP-08", "FP-09", "FP-10", "FP-11"] },
+    arrangementBasis: "owner-specified",
+    packTrial: "not-performed",
+    alternateHeights: [{ heightMm: 40, capacityStatus: "unverified" }],
     status: "inactive-specification-only",
   },
 ]);

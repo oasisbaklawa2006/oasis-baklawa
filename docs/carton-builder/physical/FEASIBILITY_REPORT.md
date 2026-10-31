@@ -38,6 +38,7 @@ Axis-aligned boxes only; carton dimensions are the owner-confirmed **usable inte
 - Carton 13 × 8.5 × 13 in = 330.2 × 215.9 × 330.2 mm (L × B × H); basis: internal
 - Primary: RTC1 300×210 transparent tray with lid, 300 × 210 × 32 mm; 10 per carton; external stack limit 4 cartons
 - Verdict: **mathematically-feasible** (best axis-aligned capacity 10, need 10)
+- Owner-specified arrangement (1 × 1 × 10 levels, CONFIRMED by owner; pack-and-close trial NOT performed): needs 300 × 210 × 320 mm; clearance 30.2 / 5.9 / 10.2 mm → fits mathematically
 - Orientations (primary dims along L × B × H → boxes along each axis, capacity, slack):
   - 300×210×32 mm along L×B×H: 1×1×10 = 10; slack 30.2 / 5.9 / 10.2 mm
   - 300×32×210 mm along L×B×H: 1×6×1 = 6; slack 30.2 / 23.9 / 120.2 mm
@@ -45,4 +46,4 @@ Axis-aligned boxes only; carton dimensions are the owner-confirmed **usable inte
   - 210×32×300 mm along L×B×H: 1×6×1 = 6; slack 120.2 / 23.9 / 30.2 mm
   - 32×300×210 mm along L×B×H: 10×0×1 = 0; slack 10.2 / 215.9 / 120.2 mm
   - 32×210×300 mm along L×B×H: 10×1×1 = 10; slack 10.2 / 5.9 / 30.2 mm
-- Open confirmations: Does each primary-pack height include the lid? Do lids overhang or nest? (unconfirmed); Are the primary-pack dimensions measured values (reference listings are approximate)? (unconfirmed); Flap/closure interference and real packing tolerance on the tightest axis (not measurable from these data); Effective stacked height of ten closed tray+lid units (no nesting factor assumed); Confirm 'RTC1×10' = catalogue entry bulk-10 (Type C)
+- Open confirmations: Does each primary-pack height include the lid? Do lids overhang or nest? (unconfirmed); Are the primary-pack dimensions measured values (reference listings are approximate)? (unconfirmed); Flap/closure interference and real packing tolerance on the tightest axis (not measurable from these data); Effective stacked height of ten closed tray+lid units: lid height and any nesting are unmeasured (no nesting factor assumed); Physical pack-and-close trial of the ten-tray stack (not performed); 40 mm tray option: capacity unverified

@@ -34,6 +34,8 @@ export interface FeasibilityReport {
     /** Smallest clearance and where it occurs, with its percentage of that internal dimension. */
     tightest: { axis: Axis; clearanceMm: number; percentOfInternal: number };
   };
+  /** Owner-specified (not trialled) arrangement, laid out flat with the tray length along L. Null when none was specified. */
+  ownerArrangement: null | { arrangement: { columnsAcrossLength: number; rowsAcrossBreadth: number; levels: number }; required: { L: number; B: number; H: number }; clearanceMm: { L: number; B: number; H: number }; fits: boolean };
   verdict: Verdict;
   openConfirmations: string[];
 }
@@ -58,6 +60,13 @@ export function assess(spec: CartonPhysicalSpec): FeasibilityReport {
       tightest: (["L", "B", "H"] as Axis[]).map((axis) => ({ axis, clearanceMm: clr[axis], percentOfInternal: (clr[axis] / avail[axis]) * 100 })).reduce((m, c) => (c.clearanceMm < m.clearanceMm ? c : m)),
     };
   }
+  let owner: FeasibilityReport["ownerArrangement"] = null;
+  const oa = spec.confirmedArrangement;
+  if (oa) {
+    const req = { L: oa.columnsAcrossLength * p.lengthMm, B: oa.rowsAcrossBreadth * p.breadthMm, H: oa.levels * p.heightMm };
+    const clr = { L: cartonMm[0] - req.L, B: cartonMm[1] - req.B, H: cartonMm[2] - req.H };
+    owner = { arrangement: oa, required: req, clearanceMm: clr, fits: clr.L >= -eps && clr.B >= -eps && clr.H >= -eps };
+  }
   const best = Math.max(...all.map((f) => f.capacity));
   const open: string[] = [];
   if (spec.dimensionBasis !== "internal") open.push("Are the carton dimensions external or internal usable? (unconfirmed)");
@@ -66,11 +75,12 @@ export function assess(spec: CartonPhysicalSpec): FeasibilityReport {
     "Are the primary-pack dimensions measured values (reference listings are approximate)? (unconfirmed)",
     "Flap/closure interference and real packing tolerance on the tightest axis (not measurable from these data)",
   );
-  if (spec.configId === "bulk-10") open.push("Effective stacked height of ten closed tray+lid units (no nesting factor assumed)", "Confirm 'RTC1×10' = catalogue entry bulk-10 (Type C)");
+  if (spec.configId === "bulk-10") open.push("Effective stacked height of ten closed tray+lid units: lid height and any nesting are unmeasured (no nesting factor assumed)", "Physical pack-and-close trial of the ten-tray stack (not performed)", "40 mm tray option: capacity unverified");
   return {
     configId: spec.configId, label: spec.label, cartonMm, primaryMm, required: spec.primaryPacksPerCarton,
     bestCapacity: best, orientationsThatFit: ok, allOrientations: all,
     frozenVisual: frozen,
+    ownerArrangement: owner,
     verdict: !ok.length ? "dimensionally-incompatible" : spec.dimensionBasis === "internal" ? "mathematically-feasible" : "feasible-under-unverified-assumptions",
     openConfirmations: open,
   };

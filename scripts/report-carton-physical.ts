@@ -27,6 +27,7 @@ for (const { spec, assessment: a, proportion } of reports) {
     md += `- Tightest axis: ${v.tightest.axis} with ${f(v.tightest.clearanceMm)} mm (${f(v.tightest.percentOfInternal)} % of the internal dimension)\n`;
     if (v.maxWallPerSideIfExternalMm) md += `- Basis not internal: wall thickness per side must stay below ${f(v.maxWallPerSideIfExternalMm.L)} / ${f(v.maxWallPerSideIfExternalMm.B)} / ${f(v.maxWallPerSideIfExternalMm.H)} mm\n`;
   }
+  if (a.ownerArrangement) { const v = a.ownerArrangement; md += `- Owner-specified arrangement (${v.arrangement.columnsAcrossLength} × ${v.arrangement.rowsAcrossBreadth} × ${v.arrangement.levels} levels, CONFIRMED by owner; pack-and-close trial NOT performed): needs ${f(v.required.L)} × ${f(v.required.B)} × ${f(v.required.H)} mm; clearance ${f(v.clearanceMm.L)} / ${f(v.clearanceMm.B)} / ${f(v.clearanceMm.H)} mm → ${v.fits ? 'fits mathematically' : 'DOES NOT FIT'}\n`; }
   md += '- Orientations (primary dims along L × B × H → boxes along each axis, capacity, slack):\n';
   for (const o of a.allOrientations) md += `  - ${o.orientation.label}: ${o.nx}×${o.ny}×${o.nz} = ${o.capacity}; slack ${f(o.slackMm.L)} / ${f(o.slackMm.B)} / ${f(o.slackMm.H)} mm\n`;
   if (proportion) md += `- Drawn vs physical proportion: schematic body ${proportion.visualBodyAspectWidthOverHeight}:1 vs physical front face ${proportion.physicalFrontFaceAspectLengthOverHeight}:1; schematic tray ${proportion.visualTrayAspect}:1 vs physical primary front ${proportion.physicalPrimaryFrontAspect_shortSideFacing}:1\n`;

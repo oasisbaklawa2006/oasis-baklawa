@@ -6,7 +6,7 @@ Not "fully certified": authenticated live E2E, Android/iOS UAT, factory trials, 
 ## Refs
 | Item | Value |
 |---|---|
-| Buyer final | branch `local/carton-core-wiring` @ `e7206d37285557efa0527b9a7156325348e360d7` (parent `448bad9`) |
+| Buyer final | branch `local/carton-core-wiring`; code last changed at `e7206d37285557efa0527b9a7156325348e360d7` (parent `448bad9`); docs-only commit(s) follow — final branch HEAD SHA is in the delivery message and `SHA256SUMS`/bundle |
 | Core final | branch `local/carton-packing-profile-v1` @ `875545081840c25d9c61114b3068f5d0d7bea7da` (from Core main `20708e7`; proposal `4eba8238` → fixes `ce189a75` → import pkg `8755450`) |
 | Remote heads observed | Core main `20708e7`, Core #399 head `143b627e` (latest migration 20261029030000), Buyer main `e5096cfa` — unchanged |
 | Migration | `supabase/migrations/20261101090000_buyer_carton_packing_profile_projection_v1.sql` (> #399 latest, base-monotonicity PASS) |

@@ -9,14 +9,14 @@ const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-6, `${a} !
 describe("physical master", () => {
   it("converts inches at 25.4 mm", () => {
     near(inchesToMm(15.5), 393.7); near(inchesToMm(10.75), 273.05); near(inchesToMm(13.75), 349.25);
-    near(inchesToMm(20), 508); near(inchesToMm(13.25), 336.55); near(inchesToMm(13), 330.2); near(inchesToMm(8.5), 215.9);
+    near(inchesToMm(20.75), 527.05); near(inchesToMm(13.25), 336.55); near(inchesToMm(13), 330.2); near(inchesToMm(8.5), 215.9);
   });
   it("keeps the four quantities separate and unconfirmed items null", () => {
     for (const s of CARTON_PHYSICAL_SPECS) {
       assert.equal(s.maxExternalStackCount, 4);
       assert.equal(s.confirmedArrangement, null);
       assert.equal(s.internalLevels, null);
-      assert.equal(s.dimensionBasis, "unconfirmed");
+      assert.equal(s.dimensionBasis, "internal");
       assert.equal(s.status, "inactive-specification-only");
     }
     assert.deepEqual(CARTON_PHYSICAL_SPECS.map((s) => s.primaryPacksPerCarton), [6, 4, 10]);
@@ -31,31 +31,45 @@ describe("physical master", () => {
   });
 });
 
-describe("dimensional feasibility (unverified assumptions, no invented tolerances)", () => {
-  it("666×6: frozen two-column, three-level arrangement fits only if the figures are internal, with thin clearance", () => {
+describe("dimensional feasibility (internal usable dimensions confirmed; lids, flaps and tolerance still unverified)", () => {
+  it("666×6: the frozen two-across, three-level arrangement is the only six-box orientation; height is tightest", () => {
     const r = assess(physicalSpecFor("bulk-6")!);
-    assert.equal(r.verdict, "feasible-under-unverified-assumptions");
+    assert.equal(r.verdict, "mathematically-feasible");
     const f = r.frozenVisual!;
     assert.equal(f.fits, true);
     near(f.clearanceMm.L, 393.7 - 380); near(f.clearanceMm.B, 273.05 - 265); near(f.clearanceMm.H, 349.25 - 345);
-    assert.ok(f.maxWallPerSideIfExternalMm.H < 2.2);
-    // It is the only orientation reaching six boxes.
+    assert.equal(f.maxWallPerSideIfExternalMm, null);
+    assert.equal(f.tightest.axis, "H"); near(f.tightest.clearanceMm, 4.25);
     assert.equal(r.orientationsThatFit.length, 1);
   });
-  it("888×4: frozen two-column arrangement does not fit; no axis-aligned orientation holds four boxes", () => {
+  it("888×4: at 20.75 in the frozen two-across, two-level arrangement fits and is the only four-box orientation", () => {
     const r = assess(physicalSpecFor("888x4")!);
-    assert.equal(r.verdict, "dimensionally-incompatible");
-    assert.equal(r.frozenVisual!.fits, false);
-    near(r.frozenVisual!.clearanceMm.L, 508 - 520);
-    assert.equal(r.bestCapacity, 3);
+    assert.equal(r.verdict, "mathematically-feasible");
+    const f = r.frozenVisual!;
+    assert.equal(f.fits, true);
+    near(f.required.L, 520); near(f.available.L, 527.05);
+    near(f.clearanceMm.L, 7.05); near(f.clearanceMm.B, 9.25); near(f.clearanceMm.H, 16.55);
+    assert.equal(f.tightest.axis, "L"); near(f.tightest.clearanceMm, 7.05);
+    assert.equal(r.orientationsThatFit.length, 1);
+    assert.equal(r.orientationsThatFit[0].capacity, 4);
+    assert.deepEqual([r.orientationsThatFit[0].nx, r.orientationsThatFit[0].ny, r.orientationsThatFit[0].nz], [2, 1, 2]);
+    assert.equal(r.bestCapacity, 4);
   });
-  it("RTC1×10: a single vertical stack of ten nominal 32 mm trays fits with 10.2 mm height slack", () => {
+  it("RTC1×10: one vertical stack of ten nominal 32 mm trays fits; breadth is tightest", () => {
     const r = assess(physicalSpecFor("bulk-10")!);
-    assert.equal(r.verdict, "feasible-under-unverified-assumptions");
-    const best = r.orientationsThatFit.find((f) => f.nz === 10)!;
+    assert.equal(r.verdict, "mathematically-feasible");
+    const best = r.orientationsThatFit.find((f) => f.nz === 10 && f.orientation.alongL === 300)!;
     assert.equal(best.capacity, 10);
     near(best.slackMm.H, 330.2 - 320); near(best.slackMm.B, 215.9 - 210); near(best.slackMm.L, 330.2 - 300);
     assert.equal(r.frozenVisual, null);
     assert.ok(r.openConfirmations.some((q) => /nesting/.test(q)));
+    assert.ok(!r.openConfirmations.some((q) => /external or internal/.test(q)));
+  });
+  it("an unconfirmed basis keeps the weaker verdict and the wall-thickness bound", () => {
+    const spec = { ...physicalSpecFor("bulk-6")!, dimensionBasis: "unconfirmed" as const };
+    const r = assess(spec);
+    assert.equal(r.verdict, "feasible-under-unverified-assumptions");
+    assert.ok(r.frozenVisual!.maxWallPerSideIfExternalMm!.H < 2.2);
+    assert.ok(r.openConfirmations.some((q) => /external or internal/.test(q)));
   });
 });

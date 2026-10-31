@@ -8,7 +8,7 @@
         10.75,
         13.75
       ],
-      "dimensionBasis": "unconfirmed",
+      "dimensionBasis": "internal",
       "primary": {
         "id": "deluxe-box-666",
         "name": "Deluxe Box 666 (transparent, lidded)",
@@ -195,17 +195,18 @@
           "H": 4.25
         },
         "fits": true,
-        "maxWallPerSideIfExternalMm": {
-          "L": 6.849999999999994,
-          "B": 4.025000000000006,
-          "H": 2.125
+        "maxWallPerSideIfExternalMm": null,
+        "tightest": {
+          "axis": "H",
+          "clearanceMm": 4.25,
+          "percentOfInternal": 1.2168933428775948
         }
       },
-      "verdict": "feasible-under-unverified-assumptions",
+      "verdict": "mathematically-feasible",
       "openConfirmations": [
-        "Are the carton dimensions external or internal usable? (unconfirmed)",
-        "Does the primary-pack height include the lid? Do lids nest or overhang? (unconfirmed)",
-        "Corrugated wall/flap thickness and packing tolerance (not supplied; not assumed)"
+        "Does each primary-pack height include the lid? Do lids overhang or nest? (unconfirmed)",
+        "Are the primary-pack dimensions measured values (reference listings are approximate)? (unconfirmed)",
+        "Flap/closure interference and real packing tolerance on the tightest axis (not measurable from these data)"
       ]
     },
     "proportion": {
@@ -221,11 +222,11 @@
       "configId": "888x4",
       "label": "888×4",
       "cartonInches": [
-        20,
+        20.75,
         13.75,
         13.25
       ],
-      "dimensionBasis": "unconfirmed",
+      "dimensionBasis": "internal",
       "primary": {
         "id": "nakoda-10l-container",
         "name": "Nakoda 10 L container (transparent, lidded)",
@@ -250,7 +251,7 @@
       "configId": "888x4",
       "label": "888×4",
       "cartonMm": [
-        508,
+        527.05,
         349.25,
         336.54999999999995
       ],
@@ -260,8 +261,26 @@
         160
       ],
       "required": 4,
-      "bestCapacity": 3,
-      "orientationsThatFit": [],
+      "bestCapacity": 4,
+      "orientationsThatFit": [
+        {
+          "orientation": {
+            "alongL": 260,
+            "alongB": 340,
+            "alongH": 160,
+            "label": "260×340×160 mm along L×B×H"
+          },
+          "nx": 2,
+          "ny": 1,
+          "nz": 2,
+          "capacity": 4,
+          "slackMm": {
+            "L": 7.0499999999999545,
+            "B": 9.25,
+            "H": 16.549999999999955
+          }
+        }
+      ],
       "allOrientations": [
         {
           "orientation": {
@@ -275,7 +294,7 @@
           "nz": 2,
           "capacity": 2,
           "slackMm": {
-            "L": 168,
+            "L": 187.04999999999995,
             "B": 89.25,
             "H": 16.549999999999955
           }
@@ -292,7 +311,7 @@
           "nz": 1,
           "capacity": 2,
           "slackMm": {
-            "L": 168,
+            "L": 187.04999999999995,
             "B": 29.25,
             "H": 76.54999999999995
           }
@@ -304,12 +323,12 @@
             "alongH": 160,
             "label": "260×340×160 mm along L×B×H"
           },
-          "nx": 1,
+          "nx": 2,
           "ny": 1,
           "nz": 2,
-          "capacity": 2,
+          "capacity": 4,
           "slackMm": {
-            "L": 248,
+            "L": 7.0499999999999545,
             "B": 9.25,
             "H": 16.549999999999955
           }
@@ -321,12 +340,12 @@
             "alongH": 340,
             "label": "260×160×340 mm along L×B×H"
           },
-          "nx": 1,
+          "nx": 2,
           "ny": 2,
           "nz": 0,
           "capacity": 0,
           "slackMm": {
-            "L": 248,
+            "L": 7.0499999999999545,
             "B": 29.25,
             "H": 336.54999999999995
           }
@@ -343,7 +362,7 @@
           "nz": 1,
           "capacity": 3,
           "slackMm": {
-            "L": 28,
+            "L": 47.049999999999955,
             "B": 9.25,
             "H": 76.54999999999995
           }
@@ -360,7 +379,7 @@
           "nz": 0,
           "capacity": 0,
           "slackMm": {
-            "L": 28,
+            "L": 47.049999999999955,
             "B": 89.25,
             "H": 336.54999999999995
           }
@@ -384,32 +403,33 @@
           "H": 320
         },
         "available": {
-          "L": 508,
+          "L": 527.05,
           "B": 349.25,
           "H": 336.54999999999995
         },
         "clearanceMm": {
-          "L": -12,
+          "L": 7.0499999999999545,
           "B": 9.25,
           "H": 16.549999999999955
         },
-        "fits": false,
-        "maxWallPerSideIfExternalMm": {
-          "L": 0,
-          "B": 4.625,
-          "H": 8.274999999999977
+        "fits": true,
+        "maxWallPerSideIfExternalMm": null,
+        "tightest": {
+          "axis": "L",
+          "clearanceMm": 7.0499999999999545,
+          "percentOfInternal": 1.3376340005691976
         }
       },
-      "verdict": "dimensionally-incompatible",
+      "verdict": "mathematically-feasible",
       "openConfirmations": [
-        "Are the carton dimensions external or internal usable? (unconfirmed)",
-        "Does the primary-pack height include the lid? Do lids nest or overhang? (unconfirmed)",
-        "Corrugated wall/flap thickness and packing tolerance (not supplied; not assumed)"
+        "Does each primary-pack height include the lid? Do lids overhang or nest? (unconfirmed)",
+        "Are the primary-pack dimensions measured values (reference listings are approximate)? (unconfirmed)",
+        "Flap/closure interference and real packing tolerance on the tightest axis (not measurable from these data)"
       ]
     },
     "proportion": {
       "visualBodyAspectWidthOverHeight": 2.86,
-      "physicalFrontFaceAspectLengthOverHeight": 1.51,
+      "physicalFrontFaceAspectLengthOverHeight": 1.57,
       "visualTrayAspect": 2.63,
       "physicalPrimaryFrontAspect_shortSideFacing": 1.63,
       "note": "The frozen schematic is wider than the physical carton face; unit scale differs between axes. Drawn proportions are illustrative, not dimensional."
@@ -424,7 +444,7 @@
         8.5,
         13
       ],
-      "dimensionBasis": "unconfirmed",
+      "dimensionBasis": "internal",
       "primary": {
         "id": "rtc1-300x210",
         "name": "RTC1 300×210 transparent tray with lid",
@@ -597,11 +617,11 @@
         }
       ],
       "frozenVisual": null,
-      "verdict": "feasible-under-unverified-assumptions",
+      "verdict": "mathematically-feasible",
       "openConfirmations": [
-        "Are the carton dimensions external or internal usable? (unconfirmed)",
-        "Does the primary-pack height include the lid? Do lids nest or overhang? (unconfirmed)",
-        "Corrugated wall/flap thickness and packing tolerance (not supplied; not assumed)",
+        "Does each primary-pack height include the lid? Do lids overhang or nest? (unconfirmed)",
+        "Are the primary-pack dimensions measured values (reference listings are approximate)? (unconfirmed)",
+        "Flap/closure interference and real packing tolerance on the tightest axis (not measurable from these data)",
         "Effective stacked height of ten closed tray+lid units (no nesting factor assumed)",
         "Confirm 'RTC1×10' = catalogue entry bulk-10 (Type C)"
       ]

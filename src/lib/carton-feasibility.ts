@@ -4,7 +4,7 @@ import { inchesToMm, type CartonPhysicalSpec } from "./carton-physical-spec";
 export type Axis = "L" | "B" | "H";
 export interface Orientation { alongL: number; alongB: number; alongH: number; label: string }
 export interface Fit { orientation: Orientation; nx: number; ny: number; nz: number; capacity: number; slackMm: { L: number; B: number; H: number } }
-export type Verdict = "feasible-under-unverified-assumptions" | "dimensionally-incompatible";
+export type Verdict = "mathematically-feasible" | "feasible-under-unverified-assumptions" | "dimensionally-incompatible";
 
 const eps = 1e-9;
 const count = (space: number, size: number) => Math.floor((space + eps) / size);
@@ -29,8 +29,10 @@ export interface FeasibilityReport {
     arrangement: { columnsAcrossLength: number; rowsAcrossBreadth: number; levels: number };
     orientation: Orientation; required: { L: number; B: number; H: number }; available: { L: number; B: number; H: number };
     clearanceMm: { L: number; B: number; H: number }; fits: boolean;
-    /** If the owner's carton figures are external: largest wall thickness per side that still leaves the arrangement feasible on each axis. */
-    maxWallPerSideIfExternalMm: { L: number; B: number; H: number };
+    /** Only when the basis is not confirmed internal: largest wall thickness per side that would keep the arrangement feasible. Null once internal is confirmed. */
+    maxWallPerSideIfExternalMm: { L: number; B: number; H: number } | null;
+    /** Smallest clearance and where it occurs, with its percentage of that internal dimension. */
+    tightest: { axis: Axis; clearanceMm: number; percentOfInternal: number };
   };
   verdict: Verdict;
   openConfirmations: string[];
@@ -52,21 +54,24 @@ export function assess(spec: CartonPhysicalSpec): FeasibilityReport {
     frozen = {
       arrangement: a, orientation: o, required: req, available: avail, clearanceMm: clr,
       fits: clr.L >= -eps && clr.B >= -eps && clr.H >= -eps,
-      maxWallPerSideIfExternalMm: { L: Math.max(0, clr.L / 2), B: Math.max(0, clr.B / 2), H: Math.max(0, clr.H / 2) },
+      maxWallPerSideIfExternalMm: spec.dimensionBasis === "internal" ? null : { L: Math.max(0, clr.L / 2), B: Math.max(0, clr.B / 2), H: Math.max(0, clr.H / 2) },
+      tightest: (["L", "B", "H"] as Axis[]).map((axis) => ({ axis, clearanceMm: clr[axis], percentOfInternal: (clr[axis] / avail[axis]) * 100 })).reduce((m, c) => (c.clearanceMm < m.clearanceMm ? c : m)),
     };
   }
   const best = Math.max(...all.map((f) => f.capacity));
-  const open = [
-    "Are the carton dimensions external or internal usable? (unconfirmed)",
-    "Does the primary-pack height include the lid? Do lids nest or overhang? (unconfirmed)",
-    "Corrugated wall/flap thickness and packing tolerance (not supplied; not assumed)",
-  ];
+  const open: string[] = [];
+  if (spec.dimensionBasis !== "internal") open.push("Are the carton dimensions external or internal usable? (unconfirmed)");
+  open.push(
+    "Does each primary-pack height include the lid? Do lids overhang or nest? (unconfirmed)",
+    "Are the primary-pack dimensions measured values (reference listings are approximate)? (unconfirmed)",
+    "Flap/closure interference and real packing tolerance on the tightest axis (not measurable from these data)",
+  );
   if (spec.configId === "bulk-10") open.push("Effective stacked height of ten closed tray+lid units (no nesting factor assumed)", "Confirm 'RTC1×10' = catalogue entry bulk-10 (Type C)");
   return {
     configId: spec.configId, label: spec.label, cartonMm, primaryMm, required: spec.primaryPacksPerCarton,
     bestCapacity: best, orientationsThatFit: ok, allOrientations: all,
     frozenVisual: frozen,
-    verdict: ok.length ? "feasible-under-unverified-assumptions" : "dimensionally-incompatible",
+    verdict: !ok.length ? "dimensionally-incompatible" : spec.dimensionBasis === "internal" ? "mathematically-feasible" : "feasible-under-unverified-assumptions",
     openConfirmations: open,
   };
 }

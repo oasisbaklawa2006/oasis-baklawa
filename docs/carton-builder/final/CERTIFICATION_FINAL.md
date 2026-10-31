@@ -39,3 +39,36 @@ Classification: **CONDITIONAL CERTIFICATION.** Not technically, visually, physic
 7. Device UAT (Android, iOS) and the missing accessibility checks (G10).
 8. Plan the Expo / React Navigation major upgrade for the 68 audit findings.
 9. Formal owner visual approval after 3 and 7.
+
+
+---
+# Closure update — software closure and integration certification run (31 Oct 2026)
+
+Classification remains **CONDITIONAL CERTIFICATION**. 360 of 360 tests pass (346 baseline, no regressions, 14 added). No owner approval is claimed; nothing pushed, merged, deployed or activated; all configurations inactive.
+
+| Gate | Verdict | Change and evidence |
+|---|---|---|
+| G01 | PASS | re-verified: baseline `ef8aeb7`, V3 ancestor, recovery tag `checkpoint/pre-closure-ef8aeb7` |
+| G02 | PASS | unchanged |
+| G03 | PASS | 26 states unchanged and byte-identical; three supplementary exterior views added (not packing states) |
+| G04 | PASS | unchanged; physical confirmation remains G13 |
+| G05 | BLOCKED | supplementary oblique exterior view now gives a three-dimensional, opaque, taped carton with side print; the logo mark and layout are still not the factory print (`artwork-approval-sheet.png`); needs print-ready artwork and owner decision |
+| G06 | PASS | unchanged |
+| G07 | PASS | assessment extended: the factory print's Arabic wordmark appears to differ from the authorised asset (photo perspective limits comparison) |
+| G08 | BLOCKED | verified with live read-only evidence: no Core packing-profile projection exists; contract-level tests pass; no authenticated test environment (`INTEGRATION_ASSESSMENT.md`) |
+| G09 | PASS | unchanged; no commercial file touched |
+| G10 | UNVERIFIED | **G10a automated browser and accessibility: PASS** (see below). **G10b real assistive technology and whole-app keyboard-only use: UNVERIFIED** (not executed) |
+| G11 | PASS | 360 tests, tsc, eslint, boundary, decisions, forensic scan, navigation, web export |
+| G12 | PASS (assessment) | assessment complete; **remediation partial: 68 → 60**; release security clearance NOT granted (`SECURITY_ASSESSMENT.md`) |
+| G13 | UNVERIFIED | protocol and action pack ready; no trial |
+| G14 | UNVERIFIED | no device or simulator available |
+| G15 | UNVERIFIED | no owner approval |
+| G16 | BLOCKED | G05, G08, G10b, G13–G15 and security migration outstanding |
+
+## G10a — what was automated and passed (Playwright + Chromium, react-native-web; `runtime-web.json`)
+Landscape phone (667×375, 844×390), tablet landscape (1024×768) and portrait (768×1024) for all three cartons (12 checks), plus the nine portrait widths; progressbar semantics (role, label, min/max/now); polite live region announcing the new count (added in this run); rendering never steals focus; the carton adds no tab stops or keyboard trap; 90 rapid state changes with carton switching end in the correct state with no stale trays; reload and history restore identical output (component level); emulated touch tap; delayed bundle (2.5 s) loads without errors; axe-core 4.10.2 on 9 states reports **0 violations** after one defect was found and fixed (sealed note contrast 4.33:1 → 5.8:1). This is automated and emulated testing; it is not real assistive-technology or device testing.
+
+## Defects corrected in this run
+1. Sealed-state note failed WCAG AA contrast (4.33:1) — fixed.
+2. State changes were not announced to assistive technology (the progressbar's descendants are presentational) — separate polite live region added.
+3. nanoid and eight other transitive packages had safe patch/minor advisories — lockfile updated (68 → 60 findings).

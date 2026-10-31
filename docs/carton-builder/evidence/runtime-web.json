@@ -401,7 +401,7 @@
     "initiallyStatic": true,
     "livePreferenceChange": true,
     "previousAnimationStopped": 2,
-    "listenersRemoved": 7
+    "listenersRemoved": 5
   },
   "viewports": [
     {
@@ -1485,6 +1485,65 @@
       "aspectPreserved": true
     }
   ],
+  "accessibility": {
+    "automated": true,
+    "assistiveTechnologyTested": false,
+    "checks": {
+      "landscapeAndTablet": 12,
+      "semantics": {
+        "role": "progressbar",
+        "label": true,
+        "min": "0",
+        "max": "6",
+        "now": "2",
+        "live": true,
+        "liveText": "2 of 6. Carton in progress. 4 boxes remaining",
+        "imgHidden": "true",
+        "imgAlt": ""
+      },
+      "keyboard": {
+        "focusPreserved": true,
+        "tabStopsInsideCarton": 0,
+        "tabOrderSample": [
+          "BODY#",
+          "BUTTON#focus-anchor",
+          "BODY#",
+          "BUTTON#focus-anchor"
+        ]
+      },
+      "liveRegionUpdates": {
+        "before": "1 of 4. Carton in progress. 3 trays remaining",
+        "after": "3 of 4. Carton in progress. 1 tray remaining"
+      },
+      "rapidChangeAndSwitching": {
+        "renders": 90,
+        "final": {
+          "id": "bulk-6",
+          "frame": 1
+        },
+        "matches": true
+      },
+      "reloadAndHistory": {
+        "identicalAfterReload": true,
+        "scope": "component-level; app-level cart persistence needs an authenticated environment"
+      },
+      "axe": {
+        "version": "4.10.2",
+        "runs": 9,
+        "violationsByRun": []
+      },
+      "touch": {
+        "tapOnCard": "no navigation, no errors",
+        "scope": "emulated touch, not a device"
+      },
+      "slowNetwork": {
+        "bundleDelayMs": 2500,
+        "note": "the synchronous bundle script blocks parsing, so the host is blank until it arrives; no errors",
+        "loadedAfterMs": 2690,
+        "pageErrors": 0
+      }
+    }
+  },
   "pageErrors": [],
   "externalRequests": []
 }

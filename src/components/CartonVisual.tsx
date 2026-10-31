@@ -61,7 +61,11 @@ export function CartonVisual({ config, preview }: Props) {
     ? renderCartonSvg(geometry, geometry.insertionOrder.slice(0, preview.filledSlots), copy.sealedIllustration ? "closed" : "open", undefined, "tight") : undefined,
   [geometry, validCount, preview.filledSlots, copy.sealedIllustration]);
 
+  // The card is a progressbar (its descendants are presentational), so changes are announced through a separate polite live region.
+  const announcement = [copy.progressLabel, copy.headline, copy.remainingLabel].filter(Boolean).join(". ");
   return (
+    <View>
+    <Text accessibilityLiveRegion="polite" style={styles.liveRegion} testID="carton-live-region">{announcement}</Text>
     <View
       style={[styles.card, preview.state === "invalid" && styles.cardInvalid, copy.sealedIllustration && styles.cardSealed]}
       accessible={a11y.accessible}
@@ -96,10 +100,12 @@ export function CartonVisual({ config, preview }: Props) {
         <Text key={line} style={styles.guidance}>{line}</Text>
       ))}
     </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  liveRegion: { position: "absolute", width: 1, height: 1, overflow: "hidden", opacity: 0 },
   card: { padding: spacing.md, borderRadius: radii.lg, borderWidth: 1, borderColor: colors.borderLight, backgroundColor: colors.surfacePremium, gap: spacing.sm },
   cardInvalid: { borderColor: colors.warning, backgroundColor: colors.warningSurface },
   cardSealed: { borderColor: colors.success, backgroundColor: colors.successSurface },
@@ -113,6 +119,6 @@ const styles = StyleSheet.create({
   fill: { height: 6, backgroundColor: colors.action },
   headline: { fontFamily: typography.fontFamilySansSemiBold, fontSize: typography.sizeSm, color: colors.textPrimary },
   meta: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted },
-  sealed: { fontFamily: typography.fontFamilySansMedium, fontSize: typography.sizeXs, color: colors.success },
+  sealed: { fontFamily: typography.fontFamilySansMedium, fontSize: typography.sizeXs, color: "#4f6347" /* darker than colors.success: 5.8:1 on the sealed surface (WCAG AA 4.5:1) */ },
   guidance: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textSecondary, lineHeight: 18 },
 });

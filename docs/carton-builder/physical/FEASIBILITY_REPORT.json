@@ -689,6 +689,12 @@
         "40 mm tray option: capacity unverified"
       ]
     },
-    "proportion": null
+    "proportion": {
+      "visualBodyAspectWidthOverHeight": 1,
+      "physicalFrontFaceAspectLengthOverHeight": 1,
+      "visualTrayAspect": 9.33,
+      "physicalPrimaryFrontAspect_shortSideFacing": 6.56,
+      "note": "The frozen schematic is wider than the physical carton face; unit scale differs between axes. Drawn proportions are illustrative, not dimensional."
+    }
   }
 ]

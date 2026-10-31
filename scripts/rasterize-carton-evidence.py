@@ -29,7 +29,7 @@ def sheet(paths, columns, target, label):
 
 
 records = []
-for config, count in [('bulk-6', 8), ('888x4', 6)]:
+for config, count in [('bulk-6', 8), ('888x4', 6), ('bulk-10', 12)]:
     paths = []
     runtime_paths = []
     for n in range(1, count + 1):
@@ -39,7 +39,7 @@ for config, count in [('bulk-6', 8), ('888x4', 6)]:
         paths.append(png)
         runtime_paths.append(OUT / f'{config}-runtime-{n}.png')
         records.append({'file': png.name, 'sha256': hashlib.sha256(png.read_bytes()).hexdigest(), 'dimensions': [800, 600]})
-    columns = 4 if config == 'bulk-6' else 3
+    columns = {'bulk-6': 4, '888x4': 3, 'bulk-10': 4}[config]
     sheet(paths, columns, OUT / f'{config}-contact.png', config + ' / vector draft')
     if all(p.exists() for p in runtime_paths):
         sheet(runtime_paths, columns, OUT / f'{config}-runtime-contact.png', config + ' / diagnostic web component')
@@ -47,4 +47,4 @@ all_runtime = [OUT / f'{c}-runtime-{n}.png' for c, count in [('bulk-6', 8), ('88
 if all(p.exists() for p in all_runtime):
     sheet(all_runtime, 4, OUT / 'web-contact.png', 'diagnostic web component')
 (OUT / 'raster-manifest.json').write_text(json.dumps({'cairosvg': cairosvg.__version__, 'pillow': Image.__version__, 'frames': records}, indent=2) + '\n')
-print('PASS: 14 vector rasters and ordered contact sheets regenerated.')
+print('PASS: 26 vector rasters and ordered contact sheets regenerated.')

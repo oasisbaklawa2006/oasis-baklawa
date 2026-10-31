@@ -73,7 +73,7 @@ test('branding watermark and ivory closure do not depend on tray occupancy',()=>
 });
 
 test('audited carton dimensions, floor, tray and slot positions are unchanged',()=>{
- for(const g of CARTON_GEOMETRIES) {
+ for(const g of CARTON_GEOMETRIES.filter(g=>g.id!=='bulk-10')) {
    const h=g.id==='bulk-6'?104:126; const levels=g.capacity/2;
    assert.deepEqual(g.body,{x:140,y:650-levels*h,width:720,height:levels*h});
    assert.equal(g.floor,650);
@@ -90,11 +90,11 @@ test('rejects malformed flap coordinates, lid geometry and approval state',()=>{
  assert.ok(geometryErrors({...g,approval:'unknown' as 'pending'}).includes('state/orientation'));
 });
 
-test('all fourteen committed vector snapshots match current serializer',async()=>{
+test('all twenty-six committed vector snapshots match current serializer',async()=>{
 
  const manifest=JSON.parse(readFileSync('docs/carton-builder/evidence/manifest.json','utf8')) as {file:string;occupied:string[];sha256:string}[];
 
- assert.equal(manifest.length,14);
+ assert.equal(manifest.length,26);
  for(const g of CARTON_GEOMETRIES) for(let frame=1;frame<=g.capacity+2;frame++) {
   const m=manifest.find(m=>m.file===`${g.id}-frame-${frame}.svg`)!;
   const svg=renderCartonSvg(g,occupiedForFrame(g,frame),frame===g.capacity+2?'closed':'open');
@@ -119,4 +119,34 @@ test('tight presentation view only crops the viewBox: every drawn coordinate is 
  }
  const g=CARTON_GEOMETRIES[0];
  assert.throws(()=>renderCartonSvg(g,[],'open',undefined,'wide' as 'tight'));
+});
+
+test('RTC1×10 is one vertical stack of ten 300×210×32 mm trays at a consistent presentation scale',()=>{
+ const g=CARTON_GEOMETRIES.find(x=>x.id==='bulk-10')!;
+ assert.equal(g.capacity,10); assert.equal(g.label,'RTC1×10'); assert.equal(g.approval,'pending'); assert.equal(g.physical,null);
+ assert.equal(g.tray.style,'flat-tray'); assert.equal(g.tray.orientation,'long-axis-width');
+ const k=1.4; // units per mm, both axes
+ assert.ok(Math.abs(g.tray.width/k-300)<1e-9);
+ assert.ok(Math.abs(g.tray.height/k-32)/32<0.01, 'tray height within 1% of 32 mm');
+ assert.ok(Math.abs(g.body.width/k-330.2)/330.2<0.01 && Math.abs(g.body.height/k-330.2)/330.2<0.01, 'internal carton within 1% of 330.2 mm');
+ assert.ok(g.tray.height*10<=g.body.height, 'ten trays fit the internal height');
+ assert.equal(new Set(g.slots.map(s=>s.x)).size,1, 'one column');
+ g.slots.forEach((s,i)=>assert.equal(s.y,g.floor-(i+1)*g.tray.height));
+ assert.deepEqual(g.insertionOrder,g.slots.map(s=>s.id));
+ assert.equal(g.insertionOrder[0],'tray-1'); assert.equal(g.insertionOrder.at(-1),'tray-10');
+});
+
+test('every RTC1×10 frame adds exactly one tray; empty has none; closed hides contents; frames share geometry',()=>{
+ const g=CARTON_GEOMETRIES.find(x=>x.id==='bulk-10')!;
+ let prev:string[]=[]; let layoutRef='';
+ for(let frame=1;frame<=g.capacity+2;frame++){
+   const closed=frame===g.capacity+2; const occ=occupiedForFrame(g,frame); const svg=renderCartonSvg(g,occ,closed?'closed':'open');
+   assert.equal((svg.match(/<g id="tray-/g)||[]).length, closed?0:Math.min(frame-1,g.capacity));
+   if(!closed){ assert.deepEqual(occ.slice(0,prev.length),prev); assert.ok(occ.length-prev.length<=1); }
+   prev=closed?prev:[...occ];
+   const layout=svg.match(/viewBox="[^"]+"/)![0]+(svg.match(/<polygon points="[^"]+" fill="url\(#kraft\)"/g)||[]).join('');
+   if(!closed){ if(!layoutRef) layoutRef=layout; assert.equal(layout,layoutRef); }
+ }
+ assert.equal(occupiedForFrame(g,1).length,0); assert.equal(occupiedForFrame(g,11).length,10); assert.equal(occupiedForFrame(g,12).length,10);
+ assert.throws(()=>renderCartonSvg(g,['tray-2'],'open'),/Unsupported tray/);
 });

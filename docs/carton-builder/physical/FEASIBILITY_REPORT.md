@@ -46,4 +46,5 @@ Axis-aligned boxes only; carton dimensions are the owner-confirmed **usable inte
   - 210×32×300 mm along L×B×H: 1×6×1 = 6; slack 120.2 / 23.9 / 30.2 mm
   - 32×300×210 mm along L×B×H: 10×0×1 = 0; slack 10.2 / 215.9 / 120.2 mm
   - 32×210×300 mm along L×B×H: 10×1×1 = 10; slack 10.2 / 5.9 / 30.2 mm
+- Drawn vs physical proportion: schematic body 1:1 vs physical front face 1:1; schematic tray 9.33:1 vs physical primary front 6.56:1
 - Open confirmations: Does each primary-pack height include the lid? Do lids overhang or nest? (unconfirmed); Are the primary-pack dimensions measured values (reference listings are approximate)? (unconfirmed); Flap/closure interference and real packing tolerance on the tightest axis (not measurable from these data); Effective stacked height of ten closed tray+lid units: lid height and any nesting are unmeasured (no nesting factor assumed); Physical pack-and-close trial of the ten-tray stack (not performed); 40 mm tray option: capacity unverified

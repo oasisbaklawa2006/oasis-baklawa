@@ -198,13 +198,210 @@
       "svgLabel": "888×4: 4 of 4 trays, closed",
       "hiddenImage": "true",
       "quantityImmutable": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 1,
+      "trays": [],
+      "label": "Type C — 10 inner trays. Empty carton. 0 trays of 10. 10 trays to fill",
+      "now": 0,
+      "max": 10,
+      "svgLabel": "RTC1×10: 0 of 10 trays, open",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 2,
+      "trays": [
+        "tray-1"
+      ],
+      "label": "Type C — 10 inner trays. Carton in progress. 1 tray of 10. 9 trays remaining",
+      "now": 1,
+      "max": 10,
+      "svgLabel": "RTC1×10: 1 of 10 trays, open",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 3,
+      "trays": [
+        "tray-1",
+        "tray-2"
+      ],
+      "label": "Type C — 10 inner trays. Carton in progress. 2 trays of 10. 8 trays remaining",
+      "now": 2,
+      "max": 10,
+      "svgLabel": "RTC1×10: 2 of 10 trays, open",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 4,
+      "trays": [
+        "tray-1",
+        "tray-2",
+        "tray-3"
+      ],
+      "label": "Type C — 10 inner trays. Carton in progress. 3 trays of 10. 7 trays remaining",
+      "now": 3,
+      "max": 10,
+      "svgLabel": "RTC1×10: 3 of 10 trays, open",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 5,
+      "trays": [
+        "tray-1",
+        "tray-2",
+        "tray-3",
+        "tray-4"
+      ],
+      "label": "Type C — 10 inner trays. Carton in progress. 4 trays of 10. 6 trays remaining",
+      "now": 4,
+      "max": 10,
+      "svgLabel": "RTC1×10: 4 of 10 trays, open",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 6,
+      "trays": [
+        "tray-1",
+        "tray-2",
+        "tray-3",
+        "tray-4",
+        "tray-5"
+      ],
+      "label": "Type C — 10 inner trays. Carton in progress. 5 trays of 10. 5 trays remaining",
+      "now": 5,
+      "max": 10,
+      "svgLabel": "RTC1×10: 5 of 10 trays, open",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 7,
+      "trays": [
+        "tray-1",
+        "tray-2",
+        "tray-3",
+        "tray-4",
+        "tray-5",
+        "tray-6"
+      ],
+      "label": "Type C — 10 inner trays. Carton in progress. 6 trays of 10. 4 trays remaining",
+      "now": 6,
+      "max": 10,
+      "svgLabel": "RTC1×10: 6 of 10 trays, open",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 8,
+      "trays": [
+        "tray-1",
+        "tray-2",
+        "tray-3",
+        "tray-4",
+        "tray-5",
+        "tray-6",
+        "tray-7"
+      ],
+      "label": "Type C — 10 inner trays. Carton in progress. 7 trays of 10. 3 trays remaining",
+      "now": 7,
+      "max": 10,
+      "svgLabel": "RTC1×10: 7 of 10 trays, open",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 9,
+      "trays": [
+        "tray-1",
+        "tray-2",
+        "tray-3",
+        "tray-4",
+        "tray-5",
+        "tray-6",
+        "tray-7",
+        "tray-8"
+      ],
+      "label": "Type C — 10 inner trays. Carton in progress. 8 trays of 10. 2 trays remaining",
+      "now": 8,
+      "max": 10,
+      "svgLabel": "RTC1×10: 8 of 10 trays, open",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 10,
+      "trays": [
+        "tray-1",
+        "tray-2",
+        "tray-3",
+        "tray-4",
+        "tray-5",
+        "tray-6",
+        "tray-7",
+        "tray-8",
+        "tray-9"
+      ],
+      "label": "Type C — 10 inner trays. Carton in progress. 9 trays of 10. 1 tray remaining",
+      "now": 9,
+      "max": 10,
+      "svgLabel": "RTC1×10: 9 of 10 trays, open",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 11,
+      "trays": [
+        "tray-1",
+        "tray-2",
+        "tray-3",
+        "tray-4",
+        "tray-5",
+        "tray-6",
+        "tray-7",
+        "tray-8",
+        "tray-9",
+        "tray-10"
+      ],
+      "label": "Type C — 10 inner trays. Carton complete. 10 trays of 10. No space remaining",
+      "now": 10,
+      "max": 10,
+      "svgLabel": "RTC1×10: 10 of 10 trays, open",
+      "hiddenImage": "true",
+      "quantityImmutable": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 12,
+      "trays": [],
+      "label": "Type C — 10 inner trays. Carton complete. 10 trays of 10. No space remaining",
+      "now": 10,
+      "max": 10,
+      "svgLabel": "RTC1×10: 10 of 10 trays, closed",
+      "hiddenImage": "true",
+      "quantityImmutable": true
     }
   ],
   "reducedMotion": {
     "initiallyStatic": true,
     "livePreferenceChange": true,
     "previousAnimationStopped": 2,
-    "listenersRemoved": 4
+    "listenersRemoved": 7
   },
   "viewports": [
     {
@@ -924,6 +1121,366 @@
       "imgW": 766,
       "imgH": 366,
       "imgShareOfViewport": 0.6,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 1,
+      "width": 320,
+      "imgW": 286,
+      "imgH": 198,
+      "imgShareOfViewport": 0.89,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 1,
+      "width": 360,
+      "imgW": 326,
+      "imgH": 226,
+      "imgShareOfViewport": 0.91,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 1,
+      "width": 390,
+      "imgW": 356,
+      "imgH": 246,
+      "imgShareOfViewport": 0.91,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 1,
+      "width": 430,
+      "imgW": 396,
+      "imgH": 274,
+      "imgShareOfViewport": 0.92,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 1,
+      "width": 600,
+      "imgW": 566,
+      "imgH": 392,
+      "imgShareOfViewport": 0.94,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 1,
+      "width": 768,
+      "imgW": 607,
+      "imgH": 420,
+      "imgShareOfViewport": 0.79,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 1,
+      "width": 900,
+      "imgW": 607,
+      "imgH": 420,
+      "imgShareOfViewport": 0.67,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 1,
+      "width": 1000,
+      "imgW": 607,
+      "imgH": 420,
+      "imgShareOfViewport": 0.61,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 1,
+      "width": 1280,
+      "imgW": 607,
+      "imgH": 420,
+      "imgShareOfViewport": 0.47,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 6,
+      "width": 320,
+      "imgW": 286,
+      "imgH": 198,
+      "imgShareOfViewport": 0.89,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 6,
+      "width": 360,
+      "imgW": 326,
+      "imgH": 226,
+      "imgShareOfViewport": 0.91,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 6,
+      "width": 390,
+      "imgW": 356,
+      "imgH": 246,
+      "imgShareOfViewport": 0.91,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 6,
+      "width": 430,
+      "imgW": 396,
+      "imgH": 274,
+      "imgShareOfViewport": 0.92,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 6,
+      "width": 600,
+      "imgW": 566,
+      "imgH": 392,
+      "imgShareOfViewport": 0.94,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 6,
+      "width": 768,
+      "imgW": 607,
+      "imgH": 420,
+      "imgShareOfViewport": 0.79,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 6,
+      "width": 900,
+      "imgW": 607,
+      "imgH": 420,
+      "imgShareOfViewport": 0.67,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 6,
+      "width": 1000,
+      "imgW": 607,
+      "imgH": 420,
+      "imgShareOfViewport": 0.61,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 6,
+      "width": 1280,
+      "imgW": 607,
+      "imgH": 420,
+      "imgShareOfViewport": 0.47,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 11,
+      "width": 320,
+      "imgW": 286,
+      "imgH": 198,
+      "imgShareOfViewport": 0.89,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 11,
+      "width": 360,
+      "imgW": 326,
+      "imgH": 226,
+      "imgShareOfViewport": 0.91,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 11,
+      "width": 390,
+      "imgW": 356,
+      "imgH": 246,
+      "imgShareOfViewport": 0.91,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 11,
+      "width": 430,
+      "imgW": 396,
+      "imgH": 274,
+      "imgShareOfViewport": 0.92,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 11,
+      "width": 600,
+      "imgW": 566,
+      "imgH": 392,
+      "imgShareOfViewport": 0.94,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 11,
+      "width": 768,
+      "imgW": 607,
+      "imgH": 420,
+      "imgShareOfViewport": 0.79,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 11,
+      "width": 900,
+      "imgW": 607,
+      "imgH": 420,
+      "imgShareOfViewport": 0.67,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 11,
+      "width": 1000,
+      "imgW": 607,
+      "imgH": 420,
+      "imgShareOfViewport": 0.61,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 11,
+      "width": 1280,
+      "imgW": 607,
+      "imgH": 420,
+      "imgShareOfViewport": 0.47,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 12,
+      "width": 320,
+      "imgW": 286,
+      "imgH": 198,
+      "imgShareOfViewport": 0.89,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 12,
+      "width": 360,
+      "imgW": 326,
+      "imgH": 226,
+      "imgShareOfViewport": 0.91,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 12,
+      "width": 390,
+      "imgW": 356,
+      "imgH": 246,
+      "imgShareOfViewport": 0.91,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 12,
+      "width": 430,
+      "imgW": 396,
+      "imgH": 274,
+      "imgShareOfViewport": 0.92,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 12,
+      "width": 600,
+      "imgW": 566,
+      "imgH": 392,
+      "imgShareOfViewport": 0.94,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 12,
+      "width": 768,
+      "imgW": 607,
+      "imgH": 420,
+      "imgShareOfViewport": 0.79,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 12,
+      "width": 900,
+      "imgW": 607,
+      "imgH": 420,
+      "imgShareOfViewport": 0.67,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 12,
+      "width": 1000,
+      "imgW": 607,
+      "imgH": 420,
+      "imgShareOfViewport": 0.61,
+      "noOverflow": true,
+      "aspectPreserved": true
+    },
+    {
+      "id": "bulk-10",
+      "frame": 12,
+      "width": 1280,
+      "imgW": 607,
+      "imgH": 420,
+      "imgShareOfViewport": 0.47,
       "noOverflow": true,
       "aspectPreserved": true
     }

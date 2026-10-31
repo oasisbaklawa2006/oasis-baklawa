@@ -98,7 +98,7 @@ try {
     await page.evaluate(override => window.review.render('bulk-6', 3, override), override);
     assert.equal(await page.locator('img').count(), 0, 'malformed preview must fail safely');
   }
-  for (const [id, capacity] of [['bulk-6', 6], ['888x4', 4]]) {
+  for (const [id, capacity] of [['bulk-6', 6], ['888x4', 4], ['bulk-10', 10]]) {
     for (let frame = 1; frame <= capacity + 2; frame++) {
       await page.evaluate(({ id, frame }) => window.review.render(id, frame), { id, frame });
       await page.waitForFunction(() => {
@@ -148,7 +148,7 @@ try {
   const viewports = [];
   await page.evaluate(() => window.review.render('bulk-6', 5));
   const widths = [320, 360, 390, 430, 600, 768, 900, 1000, 1280];
-  for (const [id, capacity] of [['bulk-6', 6], ['888x4', 4]]) {
+  for (const [id, capacity] of [['bulk-6', 6], ['888x4', 4], ['bulk-10', 10]]) {
     for (const frame of [1, Math.ceil(capacity / 2) + 1, capacity + 1, capacity + 2]) {
       for (const width of widths) {
         await page.setViewportSize({ width, height: 800 });

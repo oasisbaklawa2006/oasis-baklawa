@@ -113,6 +113,102 @@
         800,
         600
       ]
+    },
+    {
+      "file": "bulk-10-frame-1.png",
+      "sha256": "f4051ecaf430a36ba87e340a29097423adabe1f2e256720567e39cc05e507ef4",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-10-frame-2.png",
+      "sha256": "ff328196cb44d02a67a649abeb98453f5b8b355c8ed0fb8664584b3f63f33e4e",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-10-frame-3.png",
+      "sha256": "f0f80db55576fda732c15eafe074aa0d34005458d3b8a432655c67bac32d9df4",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-10-frame-4.png",
+      "sha256": "04372507a02ba13081d87386cdbe8df1276474033ea01167578cb8f875978ee5",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-10-frame-5.png",
+      "sha256": "4aafadf7c6e74061244d4b890de517362f76839df64a97c2da9a75c74ede3966",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-10-frame-6.png",
+      "sha256": "b7ec8e52c19dad4c63c9fb466ca96a5bd83220e2eb3bebb32ad4cd0263a63a5c",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-10-frame-7.png",
+      "sha256": "dd90e1bcf1cb4b1dbe483bde9daba8f9a3b9b685a014504a7f51f49da917f217",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-10-frame-8.png",
+      "sha256": "055f2b6dc7a867b0f8bc645d2dfd5549f045b91342765fe3aa29f892ee88a819",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-10-frame-9.png",
+      "sha256": "193dcea2a68f45a04f561c9046f407a71b2ce1912b19d9e36a201cc11145c6d3",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-10-frame-10.png",
+      "sha256": "ffadf4e5f0f36e504a3d9dc41ba574b90d571e76e53fc1b4bf07c9e31c4d7d53",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-10-frame-11.png",
+      "sha256": "e697c935f0d73e635ec79989914a78b65b68d412e7a2a8333a02136201f970d7",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-10-frame-12.png",
+      "sha256": "d97d452bd3b734a4a58b400f1d65c6397a350b591f3cd2563a0fbd70a35cfde2",
+      "dimensions": [
+        800,
+        600
+      ]
     }
   ]
 }

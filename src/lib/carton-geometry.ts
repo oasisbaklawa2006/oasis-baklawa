@@ -6,7 +6,7 @@ export interface CartonGeometry {
   approval: 'pending' | 'approved'; evidence: string;
   physical: PhysicalMeasurements | null;
   body: Box; floor: number; wallThickness: number;
-  tray: { width: number; height: number; lidDepth: number; orientation: 'long-axis-depth' };
+  tray: { width: number; height: number; lidDepth: number; orientation: 'long-axis-depth' | 'long-axis-width'; /** Optional drawing style; omitted means the lidded box drawing. */ style?: 'flat-tray' };
   slots: readonly { id: string; x: number; y: number }[];
   insertionOrder: readonly string[];
   frontOpacity: number;
@@ -25,11 +25,27 @@ const make = (id: string, levels: number, trayHeight: number): CartonGeometry =>
   };
 };
 /** Layout drafts are available for review, never an eligibility/physical approval source. */
-export const CARTON_GEOMETRIES: readonly CartonGeometry[] = [make('bulk-6',3,104), make('888x4',2,126)];
+/**
+ * RTC1×10: ten 300 × 210 × 32 mm trays in ONE vertical stack inside a 13 × 8.5 × 13 in internal carton (owner-confirmed).
+ * Presentation scale 1.4 units/mm on both axes: carton 462 × 462 units, tray 420 × 45 (32 mm rounds 44.8 → 45; the stack is 450 of 462 units,
+ * physical 320 of 330.2 mm). Pending: pack-and-close trial and approved artwork have not been performed.
+ */
+const makeStack = (id: string, levels: number): CartonGeometry => {
+  const floor = 650, bw = 462, bh = 462, trayW = 420, trayH = 45, bx = (1000 - bw) / 2, top = floor - bh;
+  const slots = Array.from({length: levels}, (_, i) => ({id: `tray-${i+1}`, x: bx + (bw - trayW) / 2, y: floor - (i + 1) * trayH}));
+  return { id, version: 1, capacity: levels, label: 'RTC1×10', approval: 'pending', physical: null,
+    evidence: 'Owner-confirmed one vertical stack of ten 300 x 210 x 32 mm trays; presentation scale 1.4 units/mm; pack-and-close trial NOT performed',
+    body: {x: bx, y: top, width: bw, height: bh}, floor, wallThickness: 10,
+    tray: {width: trayW, height: trayH, lidDepth: 14, orientation: 'long-axis-width', style: 'flat-tray'}, slots, insertionOrder: slots.map(s=>s.id), frontOpacity: .17,
+    branding: {x: 390, y: top + 12, width: 220, height: 112},
+    flaps: {rear: `${bx+10},${top} ${bx+bw-10},${top} ${bx+bw-35},${top-110} ${bx+35},${top-110}`, left: `${bx},${top} ${bx+10},${top-70} ${bx-75},${top-150} ${bx-115},${top-95}`, right: `${bx+bw},${top} ${bx+bw-10},${top-70} ${bx+bw+75},${top-150} ${bx+bw+115},${top-95}`, front: `${bx},${top} ${bx+bw},${top} ${bx+bw+40},${top-12} ${bx-40},${top-12}`, closed: `${bx},${top} ${bx+bw},${top} ${bx+bw-10},${top-70} ${bx+10},${top-70}`}
+  };
+};
+export const CARTON_GEOMETRIES: readonly CartonGeometry[] = [make('bulk-6',3,104), make('888x4',2,126), makeStack('bulk-10',10)];
 export function geometryErrors(g: CartonGeometry): string[] {
   const errors: string[] = [];
   const positive = (n: number) => Number.isFinite(n) && n > 0;
-  if (!['pending','approved'].includes(g.approval) || g.tray.orientation !== 'long-axis-depth') errors.push('state/orientation');
+  if (!['pending','approved'].includes(g.approval) || !['long-axis-depth','long-axis-width'].includes(g.tray.orientation)) errors.push('state/orientation');
   if (!g.id || !Number.isSafeInteger(g.version) || g.version < 1 || !Number.isSafeInteger(g.capacity) || g.capacity < 1 || g.capacity > 100) errors.push('identity/capacity');
   if (![g.body.width,g.body.height,g.wallThickness,g.tray.width,g.tray.height,g.tray.lidDepth].every(positive) || ![g.body.x,g.body.y,g.floor,g.branding.x,g.branding.y,g.branding.width,g.branding.height].every(Number.isFinite) || g.floor !== g.body.y+g.body.height || g.wallThickness*2 >= Math.min(g.body.width,g.body.height)) errors.push('geometry');
   if (g.slots.length !== g.capacity || new Set(g.slots.map(s=>s.id)).size !== g.slots.length) errors.push('slots');

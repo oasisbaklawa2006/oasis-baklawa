@@ -23,3 +23,11 @@ Schedule the Expo/React Native/React Navigation major migration (see `SECURITY_A
 
 ## F. Owner
 Visual approval of the instructional and exterior views after A–D; decisions on logo opacity/placement in the open view; written confirmation of the physical gates.
+
+
+## G. Added in the Core-integration run
+- **Core owner:** review and, if approved, assign (Mission Control) and merge `core-packing-profile-v1.patch` through protected governance (migration `20261101090000`; rollback file included); run the contract test under Core's real pgTAP; coordinate ordering with #399.
+- **Operations:** supply and approve the packing master (template in `packing-master-template/`), then Core imports it through the governed path; nothing is orderable as a carton until approved rows exist.
+- **QA/Core:** provide a non-production environment with the migration applied and buyer test identities, then run `NONPROD_INTEGRATION_TEST_PLAN.md` (critical scenarios must PASS).
+- **Buyer release engineer, after Core ships:** add the two RPC names to the allowlist and required bindings, wire `loadCartonSupportFromCore` behind a release flag, re-run the boundary scripts.
+- **Release approver:** protected production release approval (not requested here).

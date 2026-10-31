@@ -72,3 +72,23 @@ Landscape phone (667×375, 844×390), tablet landscape (1024×768) and portrait 
 1. Sealed-state note failed WCAG AA contrast (4.33:1) — fixed.
 2. State changes were not announced to assistive technology (the progressbar's descendants are presentational) — separate polite live region added.
 3. nanoid and eight other transitive packages had safe patch/minor advisories — lockfile updated (68 → 60 findings).
+
+
+---
+# Core-integration and release-clearance update (31 Oct 2026)
+
+Classification: **CONDITIONALLY CERTIFIED** (software candidate complete and tested in isolation; release not cleared). 370 of 370 tests pass (360 baseline plus 10 new; no regressions). Nothing pushed, merged, deployed, migrated or activated; all configurations inactive; no Core database touched.
+
+| Gate | Verdict | Change and evidence |
+|---|---|---|
+| G01–G04, G06, G07, G09, G11 | PASS | re-verified; 26 SVGs unchanged; commercial boundary untouched; web export exit 0 |
+| G05 | BLOCKED | unchanged: approved print artwork and owner layout decision |
+| G08 | BLOCKED | Core packing projection did not exist; a reviewable Core proposal (`4eba823`) now exists and passes 37 contract assertions plus rollback in an in-memory Postgres loaded with the live function definitions; the Buyer adapter is tested; **no authenticated environment or buyer identities exist, so the live journey is not run** (`CORE_INTEGRATION.md`) |
+| G10 | UNVERIFIED | automated pass unchanged; real assistive technology and whole-app keyboard use not executed |
+| G12 | PASS (assessment) | the React Navigation advisory chain was shown **reachable through the app's deep links** (seconds-to-unbounded freeze) and is now **mitigated by a tested guard**; 60 advisories remain; release security clearance NOT granted |
+| G13, G14, G15 | UNVERIFIED | factory trials, devices, owner approval |
+| G16 | BLOCKED | Core approval/merge/migration, Operations packing data, authenticated E2E, G05, G10b, G13–G15, security migration |
+
+## Defects and risks addressed in this run
+1. **Reachable deep-link denial of service** (crafted `oasisbaklawa://order/<id>?q=%AA…`): guard added; attack strings now rejected in under 50 ms.
+2. No Core contract existed: reviewable migration, rollback and contract test produced; consumer adapter built and tested.

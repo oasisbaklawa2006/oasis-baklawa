@@ -1539,7 +1539,7 @@
       "slowNetwork": {
         "bundleDelayMs": 2500,
         "note": "the synchronous bundle script blocks parsing, so the host is blank until it arrives; no errors",
-        "loadedAfterMs": 2690,
+        "loadedAfterMs": 2676,
         "pageErrors": 0
       }
     }

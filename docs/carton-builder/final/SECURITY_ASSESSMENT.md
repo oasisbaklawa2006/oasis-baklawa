@@ -25,3 +25,8 @@ Not applied (unsafe): `npm audit fix` proposed react-native 0.88.1 and other maj
 
 ## Migration plan outline (separate programme)
 1. Branch from the release baseline; upgrade Expo SDK stepwise (51 → 52 → … → 58), React Native with it, and React Navigation to 7. 2. Replace removed APIs; re-run unit, browser and device suites. 3. Re-audit, re-run Android/iOS UAT and the payment/auth certification gates. 4. Release-risk: highest for navigation (every screen), native builds (MSG91 OTP module), and web deep links. Estimate and scheduling belong to the owner.
+
+
+## Update (Core-integration run): the React Navigation chain is reachable, and is mitigated in code
+The `query-string` / `decode-uri-component` advisory was **reproduced against the app's real deep-link table**: a crafted link to a matching route freezes the JS thread (seconds to effectively unbounded). A tested guard now rejects abnormal links before parsing (`DEEP_LINK_SECURITY.md`). This reduces exposure; it does not remove the vulnerable dependency and does not change the advisory count (60). Upgrade candidate: not created, because a React Navigation 6 → 7 / Expo 51 → 58 migration cannot be fully tested here without devices and would destabilise the release baseline; the plan above stands.
+**Verdicts:** assessment complete; deep-link exposure mitigated (availability class); remediation of the 60 advisories not done; **release security clearance still not granted.**

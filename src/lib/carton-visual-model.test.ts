@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { INITIAL_CARTON_CATALOGUE, previewCarton, type CartonConfiguration, type SkuPackingProfile } from "./carton-builder";
 import { describeCarton } from "./carton-presentation";
-import { CARTON_PROGRESS_ANIMATION_MS, cartonAccessibility, cartonArtworkRatio, cartonCellStates, cartonMotion, MAX_CARTON_ARTWORK_HEIGHT, MAX_CARTON_CELLS, shouldShowCartonCells } from "./carton-visual-model";
+import { CARTON_PROGRESS_ANIMATION_MS, cartonAccessibility, cartonArtworkRatio, cartonCellStates, cartonMotion, EXTERIOR_VIEW_NOTE, INSTRUCTIONAL_VIEW_NOTE, MAX_CARTON_ARTWORK_HEIGHT, MAX_CARTON_CELLS, shouldShowCartonCells } from "./carton-visual-model";
 
 const config: CartonConfiguration = { ...INITIAL_CARTON_CATALOGUE[0], active: true, eligiblePackingGroups: ["g"], mixablePackingGroupSets: [] };
 const profile: SkuPackingProfile = { productId: "a", packingGroup: "g", slotsPerUnit: 1, commercialUom: "tray", cartonConfigIds: ["888x4"] };
@@ -69,4 +69,12 @@ describe('artwork presentation size', () => {
   for (const bad of ['', '<svg>', '<svg viewBox="0 0 0 0">', '<svg viewBox="0 0 9999 1">', '<svg viewBox="a b c d">']) assert.equal(cartonArtworkRatio(bad), 4 / 3);
   assert.ok(MAX_CARTON_ARTWORK_HEIGHT >= 300 && MAX_CARTON_ARTWORK_HEIGHT <= 600);
  });
+});
+
+describe("view notes", () => {
+  it("states that the transparent front is instructional and the closed view is a photographed-exterior illustration", () => {
+    assert.match(INSTRUCTIONAL_VIEW_NOTE, /opaque white/);
+    assert.match(INSTRUCTIONAL_VIEW_NOTE, /only to show how boxes pack/);
+    assert.match(EXTERIOR_VIEW_NOTE, /factory photographs/);
+  });
 });

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { assess } from "./carton-feasibility";
+import { assess, stackCapacity } from "./carton-feasibility";
 import { CARTON_PHYSICAL_SPECS, inchesToMm, physicalSpecFor } from "./carton-physical-spec";
 import { INITIAL_CARTON_CATALOGUE } from "./carton-builder";
 
@@ -71,5 +71,23 @@ describe("dimensional feasibility (internal usable dimensions confirmed; lids, f
     assert.equal(r.verdict, "feasible-under-unverified-assumptions");
     assert.ok(r.frozenVisual!.maxWallPerSideIfExternalMm!.H < 2.2);
     assert.ok(r.openConfirmations.some((q) => /external or internal/.test(q)));
+  });
+});
+
+describe("evidence from the factory photographs", () => {
+  it("888×4: the carton prints 20 in but 20.75 in is confirmed; at 20 in four boxes would not fit", () => {
+    const spec = physicalSpecFor("888x4")!;
+    assert.deepEqual(spec.printedCartonSizeIn, [20, 13.75, 13.25]);
+    assert.equal(assess(spec).verdict, "mathematically-feasible");
+    const printed = assess({ ...spec, cartonInches: spec.printedCartonSizeIn! });
+    assert.equal(printed.verdict, "dimensionally-incompatible");
+    assert.equal(printed.bestCapacity, 3);
+  });
+  it("RTC carton prints 32 mm and 40 mm options: ten fit only at 32 mm", () => {
+    const spec = physicalSpecFor("bulk-10")!;
+    assert.deepEqual(spec.printedHeightOptionsMm, [32, 40]);
+    const h = inchesToMm(spec.cartonInches[2]);
+    assert.equal(stackCapacity(h, 32), 10);
+    assert.equal(stackCapacity(h, 40), 8);
   });
 });

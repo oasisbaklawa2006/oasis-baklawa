@@ -9,6 +9,8 @@
         13.75
       ],
       "dimensionBasis": "internal",
+      "printedCartonSizeIn": null,
+      "printedHeightOptionsMm": null,
       "primary": {
         "id": "deluxe-box-666",
         "name": "Deluxe Box 666 (transparent, lidded)",
@@ -227,6 +229,12 @@
         13.25
       ],
       "dimensionBasis": "internal",
+      "printedCartonSizeIn": [
+        20,
+        13.75,
+        13.25
+      ],
+      "printedHeightOptionsMm": null,
       "primary": {
         "id": "nakoda-10l-container",
         "name": "Nakoda 10 L container (transparent, lidded)",
@@ -445,6 +453,11 @@
         13
       ],
       "dimensionBasis": "internal",
+      "printedCartonSizeIn": null,
+      "printedHeightOptionsMm": [
+        32,
+        40
+      ],
       "primary": {
         "id": "rtc1-300x210",
         "name": "RTC1 300×210 transparent tray with lid",

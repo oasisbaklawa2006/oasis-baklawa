@@ -26,6 +26,10 @@ export interface CartonPhysicalSpec {
   /** Owner-supplied inches, Length × Breadth × Height. */
   cartonInches: readonly [number, number, number];
   dimensionBasis: DimensionBasis;
+  /** Size text printed on the carton in the factory photographs (inches, L×B×H), where legible. Evidence only; owner-confirmed internal figures govern. */
+  printedCartonSizeIn: readonly [number, number, number] | null;
+  /** Tray heights (mm) printed as tick-box options on the carton side label, where photographed. */
+  printedHeightOptionsMm: readonly number[] | null;
   primary: PrimaryPackSpec;
   /** (1) primary packs per shipping carton. */
   primaryPacksPerCarton: number;
@@ -46,6 +50,8 @@ export const CARTON_PHYSICAL_SPECS: readonly CartonPhysicalSpec[] = Object.freez
     label: "666×6",
     cartonInches: [15.5, 10.75, 13.75],
     dimensionBasis: "internal",
+    printedCartonSizeIn: null,
+    printedHeightOptionsMm: null,
     primary: {
       id: "deluxe-box-666", name: "Deluxe Box 666 (transparent, lidded)", lengthMm: 265, breadthMm: 190, heightMm: 115,
       reference: "Owner screenshot: M.C. Pipwala Delux box-666, 19 x 26.5 x 11.5 cm", heightIncludesLid: null,
@@ -62,6 +68,8 @@ export const CARTON_PHYSICAL_SPECS: readonly CartonPhysicalSpec[] = Object.freez
     label: "888×4",
     cartonInches: [20.75, 13.75, 13.25],
     dimensionBasis: "internal",
+    printedCartonSizeIn: [20, 13.75, 13.25],
+    printedHeightOptionsMm: null,
     primary: {
       id: "nakoda-10l-container", name: "Nakoda 10 L container (transparent, lidded)", lengthMm: 340, breadthMm: 260, heightMm: 160,
       reference: "Owner screenshot: Nakoda Plastic Container Box 10L, 34 x 26 x 16 cm", heightIncludesLid: null,
@@ -79,6 +87,8 @@ export const CARTON_PHYSICAL_SPECS: readonly CartonPhysicalSpec[] = Object.freez
     label: "RTC1×10",
     cartonInches: [13, 8.5, 13],
     dimensionBasis: "internal",
+    printedCartonSizeIn: null,
+    printedHeightOptionsMm: [32, 40],
     primary: {
       id: "rtc1-300x210", name: "RTC1 300×210 transparent tray with lid", lengthMm: 300, breadthMm: 210, heightMm: 32,
       reference: "Owner product photographs: 300x210 RTC, 1 kg & 2 kg; height 32 mm per owner correction", heightIncludesLid: null,

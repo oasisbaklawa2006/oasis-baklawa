@@ -10,6 +10,13 @@ import type { CartonPresentation } from "@/lib/carton-presentation";
 export const MAX_CARTON_CELLS = 24;
 export const CARTON_PROGRESS_ANIMATION_MS = 180;
 
+/**
+ * The physical carton front is opaque white (factory photographs, 31 Oct 2026). The open view draws it transparent only to
+ * show how the boxes pack; it is an instructional visualisation, not a carton feature.
+ */
+export const INSTRUCTIONAL_VIEW_NOTE = "Instructional view: the real carton front is opaque white. It is drawn transparent here only to show how boxes pack.";
+export const EXTERIOR_VIEW_NOTE = "Exterior illustration based on factory photographs. Printed artwork is indicative.";
+
 /** Artwork never grows taller than this (px), so a wide desktop card does not stretch the carton illustration. */
 export const MAX_CARTON_ARTWORK_HEIGHT = 420;
 const DEFAULT_ARTWORK_RATIO = 4 / 3;

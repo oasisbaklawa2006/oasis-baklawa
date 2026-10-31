@@ -4,7 +4,7 @@ import { renderCartonSvg } from "@/lib/carton-svg";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AccessibilityInfo, Animated, StyleSheet, Text, View } from "react-native";
 import type { CartonConfiguration, CartonPreview } from "@/lib/carton-builder";
-import { cartonAccessibility, cartonCellStates, cartonMotion } from "@/lib/carton-visual-model";
+import { cartonAccessibility, cartonCellStates, cartonMotion, EXTERIOR_VIEW_NOTE, INSTRUCTIONAL_VIEW_NOTE } from "@/lib/carton-visual-model";
 import { describeCarton } from "@/lib/carton-presentation";
 import { colors, radii, spacing, typography } from "@/theme";
 
@@ -83,6 +83,7 @@ export function CartonVisual({ config, preview }: Props) {
           ))}
         </View>
       ) : null}
+      {artwork ? <Text style={styles.meta}>{copy.sealedIllustration ? EXTERIOR_VIEW_NOTE : INSTRUCTIONAL_VIEW_NOTE}</Text> : null}
       <View style={styles.track}>
         <Animated.View
           style={[styles.fill, { width: progress.interpolate({ inputRange: [0, 100], outputRange: ["0%", "100%"], extrapolate: "clamp" }) }]}

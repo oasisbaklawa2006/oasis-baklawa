@@ -75,3 +75,6 @@ export function assess(spec: CartonPhysicalSpec): FeasibilityReport {
     openConfirmations: open,
   };
 }
+
+/** Whole units that stack within the internal height for a given unit height (no nesting factor assumed). */
+export const stackCapacity = (internalHeightMm: number, unitHeightMm: number): number => Math.floor((internalHeightMm + 1e-9) / unitHeightMm);

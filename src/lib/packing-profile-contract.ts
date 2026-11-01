@@ -65,6 +65,7 @@ type Row = Record<string, unknown>;
 const isRow = (value: unknown): value is Row => typeof value === "object" && value !== null && !Array.isArray(value);
 const hasOwn = (row: Row, key: string) => Object.prototype.hasOwnProperty.call(row, key);
 const text = (value: unknown): string | null => (typeof value === "string" && value.trim() ? value.trim() : null);
+const positiveNumber = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null);
 const posInt = (value: unknown): number | null =>
   typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : null;
 const stringArray = (value: unknown): string[] | null => {
@@ -192,12 +193,14 @@ function parseProfile(row: Row, now: number, issues: PackingContractIssue[], pri
   if (row.variant_id !== undefined && row.variant_id !== null) {
     return reject("VARIANT_UNSUPPORTED", "Variants are not supported: draft lines are keyed by product only.");
   }
-  if (row.conversion_basis !== "slot_unit") {
-    return reject("UNSUPPORTED_CONVERSION", "Only the slot_unit conversion is supported.");
+  const basis = row.conversion_basis;
+  if (basis !== "slot_unit" && basis !== "fixed_ratio") {
+    return reject("UNSUPPORTED_CONVERSION", "Only the slot_unit and fixed_ratio conversions are supported.");
   }
   const group = text(row.packing_group);
   const uom = text(row.commercial_uom);
-  const slots = posInt(row.slots_per_unit);
+  const ratio = basis === "fixed_ratio" ? positiveNumber(row.ordered_units_per_slot) : null;
+  const slots = basis === "fixed_ratio" ? (ratio === null ? null : 1) : posInt(row.slots_per_unit);
   const configIds = stringArray(row.carton_config_ids);
   if (!group || !uom || slots === null || configIds === null || configIds.length === 0 || posInt(row.profile_version) === null) {
     return reject("FIELD_INVALID", "A required profile field is missing or has the wrong type.");
@@ -231,7 +234,7 @@ function parseProfile(row: Row, now: number, issues: PackingContractIssue[], pri
   if (window === "invalid") return reject("FIELD_INVALID", "Effective dates are not valid ISO instants.");
   if (window === "outside") return reject("NOT_EFFECTIVE", "Profile is outside its effective window.");
 
-  return { productId, profile: { productId, packingGroup: group, slotsPerUnit: slots, commercialUom: uom, cartonConfigIds: configIds } };
+  return { productId, profile: { productId, packingGroup: group, slotsPerUnit: slots, ...(ratio !== null ? { unitsPerContainer: ratio } : {}), commercialUom: uom, cartonConfigIds: configIds } };
 }
 
 const EMPTY = (issues: PackingContractIssue[]): NormalizedPackingContract => ({

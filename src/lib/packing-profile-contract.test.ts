@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { planCartons, previewCarton, resolveCartonConfiguration } from "./carton-builder";
+import { planCartons, previewCarton, resolveCartonConfiguration, unitsToComplete } from "./carton-builder";
 import { normalizePackingContract, PACKING_CONTRACT_VERSION } from "./packing-profile-contract";
 
 const NOW = new Date("2026-10-30T00:00:00Z");
@@ -71,7 +71,7 @@ describe("packing-profile contract validator (fail closed)", () => {
   });
   it("rejects variants, unsupported conversions and exclusive-carton SKUs the engine cannot honour", () => {
     assert.deepEqual(codes(run([config()], [profile({ variant_id: "v1" })])), ["VARIANT_UNSUPPORTED"]);
-    assert.deepEqual(codes(run([config()], [profile({ conversion_basis: "fixed_ratio", ordered_units_per_slot: 2.5 })])), ["UNSUPPORTED_CONVERSION"]);
+    assert.deepEqual(codes(run([config()], [profile({ conversion_basis: "per_weight" })])), ["UNSUPPORTED_CONVERSION"]);
     assert.deepEqual(codes(run([config()], [profile({ requires_separate_carton: true, mix_allowed: false })])), ["ENGINE_RULE_UNSUPPORTED"]);
     assert.deepEqual(codes(run([config()], [profile({ mix_allowed: false })])), ["ENGINE_RULE_UNSUPPORTED"]);
     assert.deepEqual(codes(run([config()], [profile({ requires_separate_carton: true, mix_allowed: true })])), ["RULE_CONFLICT"]);
@@ -154,5 +154,31 @@ describe("packing-profile contract validator (fail closed)", () => {
       assert.doesNotThrow(() => normalizePackingContract(junk, junk, { asOf: NOW }));
     }
     assert.equal(run([config()], [profile({ product_id: "__proto__" })]).profiles.has("__proto__"), true);
+  });
+  describe("fixed_ratio conversion (kg per primary container)", () => {
+    const kgProfile = (over: Record<string, unknown> = {}) =>
+      profile({ conversion_basis: "fixed_ratio", slots_per_unit: null, ordered_units_per_slot: 6, commercial_uom: "kg", ...over });
+    const kgRun = (p: unknown[]) => normalizePackingContract([config()], p, { asOf: NOW, priceUomByProduct: new Map([["p1", "kg"]]) });
+    it("accepts a fixed-ratio profile and rejects a missing or non-positive ratio", () => {
+      const ok = kgRun([kgProfile()]);
+      assert.equal(ok.available, true);
+      assert.equal(ok.profiles.get("p1")?.unitsPerContainer, 6);
+      for (const bad of [null, 0, -6, "6"]) assert.deepEqual(codes(kgRun([kgProfile({ ordered_units_per_slot: bad })])), ["FIELD_INVALID"]);
+    });
+    it("counts whole containers: 24 kg fills the 4-slot carton, 18 kg needs 6 kg more, 7 kg is a partial container", () => {
+      const r = kgRun([kgProfile()]);
+      const cfg = resolveCartonConfiguration(r.configs, "888x4", NOW)!;
+      const full = previewCarton(cfg, [{ productId: "p1", quantity: 24 }], r.profiles);
+      assert.equal(full.physicallyComplete, true);
+      const part = previewCarton(cfg, [{ productId: "p1", quantity: 18 }], r.profiles);
+      assert.equal(part.physicallyComplete, false);
+      assert.equal(unitsToComplete(part, r.profiles.get("p1")!), 6);
+      const bad = previewCarton(cfg, [{ productId: "p1", quantity: 7 }], r.profiles);
+      assert.ok(bad.issues.some((i) => i.code === "PARTIAL_CONTAINER"));
+      assert.equal(bad.physicallyComplete, false);
+      const plan = planCartons(cfg, [{ productId: "p1", quantity: 48 }], r.profiles);
+      assert.deepEqual(plan.cartons.map((c) => c.allocations.map((a) => a.quantity)), [[24], [24]]);
+      assert.deepEqual(planCartons(cfg, [{ productId: "p1", quantity: 7 }], r.profiles).unplaceable.map((u) => u.code), ["PARTIAL_CONTAINER"]);
+    });
   });
 });

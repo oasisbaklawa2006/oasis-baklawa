@@ -52,6 +52,12 @@ export interface SkuPackingProfile {
   packingGroup: string;
   /** Slots one ordered commercial unit occupies. Positive integer. */
   slotsPerUnit: number;
+  /**
+   * Fixed-ratio conversion (e.g. 6 kg per primary container). When present, one slot-bearing "container"
+   * equals this many commercial units and an order quantity must be a whole number of containers.
+   * Absent (legacy slot_unit profiles) means one commercial unit is one container.
+   */
+  unitsPerContainer?: number;
   /** Commercial unit this conversion is valid for; must equal the buyer price UOM. */
   commercialUom: string;
   /** Carton configuration ids this SKU is verified to fit. */
@@ -71,6 +77,7 @@ export type CartonIssueCode =
   | "NO_VERIFIED_GROUPS"
   | "PROFILE_MISSING"
   | "PROFILE_INVALID"
+  | "PARTIAL_CONTAINER"
   | "SKU_NOT_ELIGIBLE"
   | "GROUP_NOT_ACCEPTED"
   | "MIX_NOT_VERIFIED"
@@ -295,8 +302,18 @@ export function previewCarton(
       issues.push({ code: "GROUP_NOT_ACCEPTED", productId: line.productId, message: "This carton type does not accept this product's packing group." });
       continue;
     }
+    const upc = profile.unitsPerContainer;
+    if (upc !== undefined && !(Number.isFinite(upc) && upc > 0)) {
+      issues.push({ code: "PROFILE_INVALID", productId: line.productId, message: "Packing details for this product are incomplete." });
+      continue;
+    }
+    const containers = upc === undefined ? line.quantity : line.quantity / upc;
+    if (!Number.isInteger(Math.round(containers * 1e6) / 1e6) || Math.abs(containers - Math.round(containers)) > 1e-6) {
+      issues.push({ code: "PARTIAL_CONTAINER", productId: line.productId, message: "This quantity is not a whole number of primary containers." });
+      continue;
+    }
     groups.add(profile.packingGroup);
-    const slots = line.quantity * profile.slotsPerUnit;
+    const slots = Math.round(containers) * profile.slotsPerUnit;
     allocations.push({ productId: line.productId, quantity: line.quantity, slots });
     filled += slots;
   }
@@ -363,7 +380,7 @@ export function planCartons(
     }
     seen.add(line.productId);
     const profile = lookupProfile(profiles, line.productId);
-    const probe = previewCarton(config, [{ productId: line.productId, quantity: 1 }], profiles, options);
+    const probe = previewCarton(config, [{ productId: line.productId, quantity: profile?.unitsPerContainer ?? 1 }], profiles, options);
     const blocking = probe.issues.find((i) => i.productId === line.productId || i.code === "CONFIG_INACTIVE" || i.code === "CONFIG_INVALID" || i.code === "CONFIG_NOT_EFFECTIVE" || i.code === "NO_VERIFIED_GROUPS");
     if (!profile || blocking || !isPositiveInt(line.quantity)) {
       unplaceable.push(blocking ?? { code: profile ? "INVALID_QUANTITY" : "PROFILE_MISSING", productId: line.productId, message: "This product cannot be placed in a carton yet." });
@@ -383,7 +400,13 @@ export function planCartons(
     config.mixablePackingGroupSets.some((set) => set.includes(group) && [...groups].every((g) => set.includes(g)));
 
   for (const { line, profile } of placeable) {
-    let unitsLeft = line.quantity;
+    const upc = profile.unitsPerContainer ?? 1;
+    const containersTotal = Math.round(line.quantity / upc);
+    if (Math.abs(line.quantity / upc - containersTotal) > 1e-6) {
+      unplaceable.push({ code: "PARTIAL_CONTAINER", productId: line.productId, message: "This quantity is not a whole number of primary containers." });
+      continue;
+    }
+    let unitsLeft = containersTotal;
     while (unitsLeft > 0) {
       let bucket = buckets[buckets.length - 1];
       if (!bucket || bucket.slots >= config.capacity || !canJoin(bucket.groups, profile.packingGroup)) {
@@ -403,7 +426,7 @@ export function planCartons(
         bucket.slots = config.capacity; // close this carton and open another
         continue;
       }
-      bucket.lines.push({ productId: line.productId, quantity: fit });
+      bucket.lines.push({ productId: line.productId, quantity: fit * upc });
       bucket.groups.add(profile.packingGroup);
       bucket.slots += fit * profile.slotsPerUnit;
       unitsLeft -= fit;
@@ -415,5 +438,5 @@ export function planCartons(
 /** Whole units of a SKU that exactly complete a partially filled carton, or null if none can. */
 export function unitsToComplete(preview: CartonPreview, profile: SkuPackingProfile): number | null {
   if (!preview.physicallyValid || preview.remainingSlots <= 0) return null;
-  return preview.remainingSlots % profile.slotsPerUnit === 0 ? preview.remainingSlots / profile.slotsPerUnit : null;
+  return preview.remainingSlots % profile.slotsPerUnit === 0 ? (preview.remainingSlots / profile.slotsPerUnit) * (profile.unitsPerContainer ?? 1) : null;
 }

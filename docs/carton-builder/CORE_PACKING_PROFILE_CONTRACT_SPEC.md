@@ -1,6 +1,6 @@
 # Core ↔ Buyer packing-profile contract — specification v1 (PROPOSAL)
 
-**Status: proposed. Not implemented. Not approved. Core owns the implementation, and any Core change needs a Mission Control assignment and a protected merge.** The Buyer side of this contract (a fail-closed payload validator) is in `src/lib/packing-profile-contract.ts` on the same branch and is covered by tests.
+**Status: Core side proposed, not approved (Core PRs #471/#472 are draft); the Buyer binding is implemented on this branch. Core owns the implementation, and any Core change needs a Mission Control assignment and a protected merge.** The Buyer side of this contract (a fail-closed payload validator) is in `src/lib/packing-profile-contract.ts` on the same branch and is covered by tests.
 
 ## 1. Purpose and non-goals
 
@@ -49,7 +49,7 @@ One row per (orderable product × variant).
 | `packing_group` | text, not null | Assigned by Operations. |
 | `conversion_basis` | text | `slot_unit` (v1) or `fixed_ratio` (reserved, see §4). |
 | `slots_per_unit` | integer ≥ 1 | Slots one **ordered unit** occupies. Required for `slot_unit`. |
-| `ordered_units_per_slot` | numeric, nullable | Reserved for `fixed_ratio`. |
+| `ordered_units_per_slot` | integer, nullable | Required for `fixed_ratio`: a positive **whole** number of ordered units (kg) per primary container. Ignored for `slot_unit`. Decimal ratios are rejected (`FIELD_INVALID`) until the carton engine supports exact decimal arithmetic. |
 | `commercial_uom` | text, not null | Must equal the `uom` returned by `buyer_product_prices_v1` for the same product. |
 | `carton_config_ids` | text[] | Configurations this SKU is verified to fit. |
 | `requires_separate_carton` | boolean | Never share. |
@@ -70,7 +70,7 @@ One row per (orderable product × variant).
 ## 4. Units and conversions
 
 - v1 supports `slot_unit` only: the ordered unit is the slot unit (for example a tray), so conversions are integers and exact.
-- Loose sweets are stored in **kg** in the master, while carton slots are trays. A kg-to-tray rule (`ordered_units_per_slot`, for example 2.5 kg per tray) needs: (a) a business decision on the ordering unit; (b) evidence per SKU; (c) a Buyer engine extension (exact decimal arithmetic) and an order-increment that is a multiple of the ratio. Until then the Buyer **rejects** `fixed_ratio` rows with `UNSUPPORTED_CONVERSION`, and the SKU simply is not carton-managed.
+- Loose sweets are stored in **kg** in the master, while carton slots are trays. A kg-to-tray rule (`ordered_units_per_slot`, for example 2.5 kg per tray) needs: (a) a business decision on the ordering unit; (b) evidence per SKU; (c) a Buyer engine extension (exact decimal arithmetic) and an order-increment that is a multiple of the ratio. **Implemented behaviour:** the Buyer accepts a `fixed_ratio` row when `ordered_units_per_slot` is a positive integer (e.g. 6 kg per container); a missing, zero, negative, string or non-integer ratio (e.g. 2.5) is rejected whole with `FIELD_INVALID`, and the SKU is then not carton-managed. Fractional ratios remain deferred to the engine extension.
 - `commercial_uom` must match the price projection's `uom` (trimmed, case-insensitive). The Buyer validator takes the price unit per product as an input and rejects a profile on a mismatch (`UOM_MISMATCH`) or when the product's price unit is unknown (`PRICE_UOM_UNKNOWN`), so a fill is never drawn in a unit the buyer does not order in. Core's contract tests flag the same mismatch.
 
 ## 5. MOQ, increments and mixing
@@ -104,7 +104,7 @@ One row per (orderable product × variant).
 | Duplicate `product_id` (profiles) or duplicate `(config_id, config_version)` (configurations) | **Every** copy is rejected, including copies that are themselves malformed: duplicates are counted on the raw rows before any row validation, so a bad copy cannot hide its twin. |
 | Profile unit differs from the price unit, or the price unit is unknown | Row rejected (`UOM_MISMATCH` / `PRICE_UOM_UNKNOWN`). |
 | Non-null `variant_id` | Row rejected (`VARIANT_UNSUPPORTED`). |
-| `conversion_basis ≠ slot_unit` | Row rejected (`UNSUPPORTED_CONVERSION`). |
+| `conversion_basis` not `slot_unit`/`fixed_ratio` | Row rejected (`UNSUPPORTED_CONVERSION`). `fixed_ratio` with an invalid ratio → `FIELD_INVALID`. |
 | `requires_separate_carton = true` or `mix_allowed = false` | Row rejected (`ENGINE_RULE_UNSUPPORTED`): the Buyer engine cannot yet keep one SKU exclusive (it would still pack same-group SKUs together), so the SKU is not carton-managed until an engine extension is approved. |
 | `requires_separate_carton = true` together with `mix_allowed = true` | Row rejected (`RULE_CONFLICT`). |
 | Not `approved` / outside effective window | Row rejected. |
@@ -128,6 +128,8 @@ Rejections are returned as typed issues for diagnostics, never thrown into the U
 10. Golden vectors shared with the Buyer's tests produce the same carton plan in SQL and TypeScript.
 
 ## 10. Rollout
+
+Note: the Buyer binding and validator already exist on Buyer PR #69 (draft); the sequence below concerns the Core side.
 
 1. Mission Control assigns an ASM item to Core. 2. Core adds governance tables and the two RPCs behind no feature flag (they return zero rows until data is approved). 3. Operations returns the packing-master template; Core imports it through the governed path. 4. Buyer binds the RPCs behind its existing carton seam. 5. Non-production integration run (`NONPROD_INTEGRATION_TEST_PLAN.md`). 6. Device UAT.
 

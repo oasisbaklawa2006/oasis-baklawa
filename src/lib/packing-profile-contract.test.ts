@@ -159,6 +159,11 @@ describe("packing-profile contract validator (fail closed)", () => {
     const kgProfile = (over: Record<string, unknown> = {}) =>
       profile({ conversion_basis: "fixed_ratio", slots_per_unit: null, ordered_units_per_slot: 6, commercial_uom: "kg", ...over });
     const kgRun = (p: unknown[]) => normalizePackingContract([config()], p, { asOf: NOW, priceUomByProduct: new Map([["p1", "kg"]]) });
+    it("fails closed on a non-integer ratio because the carton engine cannot place decimal quantities", () => {
+      const r = kgRun([kgProfile({ ordered_units_per_slot: 2.5 })]);
+      assert.equal(r.available, false);
+      assert.deepEqual(codes(r), ["FIELD_INVALID"]);
+    });
     it("accepts a fixed-ratio profile and rejects a missing or non-positive ratio", () => {
       const ok = kgRun([kgProfile()]);
       assert.equal(ok.available, true);

@@ -81,8 +81,13 @@ describe("genie product resolution", () => {
     const result = resolveGenieLines([{ lineId: "u", rawName: "kaju katli", quantity: 10, uom: "tray" }], catalogue);
     assert.equal(result.resolved.length, 0);
     assert.match(result.unresolved[0].reason, /ordered in kg/);
+    // An explicit count unit is NOT unitless: "10 units" of a kg product must not become 10 kg.
     const generic = resolveGenieLines([{ lineId: "g", rawName: "kaju katli", quantity: 10, uom: "units" }], catalogue);
-    assert.equal(generic.resolved.length, 1);
+    assert.equal(generic.resolved.length, 0);
+    assert.match(generic.unresolved[0].reason, /ordered in kg/);
+    // A genuinely absent unit is still accepted in the product's own unit.
+    const absent = resolveGenieLines([{ lineId: "a", rawName: "kaju katli", quantity: 10, uom: "" }], catalogue);
+    assert.equal(absent.resolved.length, 1);
   });
 
   it("fails closed when buyer pricing or commercial data is missing", () => {

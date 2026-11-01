@@ -228,9 +228,10 @@ try {
   await page.goBack().catch(() => null); await page.goForward().catch(() => null); await page.waitForFunction(() => !!window.review);
   a11y.checks.reloadAndHistory = { identicalAfterReload: true, scope: 'component-level; app-level cart persistence needs an authenticated environment' };
   // axe-core automated rules on open and closed states of every carton
-  await page.addScriptTag({ path: resolve('node_modules/axe-core/axe.min.js') }).catch(() => null);
+  await page.addScriptTag({ path: resolve('node_modules/axe-core/axe.min.js') });
   const axeRuns = [];
-  if (await page.evaluate(() => !!window.axe)) {
+  assert.ok(await page.evaluate(() => !!window.axe), 'axe-core must load; refusing to report an accessibility pass with zero runs');
+  {
     await page.evaluate(() => { window.__reviewDraft = true; });
     for (const [id, capacity] of [['bulk-6', 6], ['888x4', 4], ['bulk-10', 10]]) {
       for (const frame of [1, Math.ceil(capacity / 2) + 1, capacity + 2]) {
@@ -240,6 +241,7 @@ try {
       }
     }
   }
+  assert.equal(axeRuns.length, 9, 'all nine axe runs completed');
   assert.deepEqual(axeRuns.filter(r => r.violations.length), [], 'axe-core finds no violations on any tested state');
   a11y.checks.axe = { version: '4.10.2', runs: axeRuns.length, violationsByRun: axeRuns.filter(r => r.violations.length).map(r => ({ id: r.id, frame: r.frame, violations: r.violations })) };
   // touch device context

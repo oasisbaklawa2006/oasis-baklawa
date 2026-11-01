@@ -65,7 +65,6 @@ type Row = Record<string, unknown>;
 const isRow = (value: unknown): value is Row => typeof value === "object" && value !== null && !Array.isArray(value);
 const hasOwn = (row: Row, key: string) => Object.prototype.hasOwnProperty.call(row, key);
 const text = (value: unknown): string | null => (typeof value === "string" && value.trim() ? value.trim() : null);
-const positiveNumber = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null);
 const posInt = (value: unknown): number | null =>
   typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : null;
 const stringArray = (value: unknown): string[] | null => {
@@ -199,7 +198,7 @@ function parseProfile(row: Row, now: number, issues: PackingContractIssue[], pri
   }
   const group = text(row.packing_group);
   const uom = text(row.commercial_uom);
-  const ratio = basis === "fixed_ratio" ? positiveNumber(row.ordered_units_per_slot) : null;
+  const ratio = basis === "fixed_ratio" ? posInt(row.ordered_units_per_slot) : null;
   const slots = basis === "fixed_ratio" ? (ratio === null ? null : 1) : posInt(row.slots_per_unit);
   const configIds = stringArray(row.carton_config_ids);
   if (!group || !uom || slots === null || configIds === null || configIds.length === 0 || posInt(row.profile_version) === null) {

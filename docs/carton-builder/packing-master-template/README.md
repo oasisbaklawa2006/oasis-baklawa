@@ -50,11 +50,11 @@ File: `PACKING_MASTER_TEMPLATE.csv` — 147 rows, one per active `product_family
 
 ## Row validity (applied before any import)
 
-- `packing_group_code`, `inner_pack_type`, `slots_per_ordered_unit`, `permitted_carton_config_ids`, `slots_per_carton_by_config`, `mix_allowed`, `requires_separate_carton`, `full_carton_required`, `evidence_reference`, `verified_by`, `verified_on` must **all** be present, or the row is rejected whole.
+- `packing_group_code`, `inner_pack_type`, `slots_per_ordered_unit`, `permitted_carton_config_ids`, `slots_per_carton_by_config`, `mix_allowed`, `requires_separate_carton`, `full_carton_required`, `evidence_reference`, `verified_by`, `verified_on`, **and the physical fields `tray_internal_length_mm`, `tray_internal_width_mm`, `tray_internal_height_mm` and `tray_net_fill_weight_kg`** must **all** be present, or the row is rejected whole. A SKU with unknown physical fit is not carton-managed and must be rejected before Core approval.
 - `requires_separate_carton = Y` forbids `mix_allowed = Y`.
 - Every id in `slots_per_carton_by_config` must appear in `permitted_carton_config_ids`.
 - `slots_per_ordered_unit` must be a whole number ≥ 1.
-- Dimensions, when present, are positive numbers. The Buyer app never receives them; they are kept for Operations' audit.
+- Dimensions and fill weight are positive numbers. The Buyer app never receives them; they are kept for Operations' audit.
 
 ## Import
 

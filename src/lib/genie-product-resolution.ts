@@ -91,7 +91,7 @@ function scoreProductMatch(queryTokens: string[], product: CatalogueProduct): nu
   return coverage + skuExact;
 }
 
-const GENERIC_UOMS = new Set(["", "unit", "units", "item", "items", "qty", "nos", "no"]);
+const GENERIC_UOMS = new Set([""]);
 
 const normaliseUom = (uom: string | null | undefined) => (uom ?? "").trim().toLowerCase();
 

@@ -5,7 +5,7 @@
 |---|---|
 | matching route `order/abc?q=` + 200×`%AA` (612 chars) | 657 ms |
 | unmatched route, same query | 0 ms (parser not reached) |
-| `home?q=` + n×`%AA`, 307 / 607 / 1,207 / 2,407 chars | 166 ms / 704 ms / 3.1 s / 13.3 s (roughly quadratic) |
+| configured route `order/abc?q=` + n×`%AA`, 306 / 606 / 1,206 / 2,406 chars (re-measured on a route present in the linking config) | 156 ms / 705 ms / 3.0 s / 14.2 s (roughly quadratic) |
 | `%E0%A4%A` repeated, 64 k / 128 k chars | 247 ms / 425 ms |
 A link of a few kilobytes aimed at a real route can freeze the JS thread for many seconds; larger ones effectively hang the app. Any app or web page that can open `oasisbaklawa://order/<id>?q=…` (or a crafted web URL) can trigger it; no authentication or data access is involved, so the impact is **availability only**.
 

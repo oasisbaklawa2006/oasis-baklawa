@@ -25,8 +25,8 @@ describe("deep-link guard", () => {
   });
 
   it("handles encoded, double-encoded, control and Unicode vectors deterministically", () => {
-    const accepted = ["order/x?ref=%20", "order/x?q=%C3%A9", "order/x?n=%2525", "order/x?z=%00", "order/%2e%2e%2fx", "order/x#frag", "order/é", "order/x?q=%C0"]; // syntactically valid escapes (even if invalid UTF-8) are bounded by the escape cap
-    const rejected = ["order/x?q=%E0%A4%A", "order/x?q=%G1", "order/x?q=%", "order/x?q=%%41"];
+    const accepted = ["order/x?ref=%20", "order/x?q=%C3%A9", "order/x?n=%2525", "order/x?z=%00", "order/%2e%2e%2fx", "order/x#frag", "order/é"]; // syntactically valid AND decodable escapes
+    const rejected = ["order/x?q=%E0%A4%A", "order/x?q=%G1", "order/x?q=%", "order/x?q=%%41", "order/%C0", "order/x?q=%C0", "order/%E0%A4%A4%FF"]; // last three: well-formed escapes that are invalid UTF-8
     for (const p of accepted) assert.equal(isSafeDeepLinkPath(p), true, p);
     for (const p of rejected) assert.equal(isSafeDeepLinkPath(p), false, p);
     assert.equal(isSafeDeepLinkPath("a".repeat(MAX_DEEP_LINK_LENGTH)), true);
@@ -49,8 +49,15 @@ describe("deep-link guard", () => {
     assert.ok(accepted > 0);
   });
   it("the worst accepted shape (24 escapes at the length cap) stays cheap", () => {
-    const attack = "order/x?q=" + "%AA".repeat(24) + "a".repeat(MAX_DEEP_LINK_LENGTH - 10 - 72);
+    const attack = "order/x?q=" + "%C3%A9".repeat(12) + "a".repeat(MAX_DEEP_LINK_LENGTH - 10 - 72); // 24 well-formed, decodable escapes (repeated "%AA" is invalid UTF-8 and is now rejected earlier)
     assert.equal(isSafeDeepLinkPath(attack), true);
     const t = process.hrtime.bigint(); guarded(attack); assert.ok(Number(process.hrtime.bigint() - t) / 1e6 < 100);
+  });
+  it("ignores links whose path parameters cannot be decoded (order/%C0) instead of throwing", () => {
+    assert.throws(() => getStateFromPath("order/%C0", config), URIError); // the unguarded parser throws
+    assert.doesNotThrow(() => guarded("order/%C0"));
+    assert.equal(guarded("order/%C0"), undefined);
+    assert.equal(guardGetStateFromPath(() => { throw new URIError("x"); })("order/abc"), undefined); // belt and braces
+    assert.throws(() => guardGetStateFromPath(() => { throw new TypeError("other"); })("order/abc"), TypeError); // other errors are not swallowed
   });
 });

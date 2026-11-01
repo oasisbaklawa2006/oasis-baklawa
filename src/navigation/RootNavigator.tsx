@@ -4,6 +4,8 @@ import {
   type LinkingOptions,
 } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { getStateFromPath } from "@react-navigation/native";
+import { guardGetStateFromPath } from "@/navigation/deep-link-guard";
 import type { RootStackParamList } from "@/navigation/types";
 import { MainTabNavigator } from "@/navigation/MainTabNavigator";
 import { OnboardingScreen } from "@/screens/OnboardingScreen";
@@ -51,6 +53,8 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const linking: LinkingOptions<RootStackParamList> = {
   prefixes: ["oasisbaklawa://"],
+  // Unsafe URLs never reach the vulnerable query-string/decode-uri-component parser (see deep-link-guard.ts).
+  getStateFromPath: guardGetStateFromPath(getStateFromPath),
   config: {
     screens: {
       OrderDetail: "order/:orderId",

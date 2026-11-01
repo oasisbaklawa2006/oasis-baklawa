@@ -46,4 +46,15 @@ describe("parseRpcError", () => {
     const parsed = parseRpcError({ message: "QUOTATION_VERSION_STALE: current version is 2" });
     assert.equal(parsed.code, "QUOTATION_VERSION_STALE");
   });
+
+  it("maps the Core commit-time carton enforcement error to an actionable, non-leaky message", () => {
+    const parsed = parseRpcError({
+      code: "23514",
+      message: "CARTON_ENFORCEMENT_VIOLATION",
+      details: '[{"code": "CARTON_INCOMPLETE", "group": "888x4|g", "slots": 3}]',
+    });
+    assert.equal(parsed.code, "CARTON_ENFORCEMENT_VIOLATION");
+    assert.match(parsed.message, /shipping carton must be full/i);
+    assert.doesNotMatch(parsed.message, /888x4|slots|CARTON_INCOMPLETE/);
+  });
 });

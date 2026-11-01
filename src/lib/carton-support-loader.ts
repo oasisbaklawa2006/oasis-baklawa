@@ -5,10 +5,8 @@ import type { BuyerProductPrice } from "@/types/database.types";
 /**
  * Adapter between the Core packing-profile projections (contract v1) and the Buyer carton consumer.
  *
- * NOT YET WIRED INTO THE APP. Core has not published `buyer_carton_configurations_v1` / `buyer_packing_profiles_v1`
- * (see docs/carton-builder/final/CORE_INTEGRATION.md). Activation steps once Core ships them:
- *   1. add both names to BUYER_DEPLOYMENT_RPC_ALLOWLIST and required-rpc-bindings;
- *   2. call loadCartonSupportFromCore from the cart (behind a release flag) and pass the result where getCartonSupport() is used.
+ * Wired behind the release flag in `carton-core-binding.ts`; both RPC names are in BUYER_DEPLOYMENT_RPC_ALLOWLIST.
+ * RELEASE ORDER: Core must ship the projection migration (Core PR #471) before EXPO_PUBLIC_CARTON_PACKING_PROFILES is enabled.
  * Core stays authoritative: this adapter only reads, never writes, and every failure yields "unavailable" (no carton UI), never a guess.
  */
 export type CoreRpc = (name: "buyer_carton_configurations_v1" | "buyer_packing_profiles_v1") => Promise<{ data: unknown; error: { code?: string; message?: string } | null }>;

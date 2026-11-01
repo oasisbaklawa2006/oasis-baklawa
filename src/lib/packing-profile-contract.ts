@@ -4,8 +4,8 @@ import type { CartonConfiguration, CartonAssetStatus, SkuPackingProfile } from "
  * Fail-closed normaliser for the PROPOSED Core packing-profile contract (v1).
  * See docs/carton-builder/CORE_PACKING_PROFILE_CONTRACT_SPEC.md.
  *
- * Nothing calls this yet: no Core RPC exists. It exists so that, once Core publishes the projection, binding it
- * is a one-line change and every malformed, unapproved or ambiguous row is already rejected. It never throws and
+ * Consumed by the flag-gated binding in `carton-core-binding.ts`. Core must ship the projection (Core PR #471) before the
+ * release flag is enabled; every malformed, unapproved or ambiguous row is rejected here. It never throws and
  * never repairs data: a row is either fully valid or rejected with a typed reason.
  */
 export const PACKING_CONTRACT_VERSION = 1;

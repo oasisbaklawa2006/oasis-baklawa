@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module';
-const require = createRequire('/tmp/claude-0/v3run/app/');
+// Resolve @react-navigation/core from the repository root (run from the repo root: node docs/carton-builder/final/core-evidence/dl-final.mjs)
+const require = createRequire(process.cwd() + '/');
 const { getStateFromPath } = require('@react-navigation/core');
 const cfg = { screens: { OrderDetail: 'order/:orderId', OrderConfirmation: 'order/:orderId/confirmation', CommunicationLog: 'communication/:entityId', CommercialReview: 'commercial-review' } };
 const MAX=512, ESC=24; const safe=(p)=>typeof p==='string'&&p.length>0&&p.length<=MAX&&((p.match(/%/g)||[]).length<=ESC)&&!/%(?![0-9a-fA-F]{2})/.test(p);

@@ -6,9 +6,8 @@ import type { BulkAddItem } from "@/lib/draft-add-guard";
  * Primary path: Core's atomic add_customer_order_draft_line_if_absent_v1, which checks and writes in ONE
  * transaction under the per-company cart lock, so a stale read cannot cause an overwrite.
  *
- * Fallback (only when that Core function is not deployed yet): re-read the cart immediately before each write.
- * That narrows but cannot close the race (Core's upsert replaces quantity), so the result is flagged
- * `usedFallback` and the caller must not describe the outcome as race-free.
+ * If the atomic Core RPC is unavailable, fail closed. A read-then-upsert fallback is not atomic
+ * and can overwrite another session's chosen quantity, so it must never be used.
  */
 export interface IfAbsentResult {
   inserted: boolean;
@@ -18,9 +17,9 @@ export interface IfAbsentResult {
 
 export interface BulkAddDeps {
   addIfAbsent: (productId: string, quantity: number) => Promise<IfAbsentResult>;
-  /** Fresh cart quantities by product id; used only by the fallback path. */
+  /** Legacy adapter property, intentionally unused: non-atomic fallback is forbidden. */
   readQuantities: () => Promise<Record<string, number>>;
-  /** Core's replacing upsert; used only by the fallback path after a fresh read shows the product absent. */
+  /** Legacy adapter property, intentionally unused: replacing upsert is forbidden here. */
   upsert: (productId: string, quantity: number) => Promise<void>;
   isFunctionMissing: (error: unknown) => boolean;
 }
@@ -29,6 +28,7 @@ export interface BulkAddOutcome {
   added: BulkAddItem[];
   /** Already in the cart; left untouched. */
   skipped: { productId: string; existingQuantity: number; requestedQuantity: number }[];
+  /** Compatibility field: always false; no non-atomic fallback is permitted. */
   usedFallback: boolean;
 }
 
@@ -49,23 +49,15 @@ export async function bulkAddIfAbsent(items: readonly BulkAddItem[], deps: BulkA
     if (seen.has(item.productId)) continue; // duplicate source rows: first wins
     seen.add(item.productId);
     try {
-      if (!out.usedFallback) {
-        try {
-          const r = await deps.addIfAbsent(item.productId, item.quantity);
-          if (r.inserted) out.added.push(item);
-          else out.skipped.push({ productId: item.productId, existingQuantity: r.existingQuantity, requestedQuantity: item.quantity });
-          continue;
-        } catch (e) {
-          if (!deps.isFunctionMissing(e)) throw e;
-          out.usedFallback = true; // Core function not deployed: degrade for the rest of this batch
+      try {
+        const r = await deps.addIfAbsent(item.productId, item.quantity);
+        if (r.inserted) out.added.push(item);
+        else out.skipped.push({ productId: item.productId, existingQuantity: r.existingQuantity, requestedQuantity: item.quantity });
+      } catch (e) {
+        if (deps.isFunctionMissing(e)) {
+          throw new Error("Atomic cart add is unavailable. No non-atomic fallback write is permitted.");
         }
-      }
-      const current = (await deps.readQuantities())[item.productId];
-      if (current !== undefined) {
-        out.skipped.push({ productId: item.productId, existingQuantity: current, requestedQuantity: item.quantity });
-      } else {
-        await deps.upsert(item.productId, item.quantity);
-        out.added.push(item);
+        throw e;
       }
     } catch (e) {
       throw new BulkAddPartialError(e, out, item.productId);

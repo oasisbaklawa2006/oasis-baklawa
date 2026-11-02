@@ -14,6 +14,9 @@ export function normalizeGenieLine(value: unknown): NormalizedGenieLine | null {
   const row = value as Record<string, unknown>;
   const productName = typeof row.productName === "string" ? row.productName : typeof row.product_name === "string" ? row.product_name : null;
   const quantity = typeof row.quantity === "number" ? row.quantity : Number(row.quantity);
+  // Missing/null unit = omitted ("" stays absent). A PRESENT but non-string unit is malformed input: reject the line rather than
+  // coercing it to "" (which would skip unit matching and could resolve against a product with a different unit).
+  if (row.uom != null && typeof row.uom !== "string") return null;
   const uom = typeof row.uom === "string" ? row.uom : "";
   if (!productName?.trim() || !Number.isFinite(quantity) || quantity <= 0) return null;
   return { productName: productName.trim(), quantity, uom };

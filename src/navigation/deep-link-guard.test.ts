@@ -54,7 +54,9 @@ describe("deep-link guard", () => {
     const t = process.hrtime.bigint(); guarded(attack); assert.ok(Number(process.hrtime.bigint() - t) / 1e6 < 100);
   });
   it("ignores links whose path parameters cannot be decoded (order/%C0) instead of throwing", () => {
-    assert.throws(() => getStateFromPath("order/%C0", config), URIError); // the unguarded parser throws
+    // React Navigation 6 throws a URIError from the unguarded parser; React Navigation 7 no longer does. The guard must be
+    // correct under either, so only a URIError (never another error) is acceptable from the raw parser.
+    try { getStateFromPath("order/%C0", config); } catch (e) { assert.ok(e instanceof URIError, "raw parser may only throw URIError"); }
     assert.doesNotThrow(() => guarded("order/%C0"));
     assert.equal(guarded("order/%C0"), undefined);
     assert.equal(guardGetStateFromPath(() => { throw new URIError("x"); })("order/abc"), undefined); // belt and braces

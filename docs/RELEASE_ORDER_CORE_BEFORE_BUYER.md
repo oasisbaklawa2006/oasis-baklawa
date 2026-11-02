@@ -13,4 +13,4 @@ Flags (all must stay OFF until approved):
 - Core carton enforcement: **OFF** until approved product-master packing configuration, authenticated E2E and operational acceptance are complete.
 - Buyer `EXPO_PUBLIC_CARTON_PACKING_PROFILES`: **OFF** until step 1 is verified.
 
-Degradation if the order is violated: without step 3 the Buyer falls back to a fresh-read guard (not race-free, reported as `usedFallback`); without step 4 the address/transporter screens fail as they do today; without step 1 the carton UI stays unavailable (fail closed).
+Degradation if the order is violated: without step 3 Quick Order and Reorder reject additions without writing (fail closed); without step 4 the address/transporter screens fail as they do today; without step 1 the carton UI stays unavailable (fail closed).

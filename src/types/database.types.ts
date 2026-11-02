@@ -130,6 +130,10 @@ export type Database = {
         Args: { p_product_id: string; p_quantity: number };
         Returns: DraftMutationResult[];
       };
+      add_customer_order_draft_line_if_absent_v1: {
+        Args: { p_product_id: string; p_quantity: number };
+        Returns: DraftInsertIfAbsentResult[];
+      };
       update_customer_order_draft_line_v1: {
         Args: { p_line_id: string; p_quantity: number };
         Returns: DraftMutationResult[];
@@ -455,6 +459,16 @@ export interface DraftReadinessIssue {
   code: string;
   product_id?: string;
   quantity?: number;
+}
+
+/** Core add_customer_order_draft_line_if_absent_v1: inserted=false means the line already existed and was NOT changed. */
+export interface DraftInsertIfAbsentResult {
+  draft_id: string;
+  line_id: string;
+  inserted: boolean;
+  existing_quantity: number;
+  readiness_status: string;
+  readiness_issues: unknown;
 }
 
 export interface DraftMutationResult {

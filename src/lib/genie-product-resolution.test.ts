@@ -85,6 +85,10 @@ describe("genie product resolution", () => {
     const generic = resolveGenieLines([{ lineId: "g", rawName: "kaju katli", quantity: 10, uom: "units" }], catalogue);
     assert.equal(generic.resolved.length, 0);
     assert.match(generic.unresolved[0].reason, /ordered in kg/);
+    // The buyer can correct the rejected unit in the review modal; re-resolving with the product's unit succeeds.
+    const corrected = resolveGenieLines([{ lineId: "c", rawName: "kaju katli", quantity: 10, uom: "kg" }], catalogue);
+    assert.equal(corrected.resolved.length, 1);
+    assert.equal(corrected.resolved[0].normalizedQuantity, 10);
     // A genuinely absent unit is still accepted in the product's own unit.
     const absent = resolveGenieLines([{ lineId: "a", rawName: "kaju katli", quantity: 10, uom: "" }], catalogue);
     assert.equal(absent.resolved.length, 1);

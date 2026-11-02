@@ -7,8 +7,8 @@ import { OasisButton } from "@/components/OasisButton";
 import { Screen } from "@/components/Screen";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { fetchCatalogue } from "@/lib/api/catalogue";
-import { addCustomerOrderDraftLineReturningId, getCustomerOrderDraft } from "@/lib/api/draft";
-import { planBulkAdd } from "@/lib/draft-add-guard";
+import { addItemsToCartIfAbsent } from "@/lib/api/draft";
+import { BulkAddPartialError, describeSkipped } from "@/lib/draft-bulk-add";
 import { fetchCustomerOrderItems } from "@/lib/api/orders";
 import { resolveCommercialRules, validateOrderQuantity } from "@/lib/buyer-commercial-validation";
 import { parseRpcError } from "@/lib/rpc-errors";
@@ -23,6 +23,8 @@ export function ReorderScreen({ navigation, route }: Props) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [skippedNotes, setSkippedNotes] = useState<string[]>([]);
+  const [addedCount, setAddedCount] = useState(0);
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
@@ -44,11 +46,20 @@ export function ReorderScreen({ navigation, route }: Props) {
   async function addAgain() {
     setBusy(true); setError(null);
     try {
-      // Core's upsert replaces quantity: skip products already in the cart so nothing is overwritten.
-      const plan = planBulkAdd(await getCustomerOrderDraft(), orderable.map((row) => ({ productId: row.product_id, quantity: row.quantity })));
-      for (const item of plan.toAdd) await addCustomerOrderDraftLineReturningId(item.productId, item.quantity);
+      // Atomic in Core: products already in the cart are left untouched and reported, never overwritten.
+      const outcome = await addItemsToCartIfAbsent(orderable.map((row) => ({ productId: row.product_id, quantity: row.quantity })));
+      if (outcome.skipped.length) {
+        const nameOf = (id: string) => rows.find((r) => r.product_id === id)?.product_name ?? "Item";
+        setSkippedNotes(describeSkipped(outcome.skipped, nameOf));
+        setAddedCount(outcome.added.length);
+        return; // stay on this screen so the buyer sees what was left unchanged before opening the cart
+      }
       navigation.navigate("Cart");
-    } catch (e) { setError(parseRpcError(e).message); }
+    } catch (e) {
+      if (e instanceof BulkAddPartialError && e.partial.added.length) {
+        setError(`${parseRpcError(e.cause).message} ${e.partial.added.length} item(s) were already added before this stopped; review your cart.`);
+      } else setError(parseRpcError(e instanceof BulkAddPartialError ? e.cause : e).message);
+    }
     finally { setBusy(false); }
   }
   return <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
@@ -57,7 +68,7 @@ export function ReorderScreen({ navigation, route }: Props) {
       <FlatList data={rows} keyExtractor={(item) => item.item_id} contentContainerStyle={styles.list}
         ListEmptyComponent={<Text style={styles.empty}>No items were found for this order.</Text>}
         renderItem={({ item }) => <View style={styles.row}><View style={styles.info}><Text style={styles.title}>{item.product_name}</Text><Text style={styles.meta}>{item.sku} · Previous quantity {item.quantity}</Text>{!item.orderable ? <Text style={styles.warning}>{item.reason}</Text> : <Text style={styles.available}>Available to add at the previous quantity</Text>}</View></View>}
-        ListFooterComponent={rows.length ? <View style={styles.footer}><Text style={styles.note}>Prices and availability are checked from the current catalogue. Nothing is copied from the old order price.</Text><OasisButton label={busy ? "Adding…" : `Add ${orderable.length} item${orderable.length === 1 ? "" : "s"} to cart`} disabled={busy || !orderable.length} onPress={addAgain}/></View> : null} />}
+        ListFooterComponent={rows.length ? <View style={styles.footer}>{skippedNotes.length ? <View accessibilityRole="alert" accessibilityLiveRegion="polite"><Text style={styles.warning}>{addedCount} item(s) added. {skippedNotes.length} already in your cart and left unchanged:</Text>{skippedNotes.map((n) => <Text key={n} style={styles.note}>{n}</Text>)}<OasisButton label="Open cart to adjust" onPress={() => navigation.navigate("Cart")}/></View> : null}<Text style={styles.note}>Prices and availability are checked from the current catalogue. Nothing is copied from the old order price.</Text><OasisButton label={busy ? "Adding…" : `Add ${orderable.length} item${orderable.length === 1 ? "" : "s"} to cart`} disabled={busy || !orderable.length} onPress={addAgain}/></View> : null} />}
     </Screen>
   </BuyerGate>;
 }

@@ -192,6 +192,13 @@ export function CatalogueScreen({ navigation, route }: Props) {
       <Screen title="Catalogue" subtitle="Explore the Oasis trade collection" scroll={false}>
         {error && !loading ? <ErrorState message={error} onRetry={loadCatalogue} /> : null}
         {successMessage ? <Text style={styles.success}>{successMessage}</Text> : null}
+        {isApprovedBuyer && !draftReadable ? (
+          <TouchableOpacity onPress={() => void refreshDraft()} accessibilityRole="button" accessibilityLabel="Retry reading your cart">
+            <Text style={styles.unavailablePrice} accessibilityLiveRegion="polite">
+              We couldn't read your cart, so adding is paused to protect the quantities already in it. Tap to retry.
+            </Text>
+          </TouchableOpacity>
+        ) : null}
         <TextInput
           style={styles.search}
           placeholder="Search products or collections…"

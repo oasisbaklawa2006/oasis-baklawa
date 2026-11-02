@@ -24,6 +24,7 @@ export const BUYER_DEPLOYMENT_RPC_ALLOWLIST = [
   "customer_delete_saved_transporter_v1",
   "get_customer_order_draft_v1",
   "add_customer_order_draft_line_v1",
+  "add_customer_order_draft_line_if_absent_v1",
   "update_customer_order_draft_line_v1",
   "remove_customer_order_draft_line_v1",
   "clear_customer_order_draft_v1",

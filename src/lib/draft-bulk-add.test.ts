@@ -116,24 +116,36 @@ describe("bulkAddIfAbsent (atomic path)", () => {
   });
 });
 
-describe("bulkAddIfAbsent (fallback while Core function is not deployed)", () => {
-  it("degrades, flags usedFallback, still skips products already present on a fresh read", async () => {
+describe("bulkAddIfAbsent (atomic RPC unavailable: fail closed)", () => {
+  it("rejects without replacing a previously selected quantity", async () => {
     const core = new FakeCore();
     core.insertIfAbsentDeployed = false;
     await core.upsert("A", "a", 27);
-    const r = await bulkAddIfAbsent([{ productId: "a", quantity: 9 }, { productId: "b", quantity: 18 }], core.deps("A"));
-    assert.equal(r.usedFallback, true);
-    assert.equal(core.qty("A", "a"), 27);
-    assert.equal(core.qty("B", "b"), undefined);
-    assert.equal(core.qty("A", "b"), 18);
+    const deps = core.deps("A", { beforeFallbackWrite: async () => { throw new Error("unsafe upsert must never run"); } });
+    await assert.rejects(
+      () => bulkAddIfAbsent([{ productId: "a", quantity: 9 }, { productId: "b", quantity: 18 }], deps),
+      (e: unknown) => e instanceof BulkAddPartialError && e.failedProductId === "a" &&
+        e.partial.added.length === 0 && e.partial.usedFallback === false &&
+        /Atomic cart add is unavailable/.test(e.message)
+    );
+    assert.deepEqual(core.snapshot("A"), { a: 27 }, "no cart mutation when atomic RPC is missing");
   });
 
-  it("documents the residual race of the fallback: a write landing between its read and its upsert is lost", async () => {
+  it("stops a partly completed batch when the atomic RPC disappears, without a fallback write", async () => {
     const core = new FakeCore();
-    core.insertIfAbsentDeployed = false;
-    const r = await bulkAddIfAbsent([{ productId: "a", quantity: 9 }], core.deps("A", { beforeFallbackWrite: () => core.upsert("A", "a", 27) }));
-    assert.equal(r.usedFallback, true, "caller is told the result is not race-free");
-    assert.equal(core.qty("A", "a"), 9, "known limitation until the Core function ships");
+    const deps = core.deps("A", { beforeFallbackWrite: async () => { throw new Error("unsafe upsert must never run"); } });
+    let calls = 0;
+    deps.addIfAbsent = async (p, q) => {
+      if (++calls === 2) throw Object.assign(new Error("function not found"), { code: "PGRST202" });
+      return core.ifAbsent("A", p, q);
+    };
+    await assert.rejects(
+      () => bulkAddIfAbsent([{ productId: "a", quantity: 9 }, { productId: "b", quantity: 18 }], deps),
+      (e: unknown) => e instanceof BulkAddPartialError && e.failedProductId === "b" &&
+        e.partial.added.length === 1 && e.partial.usedFallback === false &&
+        /Atomic cart add is unavailable/.test(e.message)
+    );
+    assert.deepEqual(core.snapshot("A"), { a: 9 }, "first atomic insert remains; no second write");
   });
 });
 

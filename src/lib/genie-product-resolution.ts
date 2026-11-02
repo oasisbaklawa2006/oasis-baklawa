@@ -93,7 +93,20 @@ function scoreProductMatch(queryTokens: string[], product: CatalogueProduct): nu
 
 const GENERIC_UOMS = new Set([""]);
 
-const normaliseUom = (uom: string | null | undefined) => (uom ?? "").trim().toLowerCase();
+/**
+ * Spelling variants of the SAME unit (plural/abbreviation). Deliberately small and explicit: kg never matches a count unit,
+ * and a count unit never matches kg/pack/box. Anything not listed is compared as typed.
+ */
+const UOM_ALIASES: Record<string, string> = {
+  kgs: "kg", kilo: "kg", kilos: "kg", kilogram: "kg", kilograms: "kg",
+  boxes: "box", packs: "pack", packet: "pack", packets: "pack", trays: "tray",
+  units: "unit", pcs: "unit", pc: "unit", piece: "unit", pieces: "unit", items: "unit", item: "unit", nos: "unit",
+};
+
+const normaliseUom = (uom: string | null | undefined) => {
+  const t = (uom ?? "").trim().toLowerCase();
+  return UOM_ALIASES[t] ?? t;
+};
 
 export type GenieQuantityOutcome =
   | { ok: true; quantity: number }

@@ -47,6 +47,7 @@ export function ReorderScreen({ navigation, route }: Props) {
     setBusy(true); setError(null);
     try {
       // Atomic in Core: products already in the cart are left untouched and reported, never overwritten.
+      setSkippedNotes([]); setAddedCount(0);
       const outcome = await addItemsToCartIfAbsent(orderable.map((row) => ({ productId: row.product_id, quantity: row.quantity })));
       if (outcome.skipped.length) {
         const nameOf = (id: string) => rows.find((r) => r.product_id === id)?.product_name ?? "Item";

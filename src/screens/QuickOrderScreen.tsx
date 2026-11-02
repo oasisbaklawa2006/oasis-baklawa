@@ -8,6 +8,7 @@ import { Screen } from "@/components/Screen";
 import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
 import { addItemsToCartIfAbsent } from "@/lib/api/draft";
+import { BulkAddPartialError } from "@/lib/draft-bulk-add";
 import { resolveCommercialRules } from "@/lib/buyer-commercial-validation";
 import { GENIE_ENABLED } from "@/lib/genie-parse-availability";
 import { parseRpcError } from "@/lib/rpc-errors";
@@ -74,7 +75,7 @@ export function QuickOrderScreen({ navigation }: Props) {
       setNotice(`${product.product_name} added to draft cart.`);
       setError(null);
     } catch (e) {
-      setError(parseRpcError(e).message);
+      setError(parseRpcError(e instanceof BulkAddPartialError ? e.cause : e).message);
     } finally {
       setBusyId(null);
     }

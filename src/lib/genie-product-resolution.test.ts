@@ -94,6 +94,12 @@ describe("genie product resolution", () => {
     assert.equal(absent.resolved.length, 1);
   });
 
+  it("treats plural/abbreviated spellings of the SAME unit as equal, but never a count unit as kg", () => {
+    const kg = (uom: string) => resolveGenieLines([{ lineId: "k", rawName: "kaju katli", quantity: 10, uom }], catalogue);
+    for (const ok of ["kg", "KG", "kgs", "kilos", "Kilograms"]) assert.equal(kg(ok).resolved.length, 1, ok);
+    for (const bad of ["units", "pcs", "items", "pieces", "tray", "box", "packs"]) assert.equal(kg(bad).resolved.length, 0, bad);
+  });
+
   it("fails closed when buyer pricing or commercial data is missing", () => {
     const noPrice = { ...catalogue[0], price: undefined };
     const result = resolveGenieLines([parsedLine("kaju katli", 10)], [noPrice]);

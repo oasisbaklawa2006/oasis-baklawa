@@ -66,7 +66,7 @@ export async function clearCustomerOrderDraft(): Promise<CustomerOrderDraft | nu
   return getCustomerOrderDraft();
 }
 
-/** Bulk add that never overwrites an existing line (atomic in Core; guarded fallback only if that function is not deployed). */
+/** Bulk add that never overwrites an existing line; fails closed if Core atomic RPC is unavailable. */
 export function addItemsToCartIfAbsent(items: readonly BulkAddItem[]): Promise<BulkAddOutcome> {
   return bulkAddIfAbsent(items, {
     addIfAbsent: async (productId, quantity) => {

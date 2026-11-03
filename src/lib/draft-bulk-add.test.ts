@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { BulkAddPartialError, bulkAddIfAbsent, describeSkipped, isRpcFunctionMissing, type BulkAddDeps } from "./draft-bulk-add";
+import { BulkAddPartialError, bulkAddIfAbsent, describeSkipped, isRetryableConcurrencyError, isRpcFunctionMissing, withBoundedRetry, type BulkAddDeps } from "./draft-bulk-add";
 
 /** In-memory model of the Core cart RPC semantics, keyed by company (tenant isolation). */
 class FakeCore {
@@ -162,5 +162,67 @@ describe("helpers", () => {
       describeSkipped([{ productId: "a", existingQuantity: 5, requestedQuantity: 100 }], () => "Kaju Katli"),
       ["Kaju Katli: already in your cart at 5 (you asked for 100); left unchanged."]
     );
+  });
+});
+
+describe("bounded 40P01 / 40001 handling", () => {
+  const noSleep = { maxAttempts: 3, baseDelayMs: 1, sleep: async () => {} };
+  const deadlock = () => Object.assign(new Error("deadlock detected"), { code: "40P01" });
+
+  it("classifies only concurrency aborts as retryable", () => {
+    assert.equal(isRetryableConcurrencyError({ code: "40P01" }), true);
+    assert.equal(isRetryableConcurrencyError({ code: "40001" }), true);
+    assert.equal(isRetryableConcurrencyError({ message: "ERROR: deadlock detected" }), true);
+    for (const code of ["42501", "P0002", "PGRST202", "23505", "28000"]) assert.equal(isRetryableConcurrencyError({ code }), false);
+    assert.equal(isRetryableConcurrencyError(null), false);
+  });
+
+  it("retries a deadlock victim and succeeds without writing twice", async () => {
+    const core = new FakeCore();
+    let calls = 0;
+    const deps: BulkAddDeps = { ...core.deps("co"), retry: noSleep, addIfAbsent: async (p, q) => { calls++; if (calls < 3) throw deadlock(); return core.ifAbsent("co", p, q); } };
+    const out = await bulkAddIfAbsent([{ productId: "p1", quantity: 9 }], deps);
+    assert.equal(calls, 3);
+    assert.deepEqual(out.added, [{ productId: "p1", quantity: 9 }]);
+    assert.equal(core.qty("co", "p1"), 9);
+  });
+
+  it("gives up after the bounded number of attempts and reports a partial result", async () => {
+    const core = new FakeCore();
+    let calls = 0;
+    const deps: BulkAddDeps = { ...core.deps("co"), retry: noSleep, addIfAbsent: async (p, q) => { if (p === "p2") { calls++; throw deadlock(); } return core.ifAbsent("co", p, q); } };
+    await assert.rejects(bulkAddIfAbsent([{ productId: "p1", quantity: 9 }, { productId: "p2", quantity: 9 }], deps), (e: unknown) => {
+      assert.ok(e instanceof BulkAddPartialError);
+      assert.equal((e.cause as { code?: string }).code, "40P01");
+      assert.equal(e.failedProductId, "p2");
+      assert.deepEqual(e.partial.added, [{ productId: "p1", quantity: 9 }]);
+      return true;
+    });
+    assert.equal(calls, 3, "exactly maxAttempts calls, never unbounded");
+    assert.equal(core.qty("co", "p2"), undefined);
+  });
+
+  it("does not retry other errors (permission, missing function, not found)", async () => {
+    for (const code of ["42501", "P0002", "PGRST202"]) {
+      let calls = 0;
+      await assert.rejects(withBoundedRetry(async () => { calls++; throw Object.assign(new Error("x"), { code }); }, noSleep));
+      assert.equal(calls, 1, code);
+    }
+  });
+
+  it("backs off exponentially between attempts", async () => {
+    const delays: number[] = [];
+    await assert.rejects(withBoundedRetry(async () => { throw deadlock(); }, { maxAttempts: 4, baseDelayMs: 10, sleep: async (ms) => { delays.push(ms); } }));
+    assert.deepEqual(delays, [10, 20, 40]);
+  });
+
+  it("never overwrites an existing quantity even when the first attempt was a deadlock victim", async () => {
+    const core = new FakeCore();
+    await core.upsert("co", "p1", 27);
+    let calls = 0;
+    const deps: BulkAddDeps = { ...core.deps("co"), retry: noSleep, addIfAbsent: async (p, q) => { calls++; if (calls === 1) throw deadlock(); return core.ifAbsent("co", p, q); } };
+    const out = await bulkAddIfAbsent([{ productId: "p1", quantity: 9 }], deps);
+    assert.equal(out.skipped.length, 1);
+    assert.equal(core.qty("co", "p1"), 27);
   });
 });

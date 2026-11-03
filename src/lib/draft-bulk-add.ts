@@ -15,6 +15,40 @@ export interface IfAbsentResult {
   lineId?: string;
 }
 
+/**
+ * Bounded caller handling for PostgreSQL concurrency aborts.
+ * SQLSTATE 40P01 (deadlock_detected) and 40001 (serialization_failure) abort and fully roll back the single RPC transaction,
+ * so repeating the SAME call is safe; add_customer_order_draft_line_if_absent_v1 is also idempotent (a repeat reports
+ * inserted=false instead of writing twice). Retries are capped, back off, and never apply to any other error.
+ */
+export interface RetryPolicy {
+  /** Total attempts including the first (>= 1). */
+  maxAttempts: number;
+  baseDelayMs: number;
+  sleep?: (ms: number) => Promise<void>;
+}
+
+export const CONCURRENCY_RETRY: RetryPolicy = { maxAttempts: 3, baseDelayMs: 75 };
+
+export function isRetryableConcurrencyError(error: unknown): boolean {
+  const e = error as { code?: string; message?: string } | null;
+  if (!e) return false;
+  return e.code === "40P01" || e.code === "40001" || /deadlock detected/i.test(e.message ?? "");
+}
+
+export async function withBoundedRetry<T>(call: () => Promise<T>, policy: RetryPolicy = CONCURRENCY_RETRY): Promise<T> {
+  const attempts = Math.max(1, Math.floor(policy.maxAttempts));
+  const sleep = policy.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await call();
+    } catch (e) {
+      if (attempt >= attempts || !isRetryableConcurrencyError(e)) throw e;
+      await sleep(policy.baseDelayMs * 2 ** (attempt - 1));
+    }
+  }
+}
+
 export interface BulkAddDeps {
   addIfAbsent: (productId: string, quantity: number) => Promise<IfAbsentResult>;
   /** Legacy adapter property, intentionally unused: non-atomic fallback is forbidden. */
@@ -22,6 +56,8 @@ export interface BulkAddDeps {
   /** Legacy adapter property, intentionally unused: replacing upsert is forbidden here. */
   upsert: (productId: string, quantity: number) => Promise<void>;
   isFunctionMissing: (error: unknown) => boolean;
+  /** Optional override of the bounded 40P01/40001 retry (tests inject a no-op sleep). */
+  retry?: RetryPolicy;
 }
 
 export interface BulkAddOutcome {
@@ -50,7 +86,7 @@ export async function bulkAddIfAbsent(items: readonly BulkAddItem[], deps: BulkA
     seen.add(item.productId);
     try {
       try {
-        const r = await deps.addIfAbsent(item.productId, item.quantity);
+        const r = await withBoundedRetry(() => deps.addIfAbsent(item.productId, item.quantity), deps.retry);
         if (r.inserted) out.added.push(item);
         else out.skipped.push({ productId: item.productId, existingQuantity: r.existingQuantity, requestedQuantity: item.quantity });
       } catch (e) {

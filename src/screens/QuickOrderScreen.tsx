@@ -7,7 +7,8 @@ import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { Screen } from "@/components/Screen";
 import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { fetchCatalogue, type CatalogueProduct } from "@/lib/api/catalogue";
-import { addCustomerOrderDraftLine } from "@/lib/api/draft";
+import { addItemsToCartIfAbsent } from "@/lib/api/draft";
+import { BulkAddPartialError } from "@/lib/draft-bulk-add";
 import { resolveCommercialRules } from "@/lib/buyer-commercial-validation";
 import { GENIE_ENABLED } from "@/lib/genie-parse-availability";
 import { parseRpcError } from "@/lib/rpc-errors";
@@ -64,11 +65,17 @@ export function QuickOrderScreen({ navigation }: Props) {
     const moq = commercial.rules.moq;
     setBusyId(product.product_id);
     try {
-      await addCustomerOrderDraftLine(product.product_id, moq);
+      // Atomic in Core: never overwrites a quantity the buyer (or another session) already chose.
+      const outcome = await addItemsToCartIfAbsent([{ productId: product.product_id, quantity: moq }]);
+      if (outcome.skipped.length) {
+        setNotice(`${product.product_name} is already in your cart at ${outcome.skipped[0].existingQuantity}. Adjust it in the cart.`);
+        setError(null);
+        return;
+      }
       setNotice(`${product.product_name} added to draft cart.`);
       setError(null);
     } catch (e) {
-      setError(parseRpcError(e).message);
+      setError(parseRpcError(e instanceof BulkAddPartialError ? e.cause : e).message);
     } finally {
       setBusyId(null);
     }

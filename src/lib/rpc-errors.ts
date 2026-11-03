@@ -4,6 +4,7 @@ export type RpcErrorCode =
   | "APPLICATION_INCOMPLETE"
   | "PRODUCT_UNAVAILABLE"
   | "QUANTITY_RULE_VIOLATION"
+  | "CARTON_ENFORCEMENT_VIOLATION"
   | "DRAFT_NOT_FOUND"
   | "DRAFT_NOT_READY"
   | "DRAFT_NOT_ACTIVE"
@@ -28,6 +29,7 @@ export const KNOWN_RPC_ERROR_CODES: ReadonlySet<RpcErrorCode> = new Set([
   "APPLICATION_INCOMPLETE",
   "PRODUCT_UNAVAILABLE",
   "QUANTITY_RULE_VIOLATION",
+  "CARTON_ENFORCEMENT_VIOLATION",
   "DRAFT_NOT_FOUND",
   "DRAFT_NOT_READY",
   "DRAFT_NOT_ACTIVE",
@@ -102,6 +104,7 @@ function inferCode(raw: string, sqlState: string | null): RpcErrorCode {
   if (raw.includes("APPLICATION_INCOMPLETE")) return "APPLICATION_INCOMPLETE";
   if (raw.includes("PRODUCT_UNAVAILABLE")) return "PRODUCT_UNAVAILABLE";
   if (raw.includes("QUANTITY_RULE_VIOLATION")) return "QUANTITY_RULE_VIOLATION";
+  if (raw.includes("CARTON_ENFORCEMENT_VIOLATION")) return "CARTON_ENFORCEMENT_VIOLATION";
   if (raw.includes("DRAFT_NOT_FOUND") || sqlState === "P0002") return "DRAFT_NOT_FOUND";
   if (raw.includes("DRAFT_NOT_READY")) return "DRAFT_NOT_READY";
   if (raw.includes("DRAFT_NOT_ACTIVE")) return "DRAFT_NOT_ACTIVE";
@@ -155,6 +158,8 @@ function customerMessage(code: RpcErrorCode, raw: string): string {
       return "This product is not available for your account right now.";
     case "QUANTITY_RULE_VIOLATION":
       return "Quantity does not meet MOQ, increment, or carton rules for this product.";
+    case "CARTON_ENFORCEMENT_VIOLATION":
+      return "Every shipping carton must be full. Adjust your quantities so the cartons shown in your cart are complete, then submit again. Your cart has not been changed.";
     case "DRAFT_NOT_FOUND":
       return "No active order draft was found. Add items from the catalogue.";
     case "DRAFT_NOT_READY":

@@ -293,7 +293,14 @@ export function AiOrderScreen({ navigation }: Props) {
                     value={String(line.quantity)}
                     onChangeText={(value) => updateLine(index, { quantity: Number(value) || 0 })}
                   />
-                  <Text style={styles.reviewUom}>{line.uom}</Text>
+                  <TextInput
+                    style={[styles.reviewQty, styles.reviewUomInput]}
+                    value={line.uom}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    accessibilityLabel={`Unit for ${line.productName}`}
+                    onChangeText={(value) => updateLine(index, { uom: value })}
+                  />
                 </View>
               ))}
 
@@ -409,6 +416,7 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamilySans,
     color: colors.textPrimary,
   },
+  reviewUomInput: { width: 64 },
   reviewUom: { width: 40, fontFamily: typography.fontFamilySans, fontSize: typography.sizeSm, color: colors.textMuted },
   resolvedRow: { backgroundColor: colors.successSurface, borderRadius: 10, padding: spacing.md },
   resolvedTitle: { fontFamily: typography.fontFamilySansSemiBold, color: colors.textPrimary },

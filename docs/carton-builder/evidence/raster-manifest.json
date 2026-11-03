@@ -1,0 +1,214 @@
+{
+  "cairosvg": "2.9.1",
+  "pillow": "12.3.0",
+  "frames": [
+    {
+      "file": "bulk-6-frame-1.png",
+      "sha256": "21b905b068f84a301ec72a18bdb286ec6ec0ff017fd96e119597ed329d9bfaf2",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-6-frame-2.png",
+      "sha256": "c8599850b940d41fb27abb68b14fcf226881bdee3be86acc8b026964ec087dfb",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-6-frame-3.png",
+      "sha256": "406f7aacc913f878212773fb447cbcb0fd1262db3306cda43b3af50cba2a1b68",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-6-frame-4.png",
+      "sha256": "d5f7701f443ca658abe80e6fb616e23696f32a37c3a0643a654549b42273e603",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-6-frame-5.png",
+      "sha256": "3f488774de236cc37752106d0e4d7a8984044404334bea9e5c534162de85ce8e",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-6-frame-6.png",
+      "sha256": "4724c92e3a495544e2e49ddca4b09dd1a09ebfe43f7f924db3247c4afbe514d0",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-6-frame-7.png",
+      "sha256": "a47bac7e4707a7f319e06a98d7580dbeccb2b7a7baf3ce2d0e846d8e92b48618",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-6-frame-8.png",
+      "sha256": "4d888ea3f8bebf081f537351f5d13cb877f65fc168f30766dbae0de89d926a7c",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "888x4-frame-1.png",
+      "sha256": "39c086abe14ee761ceaf7ce6397cce1e59e8a2b7d41f55095e9bba06902b401b",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "888x4-frame-2.png",
+      "sha256": "9846273ff158cae1d6e217b9b9327e93b7b648a6c0881d7945954817178c7852",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "888x4-frame-3.png",
+      "sha256": "6043b01385364b6b6bc41cf7f7999176a1756d6f9d4265d1c0e26cde339cf945",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "888x4-frame-4.png",
+      "sha256": "5a7f241c79c86fe69836b2362c578dc5c869f6f052becc2aeb71e5a57ca932b1",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "888x4-frame-5.png",
+      "sha256": "b16c108184a302f18fb84ff584f4d3370f6d79e9d64d0ec71f5e3b457f15eb68",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "888x4-frame-6.png",
+      "sha256": "807185fc74f725f36890e331e166e30e40e8edb36ed45215ac9be31fdd83e10a",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-10-frame-1.png",
+      "sha256": "f4051ecaf430a36ba87e340a29097423adabe1f2e256720567e39cc05e507ef4",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-10-frame-2.png",
+      "sha256": "ff328196cb44d02a67a649abeb98453f5b8b355c8ed0fb8664584b3f63f33e4e",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-10-frame-3.png",
+      "sha256": "f0f80db55576fda732c15eafe074aa0d34005458d3b8a432655c67bac32d9df4",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-10-frame-4.png",
+      "sha256": "04372507a02ba13081d87386cdbe8df1276474033ea01167578cb8f875978ee5",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-10-frame-5.png",
+      "sha256": "4aafadf7c6e74061244d4b890de517362f76839df64a97c2da9a75c74ede3966",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-10-frame-6.png",
+      "sha256": "b7ec8e52c19dad4c63c9fb466ca96a5bd83220e2eb3bebb32ad4cd0263a63a5c",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-10-frame-7.png",
+      "sha256": "dd90e1bcf1cb4b1dbe483bde9daba8f9a3b9b685a014504a7f51f49da917f217",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-10-frame-8.png",
+      "sha256": "055f2b6dc7a867b0f8bc645d2dfd5549f045b91342765fe3aa29f892ee88a819",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-10-frame-9.png",
+      "sha256": "193dcea2a68f45a04f561c9046f407a71b2ce1912b19d9e36a201cc11145c6d3",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-10-frame-10.png",
+      "sha256": "ffadf4e5f0f36e504a3d9dc41ba574b90d571e76e53fc1b4bf07c9e31c4d7d53",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-10-frame-11.png",
+      "sha256": "e697c935f0d73e635ec79989914a78b65b68d412e7a2a8333a02136201f970d7",
+      "dimensions": [
+        800,
+        600
+      ]
+    },
+    {
+      "file": "bulk-10-frame-12.png",
+      "sha256": "d97d452bd3b734a4a58b400f1d65c6397a350b591f3cd2563a0fbd70a35cfde2",
+      "dimensions": [
+        800,
+        600
+      ]
+    }
+  ]
+}

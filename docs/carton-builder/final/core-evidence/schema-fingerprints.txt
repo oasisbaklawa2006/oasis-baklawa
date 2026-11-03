@@ -1,0 +1,8 @@
+# Schema fingerprints (replayed Core history on real PostgreSQL 16.15 vs live project, SELECT only)
+tables: replay 361 / live 361, md5 51aa40d0ed78d8940dcad4fd81e2e818 on both (identical)
+six canonical functions (buyer_product_prices_v1, published_products_v1, customer_buyer_eligible_company_id, customer_validate_order_quantity_v1, is_staff_role, is_internal_staff): pg_get_functiondef md5 identical to live
+public functions: replay 692 / live 697: the 5 missing come from the 8 migration files whose statements need Supabase-only services (pg_cron, vault, net) absent from plain PostgreSQL; see core-replay-errors.log
+before proposal : 692|d6a28dc013de95577a18b47f97c28a7f 361|51aa40d0ed78d8940dcad4fd81e2e818 54921798a2a7aff6fede1e4bc342f019 
+after rollback  : 692|d6a28dc013de95577a18b47f97c28a7f 361|51aa40d0ed78d8940dcad4fd81e2e818 54921798a2a7aff6fede1e4bc342f019   (identical to before)
+after apply     : 697|a879ff6433d3e5a88444d8528bd58573 363|51d49ee1c484b0ea33196493a760a86f c4f23820dc2e778837d21e0aed6caa1e 
+Core governance scripts on the proposal: check-migration-governance.sh PASS (459 files); check-migration-base-monotonicity.sh PASS (ceiling 20261027130000, 1 new migration); check-migration-history-sequence.sh needs a production 'activation ref' supplied by the release approver (not available here)

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
@@ -14,7 +14,12 @@ import {
   removeCustomerOrderDraftLine,
   updateCustomerOrderDraftLine,
 } from "@/lib/api/draft";
+import { CartonVisual } from "@/components/CartonVisual";
 import { resolveCommercialRules } from "@/lib/buyer-commercial-validation";
+import { resolveCartonConfiguration } from "@/lib/carton-builder";
+import { buildCartonViewModels, getCartonSupport, selectCartonConfigId, type CartonSupport } from "@/lib/carton-profile-source";
+import { cartonPackingEnabled, createLatestOnly, fetchCartonSupport } from "@/lib/carton-core-binding";
+import { liveCartonRpc } from "@/lib/carton-core-rpc";
 import { issueMessage, nextValidQuantity } from "@/lib/draft-utils";
 import { parseRpcError } from "@/lib/rpc-errors";
 import type { BuyerProductPrice, CustomerOrderDraft, CustomerOrderDraftLine } from "@/types/database.types";
@@ -143,6 +148,25 @@ export function CartScreen({ navigation }: Props) {
 
   const checkoutReady = draft?.is_checkout_ready ?? false;
 
+  // Advisory carton illustration only: shown when verified packing data exists. Checkout stays gated
+  // exclusively by Core's readiness (draft.is_checkout_ready); carton fullness never enables it.
+  const [cartonSupport, setCartonSupport] = useState<CartonSupport>(getCartonSupport());
+  const cartonLatest = useRef(createLatestOnly()).current;
+  const cartonLineKey = (draft?.lines ?? []).map((l) => l.product_id).sort().join(",");
+  useEffect(() => {
+    // Reset immediately so a previous customer's or earlier cart's packing facts are never shown; refetch only when enabled.
+    setCartonSupport(getCartonSupport());
+    if (!cartonPackingEnabled() || !cartonLineKey) { cartonLatest.cancel(); return; }
+    const isCurrent = cartonLatest.begin();
+    void fetchCartonSupport(Object.values(pricesByProduct), { rpc: liveCartonRpc }).then((r) => { if (isCurrent()) setCartonSupport(r.support); });
+    return () => cartonLatest.cancel();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartonLineKey]);
+  const cartonViews = useMemo(() => {
+    const configId = selectCartonConfigId(draft, cartonSupport);
+    return configId ? buildCartonViewModels(draft, cartonSupport, configId, pricesByProduct) : [];
+  }, [draft, cartonSupport, pricesByProduct]);
+
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
       <Screen title="Cart" subtitle="Review quantities and ordering requirements" safeAreaEdges={["top", "bottom"]}>
@@ -253,6 +277,10 @@ export function CartScreen({ navigation }: Props) {
               <Text style={styles.summaryValue}>₹{draft.order_total.toLocaleString("en-IN")}</Text>
             </View>
 
+            {cartonViews.map((view, index) => {
+              const config = resolveCartonConfiguration(cartonSupport.catalogue, view.configId);
+              return config ? <CartonVisual key={`${view.configId}-${index}`} config={config} preview={view.preview} /> : null;
+            })}
             <TouchableOpacity
               style={styles.secondaryButton}
               disabled={busyLineId === "clear" || !isOnline}

@@ -1,0 +1,313 @@
+[
+  {
+    "file": "bulk-6-frame-1.svg",
+    "occupied": [],
+    "geometryVersion": 2,
+    "physicalApproval": "pending",
+    "sha256": "aad1ae0d5770162388322efe53ee490a9c7d8ffabcb9dbf89b201c0126fb6c3c"
+  },
+  {
+    "file": "bulk-6-frame-2.svg",
+    "occupied": [
+      "tray-1"
+    ],
+    "geometryVersion": 2,
+    "physicalApproval": "pending",
+    "sha256": "88e86def5a743aef21635645a2c59139eac3e53b463a1a0709c17cc6fb0ac8b4"
+  },
+  {
+    "file": "bulk-6-frame-3.svg",
+    "occupied": [
+      "tray-1",
+      "tray-2"
+    ],
+    "geometryVersion": 2,
+    "physicalApproval": "pending",
+    "sha256": "5243634f3cf9daddc65131e96e6da736834246cdf3af7fd46d3d9ce6efb3e9a8"
+  },
+  {
+    "file": "bulk-6-frame-4.svg",
+    "occupied": [
+      "tray-1",
+      "tray-2",
+      "tray-3"
+    ],
+    "geometryVersion": 2,
+    "physicalApproval": "pending",
+    "sha256": "8af56acd180cbedd8bbe87a3b27658e4cee088f8fb57ee730b495cdfca5ead92"
+  },
+  {
+    "file": "bulk-6-frame-5.svg",
+    "occupied": [
+      "tray-1",
+      "tray-2",
+      "tray-3",
+      "tray-4"
+    ],
+    "geometryVersion": 2,
+    "physicalApproval": "pending",
+    "sha256": "4a8dd3ec22a915335120b8f848381b4bcb540cdc02cd4924d7581d856365b66d"
+  },
+  {
+    "file": "bulk-6-frame-6.svg",
+    "occupied": [
+      "tray-1",
+      "tray-2",
+      "tray-3",
+      "tray-4",
+      "tray-5"
+    ],
+    "geometryVersion": 2,
+    "physicalApproval": "pending",
+    "sha256": "e8c93f5c49749eb90dc94ca05870c48d23ee021f9dccc7cc2c5dc0aee01da5a2"
+  },
+  {
+    "file": "bulk-6-frame-7.svg",
+    "occupied": [
+      "tray-1",
+      "tray-2",
+      "tray-3",
+      "tray-4",
+      "tray-5",
+      "tray-6"
+    ],
+    "geometryVersion": 2,
+    "physicalApproval": "pending",
+    "sha256": "847152e215d6a0c6686d96f0f7373aaf4879b8d3be573b2083373e113ca4c6cf"
+  },
+  {
+    "file": "bulk-6-frame-8.svg",
+    "occupied": [
+      "tray-1",
+      "tray-2",
+      "tray-3",
+      "tray-4",
+      "tray-5",
+      "tray-6"
+    ],
+    "geometryVersion": 2,
+    "physicalApproval": "pending",
+    "sha256": "afc92cfea15a78251ec1bf69a5286ad878f94087cc92dde00c04bee8aec0bba8"
+  },
+  {
+    "file": "888x4-frame-1.svg",
+    "occupied": [],
+    "geometryVersion": 2,
+    "physicalApproval": "pending",
+    "sha256": "99c84caccb83bb4289bb14ed572f995d32c62d59324827cbb92cdf6f6f49331a"
+  },
+  {
+    "file": "888x4-frame-2.svg",
+    "occupied": [
+      "tray-1"
+    ],
+    "geometryVersion": 2,
+    "physicalApproval": "pending",
+    "sha256": "4593a6796235817a10573cdbe0226273a8c30f28a71a31bf32fe645d64be3979"
+  },
+  {
+    "file": "888x4-frame-3.svg",
+    "occupied": [
+      "tray-1",
+      "tray-2"
+    ],
+    "geometryVersion": 2,
+    "physicalApproval": "pending",
+    "sha256": "7ad09fc22f1fdd1d2f1a1897f38722581e98518a44a61492c9f002dd6571b361"
+  },
+  {
+    "file": "888x4-frame-4.svg",
+    "occupied": [
+      "tray-1",
+      "tray-2",
+      "tray-3"
+    ],
+    "geometryVersion": 2,
+    "physicalApproval": "pending",
+    "sha256": "8be3af78124c97e21d3bcadf2c51228a36148a6d869a4239c32da8491a5955d9"
+  },
+  {
+    "file": "888x4-frame-5.svg",
+    "occupied": [
+      "tray-1",
+      "tray-2",
+      "tray-3",
+      "tray-4"
+    ],
+    "geometryVersion": 2,
+    "physicalApproval": "pending",
+    "sha256": "7bb452c333fe46ad5b8d937c3d4fab45873ac334cf106b2f22ca3c67986f52c7"
+  },
+  {
+    "file": "888x4-frame-6.svg",
+    "occupied": [
+      "tray-1",
+      "tray-2",
+      "tray-3",
+      "tray-4"
+    ],
+    "geometryVersion": 2,
+    "physicalApproval": "pending",
+    "sha256": "867977d801f7b0cfb02957106a2c003972927d0a7238b8a3340ca60ed7e4bc67"
+  },
+  {
+    "file": "bulk-10-frame-1.svg",
+    "occupied": [],
+    "geometryVersion": 1,
+    "physicalApproval": "pending",
+    "sha256": "3cc6d477f9d4d2cce95ec93081e80d1ee2badd713a8ae9b9d2886b4f3c88da85"
+  },
+  {
+    "file": "bulk-10-frame-2.svg",
+    "occupied": [
+      "tray-1"
+    ],
+    "geometryVersion": 1,
+    "physicalApproval": "pending",
+    "sha256": "cb59184c594ecfd2fe8c7271715988cd85e578f0d4e8d517d70f7c8a9373c253"
+  },
+  {
+    "file": "bulk-10-frame-3.svg",
+    "occupied": [
+      "tray-1",
+      "tray-2"
+    ],
+    "geometryVersion": 1,
+    "physicalApproval": "pending",
+    "sha256": "9a5182488969dd0adde822b23b7c395389f482f13a8a5e687a15a328fe925040"
+  },
+  {
+    "file": "bulk-10-frame-4.svg",
+    "occupied": [
+      "tray-1",
+      "tray-2",
+      "tray-3"
+    ],
+    "geometryVersion": 1,
+    "physicalApproval": "pending",
+    "sha256": "b229488578a1c2262ad807b3790a2a34d1c4362de7a73bac43b3ee8641d276e9"
+  },
+  {
+    "file": "bulk-10-frame-5.svg",
+    "occupied": [
+      "tray-1",
+      "tray-2",
+      "tray-3",
+      "tray-4"
+    ],
+    "geometryVersion": 1,
+    "physicalApproval": "pending",
+    "sha256": "b695a8afdaf6347957d8f727b4f341d41a728e4280fce109883e1fdba10e9e34"
+  },
+  {
+    "file": "bulk-10-frame-6.svg",
+    "occupied": [
+      "tray-1",
+      "tray-2",
+      "tray-3",
+      "tray-4",
+      "tray-5"
+    ],
+    "geometryVersion": 1,
+    "physicalApproval": "pending",
+    "sha256": "cbb2407b07f39185c26a61b84a192ad30626caf01f47dc4f6033d67b63d9e97d"
+  },
+  {
+    "file": "bulk-10-frame-7.svg",
+    "occupied": [
+      "tray-1",
+      "tray-2",
+      "tray-3",
+      "tray-4",
+      "tray-5",
+      "tray-6"
+    ],
+    "geometryVersion": 1,
+    "physicalApproval": "pending",
+    "sha256": "dc49692190f3f655424ac66e36cee21b7c69df77b0edc7dd5d689840771cf798"
+  },
+  {
+    "file": "bulk-10-frame-8.svg",
+    "occupied": [
+      "tray-1",
+      "tray-2",
+      "tray-3",
+      "tray-4",
+      "tray-5",
+      "tray-6",
+      "tray-7"
+    ],
+    "geometryVersion": 1,
+    "physicalApproval": "pending",
+    "sha256": "c03c973e54d1abd231ec0f6215294b366ce635863a5333644e44444b08746408"
+  },
+  {
+    "file": "bulk-10-frame-9.svg",
+    "occupied": [
+      "tray-1",
+      "tray-2",
+      "tray-3",
+      "tray-4",
+      "tray-5",
+      "tray-6",
+      "tray-7",
+      "tray-8"
+    ],
+    "geometryVersion": 1,
+    "physicalApproval": "pending",
+    "sha256": "de7fb44a13cccedc4576409a70623f0a296f5534df61f851d0bbe1ddbad46f3e"
+  },
+  {
+    "file": "bulk-10-frame-10.svg",
+    "occupied": [
+      "tray-1",
+      "tray-2",
+      "tray-3",
+      "tray-4",
+      "tray-5",
+      "tray-6",
+      "tray-7",
+      "tray-8",
+      "tray-9"
+    ],
+    "geometryVersion": 1,
+    "physicalApproval": "pending",
+    "sha256": "58f013d11535c53c742ea681a40764848be49db42806c802953beb58c30d3426"
+  },
+  {
+    "file": "bulk-10-frame-11.svg",
+    "occupied": [
+      "tray-1",
+      "tray-2",
+      "tray-3",
+      "tray-4",
+      "tray-5",
+      "tray-6",
+      "tray-7",
+      "tray-8",
+      "tray-9",
+      "tray-10"
+    ],
+    "geometryVersion": 1,
+    "physicalApproval": "pending",
+    "sha256": "a5db1dc4776437384291f0eaf1579f9a208943644cd920fdc30cb034ff63c913"
+  },
+  {
+    "file": "bulk-10-frame-12.svg",
+    "occupied": [
+      "tray-1",
+      "tray-2",
+      "tray-3",
+      "tray-4",
+      "tray-5",
+      "tray-6",
+      "tray-7",
+      "tray-8",
+      "tray-9",
+      "tray-10"
+    ],
+    "geometryVersion": 1,
+    "physicalApproval": "pending",
+    "sha256": "9ac97b20daa8547c04e1a01abc5b7f3f62f1ab6a49dec822a3bc3114c7ccf629"
+  }
+]

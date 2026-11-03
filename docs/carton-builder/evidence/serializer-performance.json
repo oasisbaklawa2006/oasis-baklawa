@@ -1,0 +1,7 @@
+{
+  "scope": "Local Node serializer only; not device frame time or native performance",
+  "iterations": 500,
+  "medianMs": 1.3526000000000522,
+  "p95Ms": 2.4404480000000603,
+  "maxMs": 5.964496999999994
+}

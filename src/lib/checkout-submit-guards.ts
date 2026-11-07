@@ -47,10 +47,32 @@ export function formatAdvanceDisplay(advanceState: AdvanceLoadState): string {
   return `₹${advanceState.amount.toLocaleString("en-IN")}`;
 }
 
-/** Reject malformed Core quote payloads before Buyer checkout renders or approves them. */
+/** 
+ * Fail closed on incomplete server-quoted lines before displaying or approving a
+ * binding Sales Order. The checkout UI currently labels totals in INR and must
+ * not silently treat foreign-currency lines as rupees. Core remains authoritative
+ * for pricing, tax, totals, rounding, and order acceptance.
+ */
 export function hasValidQuoteLines(lines: unknown): lines is Record<string, unknown>[] {
-  return Array.isArray(lines) && lines.length > 0 &&
-    lines.every((line) => line !== null && typeof line === "object" && !Array.isArray(line));
+  if (!Array.isArray(lines) || lines.length === 0) return false;
+  const seen = new Set<string>();
+  return lines.every((candidate) => {
+    if (candidate === null || typeof candidate !== "object" || Array.isArray(candidate)) return false;
+    const line = candidate as Record<string, unknown>;
+    const requiredText = ["product_id", "sku", "product_name", "uom"];
+    if (!requiredText.every((key) => typeof line[key] === "string" && (line[key] as string).trim().length > 0)) {
+      return false;
+    }
+    if (line.currency !== "INR" || line.tax_inclusive !== true && line.tax_inclusive !== false) return false;
+    if (typeof line.quantity !== "number" || !Number.isFinite(line.quantity) || line.quantity <= 0) return false;
+    if (typeof line.selling_price !== "number" || !Number.isFinite(line.selling_price) || line.selling_price <= 0) return false;
+    if (typeof line.gst_rate !== "number" || !Number.isFinite(line.gst_rate) ||
+        line.gst_rate < 0 || line.gst_rate > 100) return false;
+    const productId = line.product_id as string;
+    if (seen.has(productId)) return false;
+    seen.add(productId);
+    return true;
+  });
 }
 
 export function hasValidQuoteAmounts(total: number, advance: number): boolean {

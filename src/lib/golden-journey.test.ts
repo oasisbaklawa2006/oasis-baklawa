@@ -206,7 +206,7 @@ describe("golden journey invariants", () => {
     assert.match(checkout, /if \(!isCurrent\(\)\) return;\s+setDraft/);
     assert.match(checkout, /const serverQuote = await getAuthoritativeCheckoutQuote\(\);\s+if \(!isCurrent\(\)\) return/);
     assert.match(checkout, /useFocusEffect\([\s\S]*?checkoutRequestIdRef\.current \+= 1;\s+setApprovedFingerprint\(null\)/);
-    assert.match(checkout, /if \(!isOnline\) \{[\s\S]*?setQuote\(null\);\s+setApprovedFingerprint\(null\)/);
+    assert.match(checkout, /if \(!isOnline\) \{[\s\S]*?setQuote\(null\);\s+setQuoteBuyerScope\(null\);\s+setApprovedFingerprint\(null\)/);
     assert.match(checkout, /else if \(!wasOnline\) \{\s+void loadCheckout\(\)/);
     assert.doesNotMatch(checkout, /useEffect\(\(\) => \{\s*loadCheckout\(\);\s*\}, \[loadCheckout\]\)/);
     assert.match(checkout, /approvedFingerprint === quote\.fingerprint/);
@@ -223,7 +223,7 @@ describe("golden journey invariants", () => {
     assert.match(checkout, /if \(!buyerScope\) \{/);
     assert.match(checkout, /setQuoteBuyerScope\(buyerScope\);\s+setQuote\(serverQuote\)/);
     assert.match(checkout, /\}, \[buyerScope\]\)/);
-    assert.match(checkout, /setDraft\(null\);\s+setPricesByProduct\(\{\}\);\s+setIdempotencyKey\(null\)/);
+    assert.match(checkout, /setDraft\(null\);\s+setDraftBuyerScope\(null\);\s+setPricesByProduct\(\{\}\);\s+setIdempotencyKey\(null\)/);
     assert.match(checkout, /setQuoteBuyerScope\(null\)/);
     assert.doesNotMatch(checkout, /submitCustomerOrder\(/);
     assert.match(checkout, /submitQuotedCustomerOrder\(idempotencyKey, approvedFingerprint\)/);

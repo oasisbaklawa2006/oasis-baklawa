@@ -197,6 +197,22 @@ describe("golden journey invariants", () => {
     assert.doesNotMatch(review, /setAdvance|advance === null/);
   });
 
+  it("invalidates native checkout approval on focus loss, offline transitions and stale responses", () => {
+    const checkout = readFileSync(join(ROOT, "screens/CheckoutScreen.tsx"), "utf8");
+    assert.match(checkout, /useFocusEffect\(/);
+    assert.match(checkout, /const requestId = \+\+checkoutRequestIdRef\.current/);
+    assert.match(checkout, /const isCurrent = \(\) => requestId === checkoutRequestIdRef\.current/);
+    assert.match(checkout, /const \[draftData, prices\] = await Promise\.all/);
+    assert.match(checkout, /if \(!isCurrent\(\)\) return;\s+setDraft/);
+    assert.match(checkout, /const serverQuote = await getAuthoritativeCheckoutQuote\(\);\s+if \(!isCurrent\(\)\) return/);
+    assert.match(checkout, /useFocusEffect\([\s\S]*?checkoutRequestIdRef\.current \+= 1;\s+setApprovedFingerprint\(null\)/);
+    assert.match(checkout, /if \(!isOnline\) \{[\s\S]*?setQuote\(null\);\s+setApprovedFingerprint\(null\)/);
+    assert.match(checkout, /else if \(!wasOnline\) \{\s+void loadCheckout\(\)/);
+    assert.doesNotMatch(checkout, /useEffect\(\(\) => \{\s*loadCheckout\(\);\s*\}, \[loadCheckout\]\)/);
+    assert.match(checkout, /approvedFingerprint === quote\.fingerprint/);
+    assert.match(checkout, /submitQuotedCustomerOrder\(idempotencyKey, approvedFingerprint\)/);
+  });
+
   it("binds order surfaces to governed commercial validation contract", () => {
     for (const file of ["screens/CatalogueScreen.tsx", "screens/CartScreen.tsx", "screens/CheckoutScreen.tsx"]) {
       const source = readFileSync(join(ROOT, file), "utf8");

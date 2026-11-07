@@ -116,9 +116,9 @@ describe("P106 quotation authority invariants", () => {
 
   it("does not expose the legacy direct Sales Order RPC through Buyer checkout API", () => {
     const checkoutApiSource = readFileSync(join(ROOT, "lib/api/checkout.ts"), "utf8");
-    assert.doesNotMatch(checkoutApiSource, /export\\s+(?:async\\s+)?function\\s+submitCustomerOrder\\s*\\(/);
-    assert.doesNotMatch(checkoutApiSource, /callRpc\\s*\\(\\s*["']submit_customer_order_v1["']/);
-    assert.match(checkoutApiSource, /callRpc\\s*\\(\\s*["']submit_customer_order_quoted_v1["']/);
+    assert.doesNotMatch(checkoutApiSource, /export\s+(?:async\s+)?function\s+submitCustomerOrder\s*\(/);
+    assert.doesNotMatch(checkoutApiSource, /callRpc\s*\(\s*["']submit_customer_order_v1["']/);
+    assert.match(checkoutApiSource, /callRpc\s*\(\s*["']submit_customer_order_quoted_v1["']/);
   });
 
   it("resolves the actual checkout screen to its quoted RPC", () => {

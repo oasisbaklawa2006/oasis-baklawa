@@ -1,5 +1,7 @@
 /** Governed RPC bindings required in buyer gateway/api layers and contract boundary. */
 export const REQUIRED_RPC_BINDINGS = [
+  "customer_checkout_quote_v1",
+  "submit_customer_order_quoted_v1",
   "published_products_v1",
   "buyer_product_prices_v1",
   "customer_delivery_addresses_v1",

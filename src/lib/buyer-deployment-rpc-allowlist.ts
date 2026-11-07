@@ -25,7 +25,9 @@ export const BUYER_DEPLOYMENT_RPC_ALLOWLIST = [
   "update_customer_order_draft_line_v1",
   "remove_customer_order_draft_line_v1",
   "clear_customer_order_draft_v1",
-  "submit_customer_order_v1",
+  // Quoted checkout is the only Buyer-owned Sales Order submission path.
+  "customer_checkout_quote_v1",
+  "submit_customer_order_quoted_v1",
   "calculate_customer_advance_v1",
   "submit_b2b_access_request_v2",
   "claim_approved_b2b_access_request_v2",

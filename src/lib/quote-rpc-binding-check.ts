@@ -70,3 +70,58 @@ export function missingExecutableQuoteRpcs(
   const invoked = collectGovernedRpcInvocations(quotesApiSource, "quotes.ts");
   return required.filter((rpc) => !invoked.has(rpc));
 }
+
+/**
+ * Certify the actual CheckoutScreen submit wrapper -> RPC binding.
+ * AST traversal avoids comment matches and API-wide decoy RPCs; ambiguity fails closed.
+ * This is source-route evidence only, not server-side financial authorization proof.
+ */
+export function resolveCheckoutDirectSubmitRpc(
+  screenSource: string,
+  checkoutApiSource: string
+): "submit_customer_order_quoted_v1" | "submit_customer_order_v1" | null {
+  const screen = ts.createSourceFile("CheckoutScreen.tsx", screenSource, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const api = ts.createSourceFile("checkout.ts", checkoutApiSource, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const imported = new Set<string>();
+
+  for (const statement of screen.statements) {
+    if (!ts.isImportDeclaration(statement) ||
+        !ts.isStringLiteral(statement.moduleSpecifier) ||
+        statement.moduleSpecifier.text !== "@/lib/api/checkout") continue;
+    const bindings = statement.importClause?.namedBindings;
+    if (!bindings || !ts.isNamedImports(bindings)) continue;
+    for (const specifier of bindings.elements) {
+      if (!specifier.propertyName) imported.add(specifier.name.text);
+    }
+  }
+
+  const wrappersCalled = new Set<string>();
+  visitNodes(screen, (node) => {
+    if (!ts.isCallExpression(node) || !ts.isIdentifier(node.expression)) return;
+    if (node.expression.text === "submitQuotedCustomerOrder" ||
+        node.expression.text === "submitCustomerOrder") {
+      wrappersCalled.add(node.expression.text);
+    }
+  });
+
+  const directScreenRpcs = collectGovernedRpcInvocations(screenSource, "CheckoutScreen.tsx");
+  if (directScreenRpcs.has("submit_customer_order_v1") ||
+      directScreenRpcs.has("submit_customer_order_quoted_v1") ||
+      wrappersCalled.size !== 1) return null;
+
+  const [wrapper] = wrappersCalled;
+  if (!imported.has(wrapper)) return null;
+  const expectedRpc = wrapper === "submitQuotedCustomerOrder"
+    ? "submit_customer_order_quoted_v1"
+    : "submit_customer_order_v1";
+
+  const definitions = api.statements.filter((statement): statement is ts.FunctionDeclaration =>
+    ts.isFunctionDeclaration(statement) &&
+    statement.name?.text === wrapper &&
+    Boolean(statement.body) &&
+    Boolean(statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword))
+  );
+  if (definitions.length !== 1 || !definitions[0].body) return null;
+  const wrapperRpcs = collectGovernedRpcInvocations(definitions[0].body.getText(api), "checkout-wrapper.ts");
+  return wrapperRpcs.size === 1 && wrapperRpcs.has(expectedRpc) ? expectedRpc : null;
+}

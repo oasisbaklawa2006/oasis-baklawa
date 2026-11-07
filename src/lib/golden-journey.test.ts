@@ -53,6 +53,7 @@ describe("golden journey invariants", () => {
     assert.equal(
       isCheckoutSubmitEnabled({
         checkoutReady: true,
+        authoritativeQuoteApproved: false,
         orderValue: 2500,
         submitting: false,
         keyReady: true,
@@ -170,6 +171,64 @@ describe("golden journey invariants", () => {
     assert.match(detailSource, /Product not found in the published catalogue/);
   });
 
+  it("discloses the provisional cart value without falsely promising a pre-tax basis", () => {
+    const checkout = readFileSync(join(ROOT, "screens/CheckoutScreen.tsx"), "utf8");
+    const draftUtils = readFileSync(join(ROOT, "lib/draft-utils.ts"), "utf8");
+
+    // The provisional value is an unadjusted sum of line price snapshots,
+    // which can contain either tax-inclusive or tax-exclusive product prices.
+    assert.match(draftUtils, /order_total\s*=\s*lines\.reduce/);
+    assert.doesNotMatch(checkout, /Draft subtotal before tax/);
+    assert.match(checkout, /Provisional cart line value \(not final quote\)/);
+    assert.match(checkout, /GST-inclusive Sales Order total/);
+    assert.match(checkout, /line\.tax_inclusive \? "included" : "extra"/);
+  });
+
+  it("keeps pre-checkout draft review separate from binding Core sales-order totals", () => {
+    const review = readFileSync(join(ROOT, "screens/CommercialReviewScreen.tsx"), "utf8");
+    assert.match(review, /Provisional cart line value/);
+    assert.match(review, /not a binding Sales Order quotation/);
+    assert.match(review, /final Core GST-inclusive amount and required advance/);
+    assert.match(review, /Review final Core quotation/);
+    assert.match(review, /navigation\.navigate\("Checkout"\)/);
+    assert.doesNotMatch(review, /<Text style=\{styles\.summaryLabel\}>Order total<\/Text>/);
+    assert.doesNotMatch(review, /<Text style=\{styles\.summaryLabel\}>Advance required<\/Text>/);
+    assert.doesNotMatch(review, /calculateCustomerAdvance|calculate_customer_advance_v1/);
+    assert.doesNotMatch(review, /setAdvance|advance === null/);
+  });
+
+  it("invalidates native checkout approval on focus loss, offline transitions and stale responses", () => {
+    const checkout = readFileSync(join(ROOT, "screens/CheckoutScreen.tsx"), "utf8");
+    assert.match(checkout, /useFocusEffect\(/);
+    assert.match(checkout, /const requestId = \+\+checkoutRequestIdRef\.current/);
+    assert.match(checkout, /const isCurrent = \(\) => requestId === checkoutRequestIdRef\.current/);
+    assert.match(checkout, /const \[draftData, prices\] = await Promise\.all/);
+    assert.match(checkout, /if \(!isCurrent\(\)\) return;\s+setDraft/);
+    assert.match(checkout, /const serverQuote = await getAuthoritativeCheckoutQuote\(\);\s+if \(!isCurrent\(\)\) return/);
+    assert.match(checkout, /useFocusEffect\([\s\S]*?checkoutRequestIdRef\.current \+= 1;\s+setApprovedFingerprint\(null\)/);
+    assert.match(checkout, /if \(!isOnline\) \{[\s\S]*?setQuote\(null\);\s+setQuoteBuyerScope\(null\);\s+setApprovedFingerprint\(null\)/);
+    assert.match(checkout, /else if \(!wasOnline\) \{\s+void loadCheckout\(\)/);
+    assert.doesNotMatch(checkout, /useEffect\(\(\) => \{\s*loadCheckout\(\);\s*\}, \[loadCheckout\]\)/);
+    assert.match(checkout, /approvedFingerprint === quote\.fingerprint/);
+    assert.match(checkout, /submitQuotedCustomerOrder\(idempotencyKey, approvedFingerprint\)/);
+  });
+
+  it("scopes checkout quotation display and retrieval to the current approved Buyer identity", () => {
+    const checkout = readFileSync(join(ROOT, "screens/CheckoutScreen.tsx"), "utf8");
+    assert.match(checkout, /useBuyerSession\(\)/);
+    assert.match(checkout, /isApprovedBuyer && userId && snapshot\?\.companyId/);
+    assert.match(checkout, /const quote = buyerScope && quoteBuyerScope === buyerScope \? loadedQuote : null/);
+    assert.match(checkout, /const draft = buyerScope && draftBuyerScope === buyerScope \? loadedDraft : null/);
+    assert.match(checkout, /setDraftBuyerScope\(buyerScope\);\s+setDraft\(draftData\)/);
+    assert.match(checkout, /if \(!buyerScope\) \{/);
+    assert.match(checkout, /setQuoteBuyerScope\(buyerScope\);\s+setQuote\(serverQuote\)/);
+    assert.match(checkout, /\}, \[buyerScope\]\)/);
+    assert.match(checkout, /setDraft\(null\);\s+setDraftBuyerScope\(null\);\s+setPricesByProduct\(\{\}\);\s+setIdempotencyKey\(null\)/);
+    assert.match(checkout, /setQuoteBuyerScope\(null\)/);
+    assert.doesNotMatch(checkout, /submitCustomerOrder\(/);
+    assert.match(checkout, /submitQuotedCustomerOrder\(idempotencyKey, approvedFingerprint\)/);
+  });
+
   it("binds order surfaces to governed commercial validation contract", () => {
     for (const file of ["screens/CatalogueScreen.tsx", "screens/CartScreen.tsx", "screens/CheckoutScreen.tsx"]) {
       const source = readFileSync(join(ROOT, file), "utf8");
@@ -263,6 +322,7 @@ describe("golden journey invariants", () => {
 describe("double-submit money safety", () => {
   const base = {
     checkoutReady: true,
+    authoritativeQuoteApproved: true,
     orderValue: 1000,
     keyReady: true,
     idempotencyKey: "uuid",

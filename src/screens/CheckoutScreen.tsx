@@ -30,7 +30,9 @@ export function CheckoutScreen({ navigation }: Props) {
   const submitInFlightRef = useRef(false);
   const checkoutRequestIdRef = useRef(0);
   const wasOnlineRef = useRef(isOnline);
-  const [draft, setDraft] = useState<CustomerOrderDraft | null>(null);
+  const [loadedDraft, setDraft] = useState<CustomerOrderDraft | null>(null);
+  const [draftBuyerScope, setDraftBuyerScope] = useState<string | null>(null);
+  const draft = buyerScope && draftBuyerScope === buyerScope ? loadedDraft : null;
   const [pricesByProduct, setPricesByProduct] = useState<Record<string, BuyerProductPrice>>({});
   const [advanceState, setAdvanceState] = useState<AdvanceLoadState>({ status: "loading" });
   const [loadedQuote, setQuote] = useState<AuthoritativeCheckoutQuote | null>(null);
@@ -61,6 +63,7 @@ export function CheckoutScreen({ navigation }: Props) {
     setQuoteBuyerScope(null);
     setApprovedFingerprint(null);
     setDraft(null);
+    setDraftBuyerScope(null);
     setPricesByProduct({});
     setIdempotencyKey(null);
     setKeyPersisted(false);
@@ -74,6 +77,7 @@ export function CheckoutScreen({ navigation }: Props) {
     try {
       const [draftData, prices] = await Promise.all([getCustomerOrderDraft(), fetchBuyerProductPrices()]);
       if (!isCurrent()) return;
+      setDraftBuyerScope(buyerScope);
       setDraft(draftData);
       setPricesByProduct(Object.fromEntries(prices.map((price) => [price.product_id, price])));
 

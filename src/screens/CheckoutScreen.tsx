@@ -188,7 +188,7 @@ export function CheckoutScreen({ navigation }: Props) {
             ) : null}
 
             <View style={styles.summaryCard}>
-              <Row label="Draft subtotal before tax" value={`₹${orderValue.toLocaleString("en-IN")}`} />
+              <Row label="Provisional cart line value (not final quote)" value={`₹${orderValue.toLocaleString("en-IN")}`} />
               <Row label="GST-inclusive Sales Order total" value={quote ? `₹${quote.sales_order_value.toLocaleString("en-IN")}` : "Awaiting Core quote"} />
               <Row label="Advance payable" value={quote ? `₹${quote.advance_required.toLocaleString("en-IN")}` : "Awaiting Core quote"} emphasis />
               <Row label="Remaining balance" value={quote ? `₹${(quote.sales_order_value - quote.advance_required).toLocaleString("en-IN")}` : "Awaiting Core quote"} />
@@ -243,7 +243,7 @@ export function CheckoutScreen({ navigation }: Props) {
                 {quote.lines.map((line, index) => (
                   <Row key={`${String(line.product_id)}-${index}`}
                     label={`${String(line.product_name ?? line.sku ?? line.product_id)} · Qty ${String(line.quantity)}`}
-                    value={`${String(line.currency ?? "INR")} ${String(line.selling_price ?? "—")} / ${String(line.uom ?? "unit")} · GST ${String(line.gst_rate ?? "—")}%`} />
+                    value={`${String(line.currency)} ${String(line.selling_price)} / ${String(line.uom)} · GST ${String(line.gst_rate)}% ${line.tax_inclusive ? "included" : "extra"}`} />
                 ))}
                 {!quotedLinesMatchDraft ? <Text style={styles.warning} accessibilityRole="alert">Quoted products or quantities differ from the cart. Refresh checkout before approving.</Text> : null}
                 <Text style={styles.note}>

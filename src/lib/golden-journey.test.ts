@@ -184,6 +184,19 @@ describe("golden journey invariants", () => {
     assert.match(checkout, /line\.tax_inclusive \? "included" : "extra"/);
   });
 
+  it("keeps pre-checkout draft review separate from binding Core sales-order totals", () => {
+    const review = readFileSync(join(ROOT, "screens/CommercialReviewScreen.tsx"), "utf8");
+    assert.match(review, /Provisional cart line value/);
+    assert.match(review, /not a binding Sales Order quotation/);
+    assert.match(review, /final Core GST-inclusive amount and required advance/);
+    assert.match(review, /Review final Core quotation/);
+    assert.match(review, /navigation\.navigate\("Checkout"\)/);
+    assert.doesNotMatch(review, /<Text style=\{styles\.summaryLabel\}>Order total<\/Text>/);
+    assert.doesNotMatch(review, /<Text style=\{styles\.summaryLabel\}>Advance required<\/Text>/);
+    assert.doesNotMatch(review, /calculateCustomerAdvance|calculate_customer_advance_v1/);
+    assert.doesNotMatch(review, /setAdvance|advance === null/);
+  });
+
   it("binds order surfaces to governed commercial validation contract", () => {
     for (const file of ["screens/CatalogueScreen.tsx", "screens/CartScreen.tsx", "screens/CheckoutScreen.tsx"]) {
       const source = readFileSync(join(ROOT, file), "utf8");

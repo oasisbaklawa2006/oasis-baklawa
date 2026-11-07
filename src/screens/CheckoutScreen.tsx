@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useFocusEffect } from "@react-navigation/native";
 import type { RootStackParamList } from "@/navigation/types";
 import { BuyerGate } from "@/components/BuyerGate";
 import { OasisButton } from "@/components/OasisButton";
@@ -23,6 +24,8 @@ type Props = NativeStackScreenProps<RootStackParamList, "Checkout">;
 export function CheckoutScreen({ navigation }: Props) {
   const { isOnline } = useNetwork();
   const submitInFlightRef = useRef(false);
+  const checkoutRequestIdRef = useRef(0);
+  const wasOnlineRef = useRef(isOnline);
   const [draft, setDraft] = useState<CustomerOrderDraft | null>(null);
   const [pricesByProduct, setPricesByProduct] = useState<Record<string, BuyerProductPrice>>({});
   const [advanceState, setAdvanceState] = useState<AdvanceLoadState>({ status: "loading" });
@@ -38,6 +41,8 @@ export function CheckoutScreen({ navigation }: Props) {
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
 
   const loadCheckout = useCallback(async () => {
+    const requestId = ++checkoutRequestIdRef.current;
+    const isCurrent = () => requestId === checkoutRequestIdRef.current;
     setLoading(true);
     setKeyReady(false);
     setError(null);
@@ -49,6 +54,7 @@ export function CheckoutScreen({ navigation }: Props) {
 
     try {
       const [draftData, prices] = await Promise.all([getCustomerOrderDraft(), fetchBuyerProductPrices()]);
+      if (!isCurrent()) return;
       setDraft(draftData);
       setPricesByProduct(Object.fromEntries(prices.map((price) => [price.product_id, price])));
 
@@ -60,6 +66,7 @@ export function CheckoutScreen({ navigation }: Props) {
       }
 
       const resolved = await resolveCheckoutIdempotencyKey(draftData.draft_id);
+      if (!isCurrent()) return;
       setIdempotencyKey(resolved.key);
       setKeyPersisted(resolved.persisted);
 
@@ -73,12 +80,14 @@ export function CheckoutScreen({ navigation }: Props) {
 
       try {
         const serverQuote = await getAuthoritativeCheckoutQuote();
+        if (!isCurrent()) return;
         if (serverQuote.draft_id !== draftData.draft_id) {
           throw new Error("QUOTE_CHANGED_REFRESH_REQUIRED: cart changed; refresh checkout");
         }
         setQuote(serverQuote);
         setAdvanceState({ status: "resolved", amount: serverQuote.advance_required });
       } catch (quoteError) {
+        if (!isCurrent()) return;
         setQuote(null);
         setAdvanceState({
           status: "failed",
@@ -86,17 +95,45 @@ export function CheckoutScreen({ navigation }: Props) {
         });
       }
     } catch (e) {
+      if (!isCurrent()) return;
       setError(parseRpcError(e).message);
       setAdvanceState({ status: "failed", message: parseRpcError(e).message });
     } finally {
-      setLoading(false);
-      setKeyReady(true);
+      if (isCurrent()) {
+        setLoading(false);
+        setKeyReady(true);
+      }
     }
   }, []);
 
+  // React Navigation may retain Checkout while the buyer edits the cart on
+  // another screen. Reload on every focus, and discard late requests on blur.
+  useFocusEffect(
+    useCallback(() => {
+      void loadCheckout();
+      return () => {
+        checkoutRequestIdRef.current += 1;
+        setApprovedFingerprint(null);
+      };
+    }, [loadCheckout])
+  );
+
+  // Never carry an approved quote across an offline/reconnect transition.
+  // Network recovery requires a fresh Core quote; it cannot revive consent.
   useEffect(() => {
-    loadCheckout();
-  }, [loadCheckout]);
+    const wasOnline = wasOnlineRef.current;
+    wasOnlineRef.current = isOnline;
+    if (!isOnline) {
+      checkoutRequestIdRef.current += 1;
+      setQuote(null);
+      setApprovedFingerprint(null);
+      setAdvanceState({ status: "failed", message: "Reconnect to refresh the final quotation." });
+      setKeyReady(false);
+      setLoading(false);
+    } else if (!wasOnline) {
+      void loadCheckout();
+    }
+  }, [isOnline, loadCheckout]);
 
   const orderValue = draft?.order_total ?? 0;
 

@@ -171,6 +171,19 @@ describe("golden journey invariants", () => {
     assert.match(detailSource, /Product not found in the published catalogue/);
   });
 
+  it("discloses the provisional cart value without falsely promising a pre-tax basis", () => {
+    const checkout = readFileSync(join(ROOT, "screens/CheckoutScreen.tsx"), "utf8");
+    const draftUtils = readFileSync(join(ROOT, "lib/draft-utils.ts"), "utf8");
+
+    // The provisional value is an unadjusted sum of line price snapshots,
+    // which can contain either tax-inclusive or tax-exclusive product prices.
+    assert.match(draftUtils, /order_total\s*=\s*lines\.reduce/);
+    assert.doesNotMatch(checkout, /Draft subtotal before tax/);
+    assert.match(checkout, /Provisional cart line value \(not final quote\)/);
+    assert.match(checkout, /GST-inclusive Sales Order total/);
+    assert.match(checkout, /line\.tax_inclusive \? "included" : "extra"/);
+  });
+
   it("binds order surfaces to governed commercial validation contract", () => {
     for (const file of ["screens/CatalogueScreen.tsx", "screens/CartScreen.tsx", "screens/CheckoutScreen.tsx"]) {
       const source = readFileSync(join(ROOT, file), "utf8");

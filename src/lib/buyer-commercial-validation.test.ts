@@ -128,7 +128,10 @@ describe("Point73 buyer commercial validation contract", () => {
   it("separates Buyer UX validation from Core finance/terms authority", () => {
     const checkoutApi = readFileSync(join(ROOT, "lib/api/checkout.ts"), "utf8");
     assert.match(checkoutApi, /calculate_customer_advance_v1/);
-    assert.match(checkoutApi, /submit_customer_order_v1/);
+    // Buyer checkout may only invoke the quoted submission contract; the Core
+    // canonical writer must remain unreachable as a direct Buyer API call.
+    assert.match(checkoutApi, /submit_customer_order_quoted_v1/);
+    assert.doesNotMatch(checkoutApi, /callRpc\s*\(\s*["']submit_customer_order_v1["']/);
     assert.doesNotMatch(readFileSync(join(ROOT, "lib/buyer-commercial-validation.ts"), "utf8"), /payment_terms|credit_limit/);
   });
 });

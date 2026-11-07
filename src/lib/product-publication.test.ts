@@ -6,6 +6,7 @@ import {
   normalizeBuyerProductPrice,
   normalizePublishedProduct,
 } from "./customer-projections";
+import { isExplicitSeasonalProduct, seasonalProducts } from "./buyer-merchandising";
 
 const ROOT = join(__dirname, "..");
 
@@ -193,5 +194,41 @@ describe("Point56 product publication census", () => {
       assert.doesNotMatch(detailSource, new RegExp(`\\b${forbidden}\\b`));
     }
     assert.match(detailSource, /Product not found in the published catalogue/);
+  });
+});
+
+
+describe("Buyer merchandising taxonomy isolation", () => {
+  const published = (productId: string, category: string | null, subcategory: string | null, dietaryTags: string[] | null) => {
+    const result = normalizePublishedProduct({
+      product_id: productId,
+      sku: "SKU-" + productId,
+      product_name: "Published product " + productId,
+      category,
+      subcategory,
+      dietary_tags: dietaryTags,
+      created_at: "2026-09-01T00:00:00Z",
+    });
+    assert.ok(result);
+    return result;
+  };
+
+  it("does not interpret dietary or regulatory attributes as seasonal merchandising", () => {
+    const dietaryOnly = published("dietary-only", "Baklawa", "Classic", ["Diwali", "Festive"]);
+    assert.equal(isExplicitSeasonalProduct(dietaryOnly), false);
+    assert.deepEqual(seasonalProducts([dietaryOnly]), []);
+  });
+
+  it("retains existing explicit published category and subcategory classification", () => {
+    const festiveCategory = published("category", "Festive Gifts", null, ["Vegetarian"]);
+    const eidSubcategory = published("subcategory", "Baklawa", "Eid Selection", null);
+    const unrelated = published("ordinary", "Baklawa", "Classic", ["Vegan"]);
+    assert.equal(isExplicitSeasonalProduct(festiveCategory), true);
+    assert.equal(isExplicitSeasonalProduct(eidSubcategory), true);
+    assert.equal(isExplicitSeasonalProduct(unrelated), false);
+    assert.deepEqual(
+      seasonalProducts([unrelated, eidSubcategory, festiveCategory]).map((p) => p.product_id),
+      ["category", "subcategory"]
+    );
   });
 });

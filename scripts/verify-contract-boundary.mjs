@@ -41,7 +41,7 @@ const allowedRpcs = new Set([
   "update_customer_order_draft_line_v1",
   "remove_customer_order_draft_line_v1",
   "clear_customer_order_draft_v1",
-  "submit_customer_order_v1",
+  // Direct legacy Sales Order promotion is forbidden in Buyer clients.
   // Core-owned authoritative quote and fingerprint-bound submit; see Core PR #414.
   "customer_checkout_quote_v1",
   "submit_customer_order_quoted_v1",

@@ -7,19 +7,6 @@ export async function calculateCustomerAdvance(salesOrderValue: number): Promise
   return Number(data ?? 0);
 }
 
-export async function submitCustomerOrder(
-  idempotencyKey: string,
-  requestedDispatchDate?: string | null
-): Promise<SubmitCustomerOrderResult> {
-  const data = await callRpc("submit_customer_order_v1", {
-    p_idempotency_key: idempotencyKey,
-    p_requested_dispatch_date: requestedDispatchDate ?? null,
-  });
-  const result = data?.[0];
-  if (!result) throw new Error("CHECKOUT_FAILED: no order was returned from checkout");
-  return result;
-}
-
 /** Server-owned commercial quote; never calculate a final SO amount from the draft subtotal. */
 export type AuthoritativeCheckoutQuote = {
   draft_id: string;

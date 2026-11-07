@@ -8,6 +8,7 @@ import { OasisButton } from "@/components/OasisButton";
 import { Screen } from "@/components/Screen";
 import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { useNetwork } from "@/context/NetworkContext";
+import { useBuyerSession } from "@/context/BuyerSessionContext";
 import { getAuthoritativeCheckoutQuote, submitQuotedCustomerOrder, type AuthoritativeCheckoutQuote } from "@/lib/api/checkout";
 import { getCustomerOrderDraft } from "@/lib/api/draft";
 import { fetchBuyerProductPrices } from "@/lib/api/catalogue";
@@ -23,13 +24,20 @@ type Props = NativeStackScreenProps<RootStackParamList, "Checkout">;
 
 export function CheckoutScreen({ navigation }: Props) {
   const { isOnline } = useNetwork();
+  const { isApprovedBuyer, userId, snapshot } = useBuyerSession();
+  const buyerScope = isApprovedBuyer && userId && snapshot?.companyId
+    ? `${userId}:${snapshot.companyId}` : null;
   const submitInFlightRef = useRef(false);
   const checkoutRequestIdRef = useRef(0);
   const wasOnlineRef = useRef(isOnline);
   const [draft, setDraft] = useState<CustomerOrderDraft | null>(null);
   const [pricesByProduct, setPricesByProduct] = useState<Record<string, BuyerProductPrice>>({});
   const [advanceState, setAdvanceState] = useState<AdvanceLoadState>({ status: "loading" });
-  const [quote, setQuote] = useState<AuthoritativeCheckoutQuote | null>(null);
+  const [loadedQuote, setQuote] = useState<AuthoritativeCheckoutQuote | null>(null);
+  const [quoteBuyerScope, setQuoteBuyerScope] = useState<string | null>(null);
+  // A rendered quote must belong to the current approved user AND company.
+  // This masks stale previous-account data even before lifecycle effects run.
+  const quote = buyerScope && quoteBuyerScope === buyerScope ? loadedQuote : null;
   const [approvedFingerprint, setApprovedFingerprint] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -50,7 +58,18 @@ export function CheckoutScreen({ navigation }: Props) {
     setPersistenceError(null);
     setAdvanceState({ status: "loading" });
     setQuote(null);
+    setQuoteBuyerScope(null);
     setApprovedFingerprint(null);
+    setDraft(null);
+    setPricesByProduct({});
+    setIdempotencyKey(null);
+    setKeyPersisted(false);
+
+    if (!buyerScope) {
+      setAdvanceState({ status: "failed", message: "Approved Buyer access is required." });
+      setLoading(false);
+      return;
+    }
 
     try {
       const [draftData, prices] = await Promise.all([getCustomerOrderDraft(), fetchBuyerProductPrices()]);
@@ -84,6 +103,7 @@ export function CheckoutScreen({ navigation }: Props) {
         if (serverQuote.draft_id !== draftData.draft_id) {
           throw new Error("QUOTE_CHANGED_REFRESH_REQUIRED: cart changed; refresh checkout");
         }
+        setQuoteBuyerScope(buyerScope);
         setQuote(serverQuote);
         setAdvanceState({ status: "resolved", amount: serverQuote.advance_required });
       } catch (quoteError) {
@@ -104,7 +124,7 @@ export function CheckoutScreen({ navigation }: Props) {
         setKeyReady(true);
       }
     }
-  }, []);
+  }, [buyerScope]);
 
   // React Navigation may retain Checkout while the buyer edits the cart on
   // another screen. Reload on every focus, and discard late requests on blur.
@@ -126,6 +146,7 @@ export function CheckoutScreen({ navigation }: Props) {
     if (!isOnline) {
       checkoutRequestIdRef.current += 1;
       setQuote(null);
+      setQuoteBuyerScope(null);
       setApprovedFingerprint(null);
       setAdvanceState({ status: "failed", message: "Reconnect to refresh the final quotation." });
       setKeyReady(false);

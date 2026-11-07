@@ -8,7 +8,6 @@ import { OasisButton } from "@/components/OasisButton";
 import { Screen } from "@/components/Screen";
 import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { useNetwork } from "@/context/NetworkContext";
-import { calculateCustomerAdvance } from "@/lib/api/checkout";
 import { getCustomerOrderDraft } from "@/lib/api/draft";
 import { parseRpcError } from "@/lib/rpc-errors";
 import type { CustomerOrderDraft } from "@/types/database.types";
@@ -20,7 +19,6 @@ type Props = NativeStackScreenProps<RootStackParamList, "CommercialReview">;
 export function CommercialReviewScreen({ navigation }: Props) {
   const { isOnline } = useNetwork();
   const [draft, setDraft] = useState<CustomerOrderDraft | null>(null);
-  const [advance, setAdvance] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,11 +28,6 @@ export function CommercialReviewScreen({ navigation }: Props) {
     try {
       const current = await getCustomerOrderDraft();
       setDraft(current);
-      if (current?.draft_id && current.lines.length > 0) {
-        setAdvance(await calculateCustomerAdvance(current.order_total));
-      } else {
-        setAdvance(null);
-      }
     } catch (e) {
       setError(parseRpcError(e).message);
     } finally {
@@ -50,7 +43,7 @@ export function CommercialReviewScreen({ navigation }: Props) {
 
   return (
     <BuyerGate onLogin={() => navigation.navigate("Login")} onRegister={() => navigation.navigate("Register")}>
-      <Screen title="Review your order" subtitle="Check the commercial details before confirming">
+      <Screen title="Review your order" subtitle="Review your draft before approving the Core quotation">
         {loading ? <LoadingState message="Preparing your order review…" /> : null}
         {error && !loading ? <ErrorState message={error} onRetry={load} /> : null}
         {!loading && !error && (!draft || draft.lines.length === 0) ? (
@@ -78,22 +71,16 @@ export function CommercialReviewScreen({ navigation }: Props) {
             </View>
             <View style={styles.summary}>
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Order total</Text>
+                <Text style={styles.summaryLabel}>Provisional cart line value</Text>
                 <Text style={styles.total}>₹{draft.order_total.toLocaleString("en-IN")}</Text>
               </View>
-              {advance !== null ? (
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Advance required</Text>
-                  <Text style={styles.advance}>₹{advance.toLocaleString("en-IN")}</Text>
-                </View>
-              ) : null}
-              <Text style={styles.note}>Taxes and final invoice details will follow the issued commercial documents.</Text>
+              <Text style={styles.note}>This value sums the cart’s saved unit prices; some prices may already include GST. It is not a binding Sales Order quotation. Checkout will display the final Core GST-inclusive amount and required advance for explicit approval before submission.</Text>
             </View>
             <OasisButton
-              label="Continue to checkout"
+              label="Review final Core quotation"
               onPress={() => navigation.navigate("Checkout")}
-              disabled={!draft.is_checkout_ready || !isOnline || advance === null}
-              accessibilityHint="Continues to final order confirmation"
+              disabled={!draft.is_checkout_ready || !isOnline}
+              accessibilityHint="Opens the Core GST-inclusive quotation for explicit approval before Sales Order submission"
             />
           </>
         ) : null}
@@ -113,6 +100,5 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   summaryLabel: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeMd, color: colors.textSecondary },
   total: { fontFamily: typography.fontFamilySerifBold, fontSize: typography.sizeXl, color: colors.textPrimary },
-  advance: { fontFamily: typography.fontFamilySansBold, fontSize: typography.sizeLg, color: colors.action },
   note: { fontFamily: typography.fontFamilySans, fontSize: typography.sizeXs, color: colors.textMuted, lineHeight: 18 },
 });

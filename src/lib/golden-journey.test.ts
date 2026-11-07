@@ -213,6 +213,20 @@ describe("golden journey invariants", () => {
     assert.match(checkout, /submitQuotedCustomerOrder\(idempotencyKey, approvedFingerprint\)/);
   });
 
+  it("scopes checkout quotation display and retrieval to the current approved Buyer identity", () => {
+    const checkout = readFileSync(join(ROOT, "screens/CheckoutScreen.tsx"), "utf8");
+    assert.match(checkout, /useBuyerSession\(\)/);
+    assert.match(checkout, /isApprovedBuyer && userId && snapshot\?\.companyId/);
+    assert.match(checkout, /const quote = buyerScope && quoteBuyerScope === buyerScope \? loadedQuote : null/);
+    assert.match(checkout, /if \(!buyerScope\) \{/);
+    assert.match(checkout, /setQuoteBuyerScope\(buyerScope\);\s+setQuote\(serverQuote\)/);
+    assert.match(checkout, /\}, \[buyerScope\]\)/);
+    assert.match(checkout, /setDraft\(null\);\s+setPricesByProduct\(\{\}\);\s+setIdempotencyKey\(null\)/);
+    assert.match(checkout, /setQuoteBuyerScope\(null\)/);
+    assert.doesNotMatch(checkout, /submitCustomerOrder\(/);
+    assert.match(checkout, /submitQuotedCustomerOrder\(idempotencyKey, approvedFingerprint\)/);
+  });
+
   it("binds order surfaces to governed commercial validation contract", () => {
     for (const file of ["screens/CatalogueScreen.tsx", "screens/CartScreen.tsx", "screens/CheckoutScreen.tsx"]) {
       const source = readFileSync(join(ROOT, file), "utf8");

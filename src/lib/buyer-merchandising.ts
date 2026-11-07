@@ -30,7 +30,8 @@ function containsExplicitTerm(value: string): boolean {
 
 /**
  * Classifies a product as seasonal only when an authoritative taxonomy field
- * explicitly says so. Dietary attributes are not merchandising tags;\n * product names/descriptions are deliberately excluded so
+ * explicitly says so. Dietary attributes are not merchandising tags;
+ * product names/descriptions are deliberately excluded so
  * the Buyer app does not invent merchandising intent from marketing copy.
  */
 export function isExplicitSeasonalProduct(product: PublishedProduct): boolean {

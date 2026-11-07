@@ -218,6 +218,8 @@ describe("golden journey invariants", () => {
     assert.match(checkout, /useBuyerSession\(\)/);
     assert.match(checkout, /isApprovedBuyer && userId && snapshot\?\.companyId/);
     assert.match(checkout, /const quote = buyerScope && quoteBuyerScope === buyerScope \? loadedQuote : null/);
+    assert.match(checkout, /const draft = buyerScope && draftBuyerScope === buyerScope \? loadedDraft : null/);
+    assert.match(checkout, /setDraftBuyerScope\(buyerScope\);\s+setDraft\(draftData\)/);
     assert.match(checkout, /if \(!buyerScope\) \{/);
     assert.match(checkout, /setQuoteBuyerScope\(buyerScope\);\s+setQuote\(serverQuote\)/);
     assert.match(checkout, /\}, \[buyerScope\]\)/);
